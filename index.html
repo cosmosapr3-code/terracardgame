@@ -591,18 +591,18 @@ const rc=()=>POOL[Math.floor(Math.random()*POOL.length)];
 function startBattle(cpus,names){
  if(!names){ONL=false;SEAT=0}
  const u=U(),n=names?names.length:cpus+1,ps=[];
- for(let i=0;i<n;i++)ps.push({name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:i?{char:i%CHARS.length,img:''}:u,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:Array.from({length:S().hand},rc),lastMove:0,draws:0,turns:0,ap:0,apMax:S().ap,youtubeAtkBonus:0,alive:true});
+ for(let i=0;i<n;i++)ps.push({name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:i?{char:i%CHARS.length,img:''}:u,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:Array.from({length:S().hand},rc),lastMove:0,draws:0,turns:0,ap:0,apMax:0,youtubeAtkBonus:0,alive:true});
  ps.forEach(p=>p.f[12]={c:'w',d:3});
  G={ps,hist:[],snow:{left:0,lvl:0},turn:Math.floor(Math.random()*n),turnSeq:0,ap:S().ap,sel:null,card:null,target:1,over:false,keys:{},log:'',timer:0,done:false};
  G.target=nextAlive(0,1);battleLog=[];startTurn(false);
  G.timer=setInterval(tick,50);screen='battle';render();if(names)pushSoon();
 }
 function nextAlive(from,step){const n=G.ps.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(G.ps[j].alive&&j!==from)return j}return from}
-function snap(){return JSON.stringify({turn:G.turn,turnSeq:G.turnSeq||0,ps:G.ps.map(p=>({hp:p.hp,sh:p.sh,atk:p.atk,umb:p.umb,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,turns:p.turns||0,ap:p.ap||0,apMax:p.apMax||S().ap,boost:p.boost||0,draws:p.draws||0,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0}))})}
+function snap(){return JSON.stringify({turn:G.turn,turnSeq:G.turnSeq||0,ps:G.ps.map(p=>({hp:p.hp,sh:p.sh,atk:p.atk,umb:p.umb,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,draws:p.draws||0,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0}))})}
 function restore(i,s){const d=JSON.parse(s);const q=d.ps[i],p=G.ps[i];Object.assign(p,q);return d}
 function startTurn(r=true){const cp=G.ps[G.turn];G.hist.push(snap());if(G.hist.length>6)G.hist.shift();G.turnSeq=(G.turnSeq||0)+1;
  // 開始コストは各プレイヤー自身のターン回数から計算し、未使用分は持ち越さない。
- cp.turns=Math.max(0,Number(cp.turns)||0)+1;cp.apMax=S().ap;let ap=Math.min(S().ap,Math.max(0,(cp.turns-1)*(Number(S().apInc)||0)));if(cp.f[cp.y*5+cp.x].c==='y')ap++;
+ const __tcPreviousTurns=Math.max(0,Number(cp.turns)||0);cp.turns=__tcPreviousTurns+1;const __tcApCap=Math.max(0,Number(S().ap)||0);const __tcApIncrease=Math.max(0,Number(S().apInc)||0);const __tcPreviousApMax=Math.max(0,Number.isFinite(cp.apMax)?cp.apMax:Math.min(__tcApCap,Math.max(0,(__tcPreviousTurns-1)*__tcApIncrease)));cp.apMax=__tcPreviousTurns===0?0:Math.min(__tcApCap,__tcPreviousApMax+__tcApIncrease);let ap=cp.apMax;if(cp.f[cp.y*5+cp.x].c==='y')ap++;
  if(G.snow.lvl>0){if(!umbBlock(cp))ap=Math.max(0,ap-G.snow.lvl);if(ap<=0&&!cp.hand.includes('umbrella')){hurt(cp,1,'島雪');ap=0}}
  if(cp.boost>0){cp.boost--;ap=810;cp.apMax=810;hurt(cp,1,'コスト増強810',1)}
  cp.ap=ap;G.ap=cp.ap;G.apMax=cp.apMax;cp.draws=0;G.card=null;G.cpuT=performance.now()+900;G.log=`${G.ps[G.turn].name} のターン`;if(G.turn===SEAT)showOwnTurnNotice();if(cp.cheatActive){const risk=Math.max(1,Math.min(1000,Number(cp.cheatRisk)||100));if(rnd(1000)<risk){cp.hp=0;cp.alive=false;G.log=cp.name+'はチートの反動で退場した…';checkEnd();if(!G.over)endTurn();return}cp.cheatRisk=Math.min(1000,risk+100)}if(cp.sleep>0){cp.sleep--;G.log=cp.name+'は眠っている… 移動もできない';checkEnd();if(!G.over)endTurn();return}if(r)paintBattle()}
@@ -728,7 +728,7 @@ function paintBattle(){
  const boards=el.querySelector('.boards');
  const hand=el.querySelector('.hand');
  const result=el.querySelector('.battle-result');
- status.innerHTML=`<div class="panel row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax||S().ap}${G.snow.lvl?' ❄️':''}</span><span>${esc(G.log)}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>`;
+ status.innerHTML=`<div class="panel row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax??S().ap}${G.snow.lvl?' ❄️':''}</span><span>${esc(G.log)}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>`;
  boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> 🛡${p.sh} <small>(${POS[i]})</small></div><div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
  const handKey=JSON.stringify([you.hand,G.card,you.draws,you.ap,G.ps[SEAT].cheatActive]);
  if(el.dataset.handKey!==handKey){
@@ -844,11 +844,11 @@ addEventListener('blur',()=>{if(G)G.keys={}});
 
 // ---------- online ----------
 let ONL=false,HOST=false,SEAT=0,room=null,roster=null,pushT=0,lastMv=0;
-function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:p.apMax||S().ap,boost:p.boost||0,char:p.u.char,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0}))}}
+function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0}))}}
 function pushSoon(){if(pushT||!room||!HOST)return;pushT=setTimeout(()=>{pushT=0;if(room&&HOST&&G)room.send('state',pack())},80)}
 function applyState(d){  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc)if(!CARDS[k])CARDS[k]=d.cc[k];for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
  if(!G){G={ps:[],hist:[],snow:{left:0,lvl:0},card:null,target:(SEAT+1)%d.ps.length,keys:{},timer:setInterval(tick,50)};}
- G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:S().ap,sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,human:true,u:{char:q.char||0,img:''}}));
+ G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,human:true,u:{char:q.char||0,img:''}}));
  Object.assign(G,{turn:d.turn,turnSeq:Number.isFinite(d.turnSeq)?d.turnSeq:(G.turnSeq||0),ap:d.ap,apMax:d.apMax,log:d.log,over:d.over,snow:d.snow,inc:Array.isArray(d.inc)?d.inc:[]});
  if(__tcPreviousTurn!==d.turn&&d.turn===SEAT)showOwnTurnNotice();
  if(TC_CARD_ACTION_BUSY)releaseCardAction();
