@@ -397,7 +397,7 @@ function tcEnsureAudio(){
       if(!AC)return Promise.resolve(false);
       tcAudioCtx=new AC();
       tcMasterGain=tcAudioCtx.createGain();
-      tcMasterGain.gain.value=0.72;
+      tcMasterGain.gain.value=0.90;
       tcMasterGain.connect(tcAudioCtx.destination);
     }
     if(tcAudioCtx.state==='suspended')return tcAudioCtx.resume().then(()=>true).catch(()=>false);
