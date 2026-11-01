@@ -602,10 +602,6 @@ function paintBattle(){
   else {hand.innerHTML=`${you.hand.map((k,hi)=>cardHtml(k,hi)).join('')}${cardHtml('draw')}${cardHtml('end')}`;el.dataset.handKey=handKey;}
  }
  result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY&&G.res.win&&STORY<20?` <button onclick="startStory(${STORY+1})">次の節へ</button>`:` <button onclick="STORY?startStory(${STORY}):startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
- const notice=G.turnNoticeUntil&&Date.now()<G.turnNoticeUntil&&G.turn===SEAT;
- let noticeEl=el.querySelector('.tc-turn-notice');
- if(notice&&!noticeEl){noticeEl=document.createElement('div');noticeEl.className='tc-turn-notice';noticeEl.textContent='あなたのターン！';noticeEl.setAttribute('role','status');noticeEl.setAttribute('aria-live','polite');el.appendChild(noticeEl);}
- else if(!notice&&noticeEl)noticeEl.remove();
 }function cardHtml(k,hi){
  const p=G.ps[SEAT];
  const shown=(k==='cheat_limit'&&cheatLimitReady(p))?'cheat':k;
@@ -619,91 +615,51 @@ function paintBattle(){
    : `<div class="i">${esc(c.i)}</div>`;
  // Full-card assets already contain the original title and description. Do not crop or redraw them.
  const textMarkup=fullImage?'':`<b>${esc(k==='draw'?`ドロー (${p.draws}/3)`:c.n)}</b>${c.d?`<small class="card-desc">${esc(c.d)}</small>`:''}`;
- return `<div class="card ${k==='wish'?'wish-card ':''}${fullImage?'imgc tc-full-image-card ':''}${G.card===k&&!c.fixed?'sel':''}${limited?' draw-limited':''}" data-card-key="${esc(k)}" role="button" tabindex="0" aria-label="${esc(c.n)}" style="border-color:${c.col}" title="${esc(c.n)}">${isCheat?`<span class="c">∞</span>`:''}${imageMarkup}${textMarkup}${limited?'<small>このターンのドロー上限です</small>':''}</div>`;
+ const inlineKey=JSON.stringify(k).replace(/&/g,'\\u0026').replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/'/g,'\\u0027');
+ return `<div class="card ${k==='wish'?'wish-card ':''}${fullImage?'imgc tc-full-image-card ':''}${G.card===k&&!c.fixed?'sel':''}${limited?' draw-limited':''}" data-card-key="${esc(k)}" role="button" tabindex="0" aria-label="${esc(c.n)}" onclick='cardClick(${inlineKey})' style="border-color:${c.col}" title="${esc(c.n)}">${isCheat?`<span class="c">∞</span>`:''}${imageMarkup}${textMarkup}${limited?'<small>このターンのドロー上限です</small>':''}</div>`;
 }
 function cardFace(k){const c=CARDS[k],costLabel=(k==='cheat'||k==='cheat_limit')?'∞':c.c;return c.img?`<img src="${c.img}" alt="${esc(c.n)}" style="width:100%;border-radius:6px">`:`<div class="card" style="border-color:${c.col};width:auto"><span class="c">${costLabel}</span><div class="i">${c.i}</div><b>${esc(c.n)}</b></div>`}
 function cardListHtml(){return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px">${Object.keys(CARDS).filter(k=>!CARDS[k].fixed).map(k=>{const c=CARDS[k];return `<div class="panel">${cardFace(k)}<p><b>${esc(c.n)}</b> コスト${c.c}</p>${c.d?`<p class="card-list-desc">${esc(c.d)}</p>`:''}</div>`}).join('')}</div>`}
 let TC_CARD_ACTION_BUSY=false,TC_CARD_ACTION_TIMER=0,TC_TURN_NOTICE_TIMER=0;
 function releaseCardAction(){TC_CARD_ACTION_BUSY=false;if(TC_CARD_ACTION_TIMER){clearTimeout(TC_CARD_ACTION_TIMER);TC_CARD_ACTION_TIMER=0;}}
-function armCardAction(remote){if(TC_CARD_ACTION_TIMER)clearTimeout(TC_CARD_ACTION_TIMER);TC_CARD_ACTION_TIMER=setTimeout(releaseCardAction,remote?2400:380);}
-function showOwnTurnNotice(){if(!G||G.turn!==SEAT)return;G.turnNoticeUntil=Date.now()+1450;if(TC_TURN_NOTICE_TIMER)clearTimeout(TC_TURN_NOTICE_TIMER);TC_TURN_NOTICE_TIMER=setTimeout(()=>{if(G){G.turnNoticeUntil=0;if(screen==='battle')paintBattle();}},1500);}
+function armCardAction(remote){if(TC_CARD_ACTION_TIMER)clearTimeout(TC_CARD_ACTION_TIMER);if(remote)TC_CARD_ACTION_TIMER=setTimeout(releaseCardAction,7000);}
+function showOwnTurnNotice(){
+ if(!G||G.turn!==SEAT)return;
+ if(TC_TURN_NOTICE_TIMER)clearTimeout(TC_TURN_NOTICE_TIMER);
+ const old=document.getElementById('tc-own-turn-overlay');if(old)old.remove();
+ const node=document.createElement('div');node.id='tc-own-turn-overlay';node.className='tc-turn-notice';node.textContent='あなたのターン！';node.setAttribute('role','status');node.setAttribute('aria-live','polite');
+ node.style.position='fixed';node.style.left='50%';node.style.top='36%';node.style.transform='translate(-50%,-50%)';node.style.zIndex='2147483647';node.style.pointerEvents='none';
+ document.body.appendChild(node);
+ TC_TURN_NOTICE_TIMER=setTimeout(()=>{node.remove();},1500);
+}
 function cardClick(k){
- if(!G||G.over||TC_CARD_ACTION_BUSY)return;
+ if(!G||G.over)return;
+ const remote=ONL&&!HOST;
+ if(remote&&TC_CARD_ACTION_BUSY)return;
  if(G.turn!==SEAT){G.log='カードは自分のターンに使えません';paintBattle();return;}
  if(k==='draw'&&G.ps[SEAT].draws>=3){G.log='1ターンに引けるカードは3枚までです';paintBattle();return;}
  const p=G.ps[SEAT],shown=(k==='cheat_limit'&&cheatLimitReady(p))?'cheat':k,c=CARDS[shown]||CARDS[k];
  if(!c)return;
  if(c.tile){if(c.c>(Number(p.ap)||0)&&!p.cheatActive){G.log='コストが足りません';paintBattle();return;}G.card=G.card===k?null:k;G.log=G.card?'対象の地面をクリック':'';return paintBattle();}
- TC_CARD_ACTION_BUSY=true;
+ if(remote)TC_CARD_ACTION_BUSY=true;
  const ok=perform({k});
  if(ok===false){releaseCardAction();G.log='カードを使用できません(コスト・効果・ターンを確認)';paintBattle();return;}
- armCardAction(ONL&&!HOST);
+ if(remote)armCardAction(true);else releaseCardAction();
  paintBattle();
 }
 function tileClick(pi,ti){
  if(!G||G.over)return;
  if(G.card&&G.turn===SEAT){
-  if(TC_CARD_ACTION_BUSY)return;
-  const k=G.card;TC_CARD_ACTION_BUSY=true;
+  const remote=ONL&&!HOST;if(remote&&TC_CARD_ACTION_BUSY)return;
+  const k=G.card;if(remote)TC_CARD_ACTION_BUSY=true;
   const ok=perform({k,tile:{pi,ti}});
   if(ok===false){releaseCardAction();G.log='カードを使用できません(対象またはコストを確認)';paintBattle();return;}
-  G.card=null;G.log=CARDS[k].n;armCardAction(ONL&&!HOST);paintBattle();return;
+  G.card=null;G.log=CARDS[k].n;if(remote)armCardAction(true);else releaseCardAction();paintBattle();return;
  }
  if(pi===SEAT){const p=G.ps[SEAT];const dx=(ti%5)-p.x,dy=Math.floor(ti/5)-p.y;if(Math.abs(dx)+Math.abs(dy)===1)perform({mv:[dx,dy]});}
  else {G.target=pi;paintBattle();}
 }
-// カード入力はpointerdown→pointerupの1組につき必ず1回だけ実行する。
-// CPU再描画中は手札DOMの更新を保留し、押しているカードを差し替えない。
-window.__tcHandPointerActive=false;
-window.__tcHandRefreshPending=false;
-window.__tcPressedCardPointer=null;
-window.__tcSuppressCardClick=null;
-document.addEventListener('pointerdown',e=>{
- const card=e.target&&e.target.closest?e.target.closest('#bboard .battle-hand-panel .hand .card[data-card-key]'):null;
- if(!card || (e.pointerType==='mouse' && e.button!==0))return;
- window.__tcHandPointerActive=true;
- window.__tcPressedCardPointer={id:e.pointerId,key:card.dataset.cardKey};
-},true);
-document.addEventListener('pointerup',e=>{
- const pressed=window.__tcPressedCardPointer;
- if(!pressed || pressed.id!==e.pointerId)return;
- window.__tcPressedCardPointer=null;
- const card=e.target&&e.target.closest?e.target.closest('#bboard .battle-hand-panel .hand .card[data-card-key]'):null;
- if(card && card.dataset.cardKey===pressed.key){
-   e.preventDefault();
-   window.__tcSuppressCardClick={key:pressed.key,until:Date.now()+700};
-   cardClick(pressed.key);
- }
- setTimeout(()=>{
-   window.__tcHandPointerActive=false;
-   if(window.__tcHandRefreshPending){
-     window.__tcHandRefreshPending=false;
-     if(screen==='battle')paintBattle();
-   }
- },70);
-},true);
-document.addEventListener('pointercancel',e=>{
- if(window.__tcPressedCardPointer && window.__tcPressedCardPointer.id===e.pointerId){
-   window.__tcPressedCardPointer=null;
-   setTimeout(()=>{
-     window.__tcHandPointerActive=false;
-     if(window.__tcHandRefreshPending){window.__tcHandRefreshPending=false;if(screen==='battle')paintBattle();}
-   },50);
- }
-},true);
-// キーボード操作・PointerEvent非対応環境のclickフォールバック。
-document.addEventListener('click',e=>{
- const card=e.target&&e.target.closest?e.target.closest('#bboard .battle-hand-panel .hand .card[data-card-key]'):null;
- if(!card)return;
- const key=card.dataset.cardKey;
- const suppress=window.__tcSuppressCardClick;
- if(e.detail!==0 && suppress && suppress.key===key && Date.now()<=suppress.until){
-   e.preventDefault();e.stopPropagation();return;
- }
- if(e.detail===0 || !window.PointerEvent){
-   e.preventDefault();cardClick(key);
- }
-},true);
+// カードは各カード要素の onclick から直接 cardClick を呼び出す。
 addEventListener('keydown',e=>{const focused=e.target&&e.target.closest?e.target.closest('#bboard .card[data-card-key]'):null;if(focused&&(e.key==='Enter'||e.key===' ')){e.preventDefault();cardClick(focused.dataset.cardKey);return;}const k=e.key.length>1?e.key:e.key.toLowerCase();if(screen==='battle'&&document.activeElement.tagName!=='INPUT'){G.keys[k]=1;if(k.startsWith('Arrow'))e.preventDefault()}});
 addEventListener('keyup',e=>{if(G)G.keys={...G.keys,[e.key.length>1?e.key:e.key.toLowerCase()]:0}});
 addEventListener('blur',()=>{if(G)G.keys={}});
