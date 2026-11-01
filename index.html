@@ -385,6 +385,110 @@ function wishTake(k){G.ps[G.wish].hand.push(k);const d=$('#wishov');if(d)d.remov
 function dlHtml(){fetch(location.href).then(r=>r.text()).then(t=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/html'}));a.download='card-grid-clash.html';a.click()}).catch(()=>alert('ダウンロードできませんでした'))}
 var STORY=0;
 // ---------- screens ----------
+// ---------- TERRACARD original audio system ----------
+// Generated with Web Audio API; no external music files or copyrighted tracks.
+let tcAudioCtx=null, tcMasterGain=null, tcMusicTimer=null, tcMusicMode='', tcMusicStep=0;
+let tcSoundEnabled=true;
+try { tcSoundEnabled=localStorage.getItem('tc_sound_enabled')!=='0'; } catch(e) {}
+function tcEnsureAudio(){
+  try {
+    if(!tcAudioCtx){
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC)return Promise.resolve(false);
+      tcAudioCtx=new AC();
+      tcMasterGain=tcAudioCtx.createGain();
+      tcMasterGain.gain.value=0.72;
+      tcMasterGain.connect(tcAudioCtx.destination);
+    }
+    if(tcAudioCtx.state==='suspended')return tcAudioCtx.resume().then(()=>true).catch(()=>false);
+    return Promise.resolve(true);
+  } catch(e) { return Promise.resolve(false); }
+}
+function tcTone(freq,delay,duration,wave='triangle',volume=0.12){
+  if(!tcAudioCtx||!tcMasterGain||tcAudioCtx.state!=='running'||!tcSoundEnabled)return;
+  try{
+    const t=tcAudioCtx.currentTime+Math.max(0,delay);
+    const o=tcAudioCtx.createOscillator(),g=tcAudioCtx.createGain();
+    o.type=wave;o.frequency.setValueAtTime(freq,t);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(volume,t+0.018);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+Math.max(0.05,duration));
+    o.connect(g);g.connect(tcMasterGain);o.start(t);o.stop(t+duration+0.03);
+  }catch(e){}
+}
+function tcStopMusic(){
+  if(tcMusicTimer){clearInterval(tcMusicTimer);tcMusicTimer=null;}
+  tcMusicMode='';tcMusicStep=0;
+}
+function tcMusicBeat(mode){
+  if(!tcSoundEnabled||!tcAudioCtx||tcAudioCtx.state!=='running')return;
+  const home=[262,330,392,330,294,349,440,349,262,330,392,494,440,392,330,294];
+  const battle=[220,262,330,392,440,392,330,262,196,247,294,370,392,370,294,247];
+  const seq=mode==='battle'?battle:home;
+  const i=tcMusicStep%seq.length;
+  tcTone(seq[i],0,mode==='battle'?0.19:0.31,'triangle',mode==='battle'?0.052:0.038);
+  if(i%4===0){
+    const bass=(mode==='battle'?[110,98,123,92][Math.floor(i/4)%4]:[131,98,110,98][Math.floor(i/4)%4]);
+    tcTone(bass,0,mode==='battle'?0.30:0.48,'sine',0.065);
+  }
+  if(mode==='battle'&&i%2===1)tcTone(seq[i]*2,0.025,0.075,'square',0.014);
+  tcMusicStep++;
+}
+function tcStartMusic(mode){
+  if(!tcSoundEnabled||!tcAudioCtx||tcAudioCtx.state!=='running')return;
+  if(tcMusicMode===mode&&tcMusicTimer)return;
+  tcStopMusic();tcMusicMode=mode;tcMusicStep=0;
+  tcMusicBeat(mode);
+  tcMusicTimer=setInterval(()=>{
+    if(!tcSoundEnabled||!tcAudioCtx||tcAudioCtx.state!=='running'){tcStopMusic();return;}
+    tcMusicBeat(mode);
+  },mode==='battle'?245:410);
+}
+function tcSyncMusic(){
+  if(!tcSoundEnabled){tcStopMusic();return;}
+  if(screen!=='home'&&screen!=='battle'){tcStopMusic();return;}
+  if(!tcAudioCtx||tcAudioCtx.state!=='running')return;
+  tcStartMusic(screen==='battle'?'battle':'home');
+}
+function tcTurnSound(){
+  if(!tcSoundEnabled)return;
+  tcEnsureAudio().then(ok=>{
+    if(!ok)return;
+    // Three rising notes form a clear, short turn-start cue.
+    tcTone(587.33,0,0.18,'sine',0.13);
+    tcTone(739.99,0.13,0.18,'sine',0.14);
+    tcTone(880.00,0.26,0.30,'sine',0.16);
+  });
+}
+function tcToggleSound(){
+  tcSoundEnabled=!tcSoundEnabled;
+  try{localStorage.setItem('tc_sound_enabled',tcSoundEnabled?'1':'0');}catch(e){}
+  const b=document.getElementById('tc-audio-toggle');
+  if(b)b.textContent=tcSoundEnabled?'🔊 音 ON':'🔇 音 OFF';
+  if(!tcSoundEnabled){tcStopMusic();}
+  else tcEnsureAudio().then(()=>tcSyncMusic());
+}
+function tcRenderAudioButton(){
+  let b=document.getElementById('tc-audio-toggle');
+  if(screen==='auth'||screen==='adminlogin'){
+    if(b)b.remove();return;
+  }
+  if(!b){
+    b=document.createElement('button');b.id='tc-audio-toggle';
+    b.type='button';b.style.cssText='position:fixed;right:12px;bottom:12px;z-index:20000;border:2px solid #9bc8ef;border-radius:22px;padding:9px 14px;background:#123b60;color:#fff;font-weight:800;box-shadow:0 3px 12px #0007;';
+    b.addEventListener('click',tcToggleSound);document.body.appendChild(b);
+  }
+  b.textContent=tcSoundEnabled?'🔊 音 ON':'🔇 音 OFF';
+}
+// AudioContext is created/resumed only after a real user gesture (browser autoplay policy).
+function tcAudioGesture(){
+  if(!tcSoundEnabled)return;
+  tcEnsureAudio().then(ok=>{if(ok)tcSyncMusic();});
+}
+document.addEventListener('pointerdown',tcAudioGesture,{capture:true,passive:true});
+document.addEventListener('keydown',tcAudioGesture,{capture:true});
+// ---------- end TERRACARD original audio system ----------
+
 function go(s,m=''){screen=s;msg=m;render()}
 function render(){
  if(screen!=='battle')clearInterval(G&&G.timer);
@@ -403,7 +507,7 @@ function render(){
  if(screen==='room'&&roster)h=nav+`<div class="panel"><h2>${roster.kind==='private'?'🔒 プライベート':'🌐 オープン'}ルーム</h2><p>ルームID: <b>${esc(roster.roomId)}</b>${roster.kind==='private'?'(パスワードと一緒に友達へ共有)':''}</p><div>${roster.names.map((n,i)=>`<div>${i+1}. ${esc(n)}${i===0?' 👑ホスト':''}${i===roster.seat?' (あなた)':''}</div>`).join('')}</div><p>${roster.names.length}/4人</p><div class="row">${HOST?`<button ${roster.names.length<2?'disabled':''} onclick="room.send('start')">▶ 対戦開始</button>`:'<span>ホストの開始を待っています…</span>'}<button onclick="leaveNet();go('online')">退出</button></div></div>`;
  if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
  if(screen==='battle')h=nav+`<div id="bboard"></div><div class="panel"><h3>対戦チャット</h3>${chatBox('battle')}</div>`;
- app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin')refreshAdminChat();
+ app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin')refreshAdminChat();tcRenderAudioButton();tcSyncMusic();
 }
 async function auth(f){
  const n=f.n.value.trim(),p=f.p.value;
@@ -629,7 +733,7 @@ function cardListHtml(){return `<div style="display:grid;grid-template-columns:r
 let TC_CARD_ACTION_BUSY=false,TC_CARD_ACTION_TIMER=0,TC_TURN_NOTICE_TIMER=0;
 function releaseCardAction(){TC_CARD_ACTION_BUSY=false;if(TC_CARD_ACTION_TIMER){clearTimeout(TC_CARD_ACTION_TIMER);TC_CARD_ACTION_TIMER=0;}}
 function armCardAction(remote){if(TC_CARD_ACTION_TIMER)clearTimeout(TC_CARD_ACTION_TIMER);TC_CARD_ACTION_TIMER=setTimeout(releaseCardAction,remote?2400:380);}
-function showOwnTurnNotice(){if(!G||G.turn!==SEAT)return;G.turnNoticeUntil=Date.now()+1450;if(TC_TURN_NOTICE_TIMER)clearTimeout(TC_TURN_NOTICE_TIMER);TC_TURN_NOTICE_TIMER=setTimeout(()=>{if(G){G.turnNoticeUntil=0;if(screen==='battle')paintBattle();}},1500);}
+function showOwnTurnNotice(){if(!G||G.turn!==SEAT)return;tcTurnSound();G.turnNoticeUntil=Date.now()+1450;if(TC_TURN_NOTICE_TIMER)clearTimeout(TC_TURN_NOTICE_TIMER);TC_TURN_NOTICE_TIMER=setTimeout(()=>{if(G){G.turnNoticeUntil=0;if(screen==='battle')paintBattle();}},1500);}
 function cardClick(k){
  if(!G||G.over||TC_CARD_ACTION_BUSY)return;
  if(G.turn!==SEAT){G.log='カードは自分のターンに使えません';paintBattle();return;}
