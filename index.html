@@ -183,6 +183,9 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
     max-width: 164px !important; flex-basis: 164px !important;
   }
 }
+
+/* Cost badges: show every ordinary card cost and keep the badge inside the card. */
+.card:not(.imgc) .c{position:absolute;left:4px;top:4px;z-index:5;display:flex;align-items:center;justify-content:center;float:none;width:28px;height:28px;line-height:1;border-radius:50%;font-weight:800;color:#fff;background:#c62828;border:2px solid #fff;box-sizing:border-box;pointer-events:none}
 </style></head><body><div id="app"></div>
 <script>
 "use strict";
@@ -619,7 +622,7 @@ function paintBattle(){
    : `<div class="i">${esc(c.i)}</div>`;
  // Full-card assets already contain the original title and description. Do not crop or redraw them.
  const textMarkup=fullImage?'':`<b>${esc(k==='draw'?`ドロー (${p.draws}/3)`:c.n)}</b>${c.d?`<small class="card-desc">${esc(c.d)}</small>`:''}`;
- return `<div class="card ${k==='wish'?'wish-card ':''}${fullImage?'imgc tc-full-image-card ':''}${G.card===k&&!c.fixed?'sel':''}${limited?' draw-limited':''}" data-card-key="${esc(k)}" role="button" tabindex="0" aria-label="${esc(c.n)}" style="border-color:${c.col}" title="${esc(c.n)}">${isCheat?`<span class="c">∞</span>`:''}${imageMarkup}${textMarkup}${limited?'<small>このターンのドロー上限です</small>':''}</div>`;
+ return `<div class="card ${k==='wish'?'wish-card ':''}${fullImage?'imgc tc-full-image-card ':''}${G.card===k&&!c.fixed?'sel':''}${limited?' draw-limited':''}" data-card-key="${esc(k)}" role="button" tabindex="0" aria-label="${esc(c.n)}" style="border-color:${c.col}" title="${esc(c.n)}">${!fullImage?`<span class="c">${esc(costLabel)}</span>`:''}${imageMarkup}${textMarkup}${limited?'<small>このターンのドロー上限です</small>':''}</div>`;
 }
 function cardFace(k){const c=CARDS[k],costLabel=(k==='cheat'||k==='cheat_limit')?'∞':c.c;return c.img?`<img src="${c.img}" alt="${esc(c.n)}" style="width:100%;border-radius:6px">`:`<div class="card" style="border-color:${c.col};width:auto"><span class="c">${costLabel}</span><div class="i">${c.i}</div><b>${esc(c.n)}</b></div>`}
 function cardListHtml(){return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px">${Object.keys(CARDS).filter(k=>!CARDS[k].fixed).map(k=>{const c=CARDS[k];return `<div class="panel">${cardFace(k)}<p><b>${esc(c.n)}</b> コスト${c.c}</p>${c.d?`<p class="card-list-desc">${esc(c.d)}</p>`:''}</div>`}).join('')}</div>`}
