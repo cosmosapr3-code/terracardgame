@@ -188,6 +188,24 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
 .card.tc-banned-card .tc-ban-label{position:absolute;left:0;right:0;top:43%;z-index:30;background:#b00020;color:#fff;font-weight:900;text-align:center;font-size:12px;padding:4px 2px;pointer-events:none}
 /* Cost badges: show every ordinary card cost and keep the badge inside the card. */
 .card:not(.imgc) .c{position:absolute;left:4px;top:4px;z-index:5;display:flex;align-items:center;justify-content:center;float:none;width:28px;height:28px;line-height:1;border-radius:50%;font-weight:800;color:#fff;background:#c62828;border:2px solid #fff;box-sizing:border-box;pointer-events:none}
+
+/* Match-start VS overlay */
+.tc-match-intro{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(circle at center,rgba(30,38,56,.94),rgba(0,0,0,.94));opacity:1;transform:scale(1);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
+.tc-match-intro.is-hiding{opacity:0;transform:scale(1.06)}
+.tc-match-intro-box{width:min(900px,96vw);max-height:82vh;overflow:hidden;text-align:center;color:#fff;padding:clamp(22px,5vw,54px) clamp(14px,4vw,38px);border:4px solid #f7c934;border-radius:18px;background:linear-gradient(145deg,#202735,#080b12);box-shadow:0 0 0 5px #111,0 0 42px rgba(255,210,55,.55);animation:tcMatchPop .45s cubic-bezier(.2,.8,.2,1) both}
+.tc-match-intro-title{font-size:clamp(18px,3vw,30px);font-weight:900;letter-spacing:.18em;color:#ffe16a;margin-bottom:clamp(12px,3vh,28px);text-shadow:0 2px 8px #000}
+.tc-match-intro-vsline{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:clamp(8px,2vw,22px);line-height:1.25}
+.tc-match-intro-name{font-size:clamp(25px,6vw,64px);font-weight:1000;overflow-wrap:anywhere;text-shadow:0 4px 0 #000,0 0 18px rgba(255,255,255,.22);max-width:100%}
+.tc-match-intro-vs{font-size:clamp(28px,7vw,76px);font-weight:1000;font-style:italic;color:#ffdc39;-webkit-text-stroke:1px #6b3900;text-shadow:0 4px 0 #000,0 0 20px rgba(255,210,40,.55)}
+@keyframes tcMatchPop{0%{opacity:0;transform:scale(.82) translateY(16px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@media(prefers-reduced-motion:reduce){.tc-match-intro,.tc-match-intro-box{animation:none;transition:none}}
+
+/* 個別カードリクエストの相互通知 */
+#tc-cardidea-notification{position:fixed;right:14px;bottom:14px;z-index:100001;display:none;max-width:min(92vw,360px);font-family:system-ui,sans-serif}
+#tc-cardidea-notification button{box-shadow:0 5px 18px #06172dcc;border:2px solid #ffe082;border-radius:999px;padding:11px 16px;font-weight:800}
+#tc-cardidea-toast{display:none;margin:0 0 9px auto;padding:13px 15px;border:2px solid #ffe082;border-radius:12px;background:#102b49;color:#fff;box-shadow:0 6px 24px #06172dcc;cursor:pointer;font-weight:800;animation:tcCardIdeaNoticeIn .22s ease-out}
+@keyframes tcCardIdeaNoticeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){#tc-cardidea-toast{animation:none}}
 </style></head><body><div id="app"></div>
 <script>
 // Opaque-origin preview/file safety: keep normal browser storage when available,
@@ -426,6 +444,53 @@ async function openAdminCardIdea(id,refreshList=true){
  }catch(e){host.textContent=e.message||'会話を開けませんでした';}
 }
 async function replyAdminCardIdea(form,id){const message=String(form.message.value||'').trim();if(!message)return;try{await apiCall('/admin/card-ideas/reply',{id:Number(id),message});await openAdminCardIdea(id);await refreshAdminCardIdeas();}catch(e){alert(e.message||'返信できませんでした');}}
+
+// ---------- カード追加リクエストの新着通知（運営・プレイヤー双方） ----------
+let tcCardIdeaNotifyOwner='';
+let tcCardIdeaNotifyLatest=0;
+let tcCardIdeaNotifyInitialized=false;
+let tcCardIdeaToastTimer=0;
+function ensureCardIdeaNotificationUI(){
+ let root=document.getElementById('tc-cardidea-notification');
+ if(!root){
+  root=document.createElement('div');root.id='tc-cardidea-notification';
+  root.innerHTML='<div id="tc-cardidea-toast" role="status" aria-live="polite"></div><button type="button" id="tc-cardidea-notification-button">🔔 <span id="tc-cardidea-notification-label">カード相談</span> <span id="tc-cardidea-notification-count">0</span></button>';
+  document.body.appendChild(root);
+  const open=()=>go(isAdmin?'admin':'cardIdeas');
+  root.querySelector('#tc-cardidea-notification-button').addEventListener('click',open);
+  root.querySelector('#tc-cardidea-toast').addEventListener('click',open);
+ }
+ return root;
+}
+function showCardIdeaNotificationToast(text){
+ const root=ensureCardIdeaNotificationUI(),toast=root.querySelector('#tc-cardidea-toast');
+ toast.textContent=text+'（タップして開く）';toast.style.display='block';
+ if(tcCardIdeaToastTimer)clearTimeout(tcCardIdeaToastTimer);
+ tcCardIdeaToastTimer=setTimeout(()=>{toast.style.display='none';tcCardIdeaToastTimer=0;},6500);
+}
+async function pollCardIdeaNotifications(){
+ if(!me||!TERRACARD_TOKEN){const old=document.getElementById('tc-cardidea-notification');if(old)old.style.display='none';return;}
+ try{
+  const d=await apiCall('/card-ideas/notifications');
+  const count=Math.max(0,Number(d.unread_count)||0),latest=Math.max(0,Number(d.latest_unread_id)||0);
+  const owner=isAdmin?'admin':'player:'+me;
+  if(owner!==tcCardIdeaNotifyOwner){tcCardIdeaNotifyOwner=owner;tcCardIdeaNotifyLatest=0;tcCardIdeaNotifyInitialized=false;}
+  const root=ensureCardIdeaNotificationUI();root.style.display=count>0?'block':'none';
+  const label=root.querySelector('#tc-cardidea-notification-label');
+  const number=root.querySelector('#tc-cardidea-notification-count');
+  if(label)label.textContent=isAdmin?'カードリクエスト未読':'カード相談の返信';
+  if(number)number.textContent=String(count);
+  const arrived=latest>0&&(!tcCardIdeaNotifyInitialized?count>0:latest>tcCardIdeaNotifyLatest);
+  if(arrived){
+   showCardIdeaNotificationToast(isAdmin?'新しいカード追加リクエストが届きました':'運営からカードリクエストの返信が届きました');
+   if(isAdmin&&screen==='admin')refreshAdminCardIdeas().catch(()=>{});
+   if(!isAdmin&&screen==='cardIdeas')loadPlayerCardIdeas().catch(()=>{});
+  }
+  tcCardIdeaNotifyLatest=latest;tcCardIdeaNotifyInitialized=true;
+ }catch(e){/* 通知取得に失敗してもゲーム本体は止めない */}
+}
+setInterval(()=>{if(me)pollCardIdeaNotifications()},8000);
+
 
 async function refreshCloudRankings(){const host=document.getElementById('cloud-rankings');if(!host)return;try{const d=await apiCall('/rankings');const rows=d.rankings||[];const section=(key,label)=>`<div class="panel"><h3>${label}</h3>${rows.slice().sort((a,b)=>(Number(b[key])||0)-(Number(a[key])||0)).slice(0,20).map((x,i)=>`<div class="row">${i+1}. <b>${esc(x.display_name||x.username)}</b> ${esc(x.rank||'ウッド')} ・ 最高${Number(x[key])||0}連勝</div>`).join('')||'<p>まだ記録がありません</p>'}</div>`;host.innerHTML=section('best','🌐 オンライン連勝')+section('cbest','🤖 CPU連勝');}catch(e){host.innerHTML='<p>ランキングを読み込めませんでした。ログイン状態を確認してください。</p>';}}
 const room_=()=>typeof room!=='undefined'?room:null;
@@ -744,7 +809,7 @@ async function auth(f){
   const old=db.users[n]||{};const remote=data.player||{};
   const serverProfile=!!remote.profile_initialized;
   db.users[n]={...old,name:n,display:serverProfile?(remote.display_name||old.display||n):(old.display||remote.display_name||n),coins:Number(remote.coins)||0,xp:Number(remote.xp)||0,level:Number(remote.level)||1,streak:Number(remote.streak)||old.streak||0,best:Number(remote.best)||old.best||0,cstreak:Number(remote.cstreak)||old.cstreak||0,cbest:Number(remote.cbest)||old.cbest||0,char:serverProfile?(Number.isInteger(remote.char)?remote.char:0):(Number(old.char)||0),chars:serverProfile?(Array.isArray(remote.chars)&&remote.chars.length?remote.chars:[0]):(old.chars||[0]),img:serverProfile?(remote.img||''):(old.img||''),story:serverProfile?(Number(remote.story)||0):(Number(old.story)||0),mail:old.mail||[],banned:false};
-  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
+  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');setTimeout(()=>pollCardIdeaNotifications(),500);if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
  }catch(e){go('auth',e.message||'ログインに失敗しました')}
 }
 async function adminLogin(f){
@@ -754,7 +819,7 @@ async function adminLogin(f){
   const n=data.isAdmin?f.n.value.trim():'';
   if(!n)throw new Error('運営ログインに失敗しました');
   if(!db.users[n])db.users[n]={name:n,display:'運営',pw:'-',coins:0,xp:0,level:1,streak:0,best:0,char:0,chars:[0],img:'',mail:[],banned:false};
-  save();me=n;isAdmin=true;setSess();await loadGlobalGameConfig();await loadGlobalMissions(true);go('admin');
+  save();me=n;isAdmin=true;setSess();await loadGlobalGameConfig();await loadGlobalMissions(true);go('admin');setTimeout(()=>pollCardIdeaNotifications(),500);
  }catch(e){go('adminlogin',e.message||'運営ログインに失敗しました')}
 }
 async function pull(){const u=U();try{const d=await apiCall('/player/spend',{amount:1});u.coins=Number(d.player.coins)||0;}catch(e){return go('gacha',e.message||'コインを使えませんでした')}try{missEvent('gacha',1)}catch(e){}const r=Math.random(),i=r<.5?Math.floor(Math.random()*3):Math.floor(Math.random()*CHARS.length);const dup=u.chars.includes(i);if(!dup)u.chars.push(i);u.char=i;u.img='';save();try{await syncCloudProfile()}catch(e){console.warn('プロフィール同期失敗',e)}go('gacha',`${CHARS[i][0]} ${CHARS[i][1]} を獲得!${dup?'(重複)':'NEW!'}`)}
@@ -786,6 +851,22 @@ const POS=['左上','右上','右下','左下'];
 function mkField(){return Array.from({length:25},()=>{const r=Math.random();return{c:r<.55?'w':'rbg'[Math.floor(Math.random()*3)],d:3}})}
 const S=()=>CFG.s;
 const rc=()=>POOL[Math.floor(Math.random()*POOL.length)];
+let tcMatchIntroTimer=0;
+function showMatchIntro(playerNames,online){
+ try{
+  if(tcMatchIntroTimer){clearTimeout(tcMatchIntroTimer);tcMatchIntroTimer=0;}
+  const old=document.getElementById('tc-match-intro');if(old)old.remove();
+  const names=(Array.isArray(playerNames)?playerNames:[]).map(v=>String(v||'プレイヤー').trim()).filter(Boolean);
+  const lineup=online?names:[(names[0]||U().display||'プレイヤー'),'CPU'];
+  if(!lineup.length)return;
+  const root=document.createElement('div');root.id='tc-match-intro';root.className='tc-match-intro';root.setAttribute('role','status');root.setAttribute('aria-live','assertive');
+  const items=[];lineup.forEach((name,i)=>{if(i)items.push('<span class="tc-match-intro-vs">VS</span>');items.push('<span class="tc-match-intro-name">'+esc(name)+'</span>')});
+  root.innerHTML='<div class="tc-match-intro-box"><div class="tc-match-intro-title">⚔ 対 戦 開 始 ⚔</div><div class="tc-match-intro-vsline">'+items.join('')+'</div></div>';
+  document.body.appendChild(root);
+  tcMatchIntroTimer=setTimeout(()=>{root.classList.add('is-hiding');setTimeout(()=>{if(root.parentNode)root.remove();},500);tcMatchIntroTimer=0;},3000);
+ }catch(e){console.warn('対戦開始表示を出せませんでした',e)}
+}
+
 function startBattle(cpus,names){
  if(!names){ONL=false;SEAT=0}
  const u=U(),n=names?names.length:cpus+1,ps=[];
@@ -793,7 +874,7 @@ function startBattle(cpus,names){
  ps.forEach(p=>p.f[12]={c:'w',d:3});
  G={ps,hist:[],snow:{left:0,lvl:0},turn:Math.floor(Math.random()*n),turnSeq:0,ap:S().ap,sel:null,card:null,target:1,over:false,keys:{},log:'',timer:0,done:false};
  G.target=nextAlive(0,1);battleLog=[];startTurn(false);
- G.timer=setInterval(tick,50);screen='battle';render();if(names)pushSoon();
+ G.timer=setInterval(tick,50);screen='battle';render();showMatchIntro(ps.map(p=>p.name),!!names);if(names)pushSoon();
 }
 function nextAlive(from,step){const n=G.ps.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(G.ps[j].alive&&j!==from)return j}return from}
 function snap(){return JSON.stringify({turn:G.turn,turnSeq:G.turnSeq||0,ps:G.ps.map(p=>({hp:p.hp,sh:p.sh,atk:p.atk,umb:p.umb,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,draws:p.draws||0,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0}))})}
@@ -1099,7 +1180,7 @@ addEventListener('blur',()=>{if(G)G.keys={}});
 let ONL=false,HOST=false,SEAT=0,room=null,roster=null,pushT=0,lastMv=0;
 function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0}))}}
 function pushSoon(){if(pushT||!room||!HOST)return;pushT=setTimeout(()=>{pushT=0;if(room&&HOST&&G)room.send('state',pack())},80)}
-function applyState(d){  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc){if(CARDS[k]){if(CFG.cards&&CFG.cards[k])CARDS[k]={...CARDS[k],...d.cc[k]};}else CARDS[k]=d.cc[k];}for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
+function applyState(d){  const __tcFirstOnlineState=!G;  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc){if(CARDS[k]){if(CFG.cards&&CFG.cards[k])CARDS[k]={...CARDS[k],...d.cc[k]};}else CARDS[k]=d.cc[k];}for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
  if(!G){G={ps:[],hist:[],snow:{left:0,lvl:0},card:null,target:(SEAT+1)%d.ps.length,keys:{},timer:setInterval(tick,50)};}
  G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,human:true,u:{char:q.char||0,img:''}}));
  Object.assign(G,{turn:d.turn,turnSeq:Number.isFinite(d.turnSeq)?d.turnSeq:(G.turnSeq||0),ap:d.ap,apMax:d.apMax,log:d.log,over:d.over,snow:d.snow,inc:Array.isArray(d.inc)?d.inc:[]});
@@ -1107,7 +1188,7 @@ function applyState(d){  const __tcPreviousTurn=G?G.turn:null;  for(const k in d
  if(TC_CARD_ACTION_BUSY)releaseCardAction();
  if(G.ps[G.turn]){G.ap=G.ps[G.turn].ap;G.apMax=G.ps[G.turn].apMax;}
  if(G.target===SEAT||!G.ps[G.target])G.target=G.ps.findIndex((p,i)=>i!==SEAT&&p.alive);
- if(screen!=='battle'){screen='battle';render()}else paintBattle()}
+ if(screen!=='battle'){screen='battle';render()}else paintBattle();if(__tcFirstOnlineState)showMatchIntro(G.ps.map(p=>p.name),true)}
 function onAct(seat,a){if(!G||G.over||!HOST)return;if(a&&a.k){G._tcRemoteCardAt=G._tcRemoteCardAt||{};const now=Date.now(),last=G._tcRemoteCardAt[seat]||0;if(now-last<350)return;G._tcRemoteCardAt[seat]=now;}const t=G.target;G.target=a.target!=null&&a.target!==seat?a.target:t;
  if(a.mv)move(seat,a.mv[0],a.mv[1]);else if(a.k&&CARDS[a.k]&&G.ps[seat].hand.concat(['draw','end']).includes(a.k))playCard(seat,a.k,a.tile);G.target=t;paintBattle()}
 function perform(a){if(ONL&&!HOST){if(a.mv){const n=performance.now();if(n-lastMv<250)return false;lastMv=n}if(!room)return false;room.send('act',{...a,target:G.target});return true}
@@ -1170,7 +1251,7 @@ function attach(r){room=r;ONL=true;G=null;
  r.onMessage('closed',()=>{if(room===r)leaveNet('ホストが退出したため終了しました')});
  r.onLeave(()=>{if(room===r)leaveNet('接続が切れました')})}
 // ---------- boot ----------
-(async()=>{await loadGlobalGameConfig();render()})();
+(async()=>{await loadGlobalGameConfig();render();if(me)setTimeout(()=>pollCardIdeaNotifications(),700)})();
 </script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body></html>
