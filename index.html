@@ -188,6 +188,29 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
 .card:not(.imgc) .c{position:absolute;left:4px;top:4px;z-index:5;display:flex;align-items:center;justify-content:center;float:none;width:28px;height:28px;line-height:1;border-radius:50%;font-weight:800;color:#fff;background:#c62828;border:2px solid #fff;box-sizing:border-box;pointer-events:none}
 </style></head><body><div id="app"></div>
 <script>
+// Opaque-origin preview/file safety: keep normal browser storage when available,
+// otherwise fall back to in-memory storage so the game can still render.
+try {
+  const __tcStorageTest = window.localStorage;
+  __tcStorageTest.getItem('__tc_storage_test__');
+} catch (__tcStorageError) {
+  const __tcMemoryStore = new Map();
+  try {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: key => __tcMemoryStore.has(String(key)) ? __tcMemoryStore.get(String(key)) : null,
+        setItem: (key, value) => __tcMemoryStore.set(String(key), String(value)),
+        removeItem: key => __tcMemoryStore.delete(String(key)),
+        clear: () => __tcMemoryStore.clear(),
+        key: index => Array.from(__tcMemoryStore.keys())[index] ?? null,
+        get length() { return __tcMemoryStore.size; }
+      }
+    });
+  } catch (__tcDefineStorageError) {
+    console.warn('TERRACARD: このプレビューでは保存機能が制限されています。', __tcDefineStorageError);
+  }
+}
 "use strict";
 const $=s=>document.querySelector(s),app=$('#app');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -374,22 +397,70 @@ function genDaily(){const t=todayStr(),h=msHash(t+(me||''));const pool=Object.ke
  MS.day=t;MS.daily=picks.map((k,i)=>{const tgt=(k==='play'||k==='play_cpu'||k==='play_online')?2:(k==='gacha'||k==='profile'?1:2);return{id:'d'+t+i,type:k,tgt,prog:0,done:false,claimed:false,rw:1+((h>>i)&1)}});saveMs()}
 function msCheck(){if(me&&MS.day!==todayStr())genDaily()}
 function paintMissIfOpen(){if(screen==='missions')render()}
+let __tcGlobalMissionLoad = null;
+async function loadGlobalMissions(force=false){
+ if(!me||!TERRACARD_TOKEN)return null;
+ if(__tcGlobalMissionLoad)return __tcGlobalMissionLoad;
+ __tcGlobalMissionLoad=(async()=>{
+  // 旧版で運営端末にだけ保存されていた自作ミッションは、運営ログイン時に一度だけ共有DBへ移行。
+  if(isAdmin){
+   for(const m of (MS.custom||[])){
+    if(m.shared)continue;
+    await apiCall('/admin/missions/create',{id:String(m.id),type:m.type,tgt:m.tgt,rw:m.rw,note:m.note||''});
+    m.shared=true;
+   }
+   saveMs();
+  }
+  const d=await apiCall('/missions/global');
+  MS.custom=(Array.isArray(d.missions)?d.missions:[]).map(m=>({
+   id:String(m.id),type:String(m.type),tgt:Number(m.tgt)||1,rw:Number(m.rw)||0,
+   note:String(m.note||''),prog:Number(m.prog)||0,done:!!m.done,
+   claimed:!!m.claimed,shared:true
+  }));
+  saveMs();
+  if(screen==='missions')render();
+  return MS.custom;
+ })().catch(e=>{
+  console.warn('運営ミッションの読込に失敗:',e);
+  msg='運営ミッションを読み込めませんでした。Workerを更新して再読み込みしてください。';
+  if(screen==='missions')render();
+  return null;
+ }).finally(()=>{__tcGlobalMissionLoad=null});
+ return __tcGlobalMissionLoad;
+}
 function missEvent(type,amt){if(!me)return;msCheck();amt=Math.max(1,Math.floor(amt||1));
  const bump=m=>{if(m.done)return;if(type==='streak')m.prog=Math.max(m.prog,amt);else m.prog=Math.min(m.tgt,m.prog+amt);if(m.prog>=m.tgt)m.done=true};
- MS.daily.forEach(bump);MS.custom.forEach(bump);
+ MS.daily.forEach(bump);
  const nd=NDEF.find(x=>x[0]===type);
  if(nd){let st=MS.normal[type]||(MS.normal[type]={tier:0,prog:0,done:false,claimed:false});
   if(st.tier<nd[3]){const tgt=nd[1]*(st.tier+1);if(type==='streak')st.prog=Math.max(st.prog,amt);else st.prog=Math.min(tgt,st.prog+amt);if(st.prog>=tgt)st.done=true}}
- saveMs();paintMissIfOpen()}
+ saveMs();paintMissIfOpen();
+ if(!isAdmin&&TERRACARD_TOKEN&&MS.custom.some(m=>m.shared)){
+  apiCall('/missions/progress',{type,amount:amt}).then(d=>{
+   if(Array.isArray(d.missions)){
+    MS.custom=d.missions.map(m=>({id:String(m.id),type:String(m.type),tgt:Number(m.tgt)||1,rw:Number(m.rw)||0,note:String(m.note||''),prog:Number(m.prog)||0,done:!!m.done,claimed:!!m.claimed,shared:true}));
+    saveMs();paintMissIfOpen();
+   }
+  }).catch(e=>console.warn('運営ミッション進捗同期失敗:',e));
+ }
+}
 function missBattle(win,online,u){try{missEvent('play',1);missEvent(online?'play_online':'play_cpu',1);if(win){missEvent(online?'win_online':'win_cpu',1);missEvent('streak',Math.max(1,online?(u.streak||0):(u.cstreak||0)))}}catch(e){}}
 function msGrant(c){const u=U();u.coins+=c;save();msg='ミッション達成報酬 🪙'+c+' を受け取りました!';paintMissIfOpen()}
 function msClaimDaily(i){const m=MS.daily[i];if(!m||!m.done||m.claimed)return;m.claimed=true;saveMs();msGrant(m.rw);render()}
 function msClaimNormal(k){const nd=NDEF.find(x=>x[0]===k);const st=MS.normal[k];if(!nd||!st||!st.done||st.claimed)return;msGrant(nd[2]*(st.tier+1));if(st.tier+1<nd[3]){st.tier++;st.prog=0;st.done=false;st.claimed=false}else st.claimed=true;saveMs();render()}
-function msClaimCustom(id){const m=MS.custom.find(x=>x.id===id);if(!m||!m.done||m.claimed)return;m.claimed=true;saveMs();msGrant(m.rw);render()}
-function msDelCustom(id){MS.custom=MS.custom.filter(x=>x.id!==id);saveMs();render()}
-function msAddCustom(f){const type=f.t.value;const tgt=Math.max(1,Math.min(50,Math.floor(+f.g.value||1)));const want=Math.max(1,Math.min(50,Math.floor(+f.r.value||1)));const cap=Math.min(20,Math.max(1,Math.ceil(tgt/2)));const rw=Math.min(want,cap);
- if(MS.custom.length>=10)return msMsg('自作ミッションは最大10件です。不要なものを削除してください');
- MS.custom.push({id:'c'+(MS.cseq++)+Date.now().toString(36),type,tgt,rw,prog:0,done:false,claimed:false,note:rw<want?'報酬を上限内に調整':''});saveMs();msMsg('自作ミッションを追加しました(報酬 🪙'+rw+')')}
+async function msClaimCustom(id){const m=MS.custom.find(x=>x.id===id);if(!m||!m.done||m.claimed||!m.shared)return;
+ try{const d=await apiCall('/missions/claim',{id});if(d.player&&U()){U().coins=Number(d.player.coins)||0;U().xp=Number(d.player.xp)||U().xp;U().level=Number(d.player.level)||U().level;save();}m.claimed=true;saveMs();msg='運営ミッション報酬を受け取りました！';render();}
+ catch(e){msMsg(e.message||'報酬を受け取れませんでした');}
+}
+async function msDelCustom(id){if(!isAdmin)return;try{await apiCall('/admin/missions/delete',{id});MS.custom=MS.custom.filter(x=>x.id!==id);saveMs();render();}catch(e){msMsg(e.message||'ミッションを削除できませんでした');}}
+async function msAddCustom(f){if(!isAdmin)return msMsg('ミッション作成は運営限定です');
+ const type=f.t.value,tgt=Math.max(1,Math.min(50,Math.floor(+f.g.value||1))),want=Math.max(1,Math.min(50,Math.floor(+f.r.value||1)));
+ const cap=Math.min(20,Math.max(1,Math.ceil(tgt/2))),rw=Math.min(want,cap);
+ if(MS.custom.length>=10)return msMsg('運営ミッションは最大10件です。不要なものを削除してください');
+ const id='c'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),note=rw<want?'報酬を上限内に調整':'';
+ try{const d=await apiCall('/admin/missions/create',{id,type,tgt,rw,note});const m=d.mission||{id,type,tgt,rw,note,prog:0,done:false,claimed:false};MS.custom.push({...m,shared:true,prog:0,done:false,claimed:false});saveMs();msMsg('全プレイヤーにミッションを配布しました(報酬 🪙'+rw+')');}
+ catch(e){msMsg(e.message||'ミッションの配布に失敗しました');}
+}
 function msMsg(t){msg=t;if(screen==='missions')render()}
 // ---------- チュートリアル ----------
 const TUT=[['👋 ようこそ!','Card Grid Clashへようこそ。カードとマスを使った対戦ゲームです。基本の流れを紹介します。'],
@@ -558,7 +629,7 @@ document.addEventListener('pointerdown',tcAudioGesture,{capture:true,passive:tru
 document.addEventListener('keydown',tcAudioGesture,{capture:true});
 // ---------- end TERRACARD original audio system ----------
 
-function go(s,m=''){screen=s;msg=m;render()}
+function go(s,m=''){screen=s;msg=m;render();if(s==='missions'&&me)loadGlobalMissions(true)}
 function render(){
  if(screen!=='battle')clearInterval(G&&G.timer);
  const u=me&&U();
@@ -580,8 +651,12 @@ function render(){
    if(st.tier>=max)return '<div class="panel"><div class="row"><b>'+esc(MTYPES[k])+'</b><span style="flex:1"></span><span>🏆 完全制覇!(全'+max+'段階)</span></div></div>';
    const tgt=base*(st.tier+1),r=rw*(st.tier+1);const extra=(st.tier+1<max)?'<p class="sm">次の段階: 目標 '+base*(st.tier+2)+' ・ 報酬 🪙'+rw*(st.tier+2)+' に増えます</p>':'';
    return row(esc(MTYPES[k])+' 第'+(st.tier+1)+'段階',st.prog,tgt,r,st.done,st.claimed,"msClaimNormal('"+k+"')",extra)}).join('');
-  const custom=MS.custom.length?MS.custom.map(m=>row(esc(MTYPES[m.type])+(m.note?' <span class="sm">※'+m.note+'</span>':''),m.prog,m.tgt,m.rw,m.done,m.claimed,"msClaimCustom('"+m.id+"')",'<button class="sm" onclick="msDelCustom(\''+m.id+'\')">削除</button>')).join(''):'<p class="sm">自作ミッションはまだありません。下のフォームから作れます。</p>';
-  h=nav+'<h2>🎯 ミッション</h2><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>✏️ 自作ミッション</h3>'+custom+'<form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>追加</button></form><p class="sm">報酬🪙は目標の半分・最大20までに制限されます(無限稼働防止)。</p></div><div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">チュートリアルをもう一度見る</button></div>';}
+  const custom=MS.custom.length?MS.custom.map(m=>{
+   const extra=isAdmin?'<button class="sm" onclick="msDelCustom(\''+esc(m.id)+'\')">削除</button>':'';
+   return row(esc(MTYPES[m.type]||m.type)+(m.note?' <span class="sm">※'+esc(m.note)+'</span>':''),m.prog,m.tgt,m.rw,m.done,m.claimed,"msClaimCustom('"+esc(m.id)+"')",extra);
+  }).join(''):'<p class="sm">運営から配布されたミッションはまだありません。</p>';
+  const creator=isAdmin?'<div class="panel"><h3>✏️ 運営ミッション作成</h3><form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>全員に配布</button></form><p class="sm">作成したミッションは全プレイヤーに配布され、進捗と報酬受取は各プレイヤー別に保存されます。</p></div>':'';
+  h=nav+'<h2>🎯 ミッション</h2><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">チュートリアルをもう一度見る</button></div>';}
  if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
  if(screen==='battle')h=nav+`<div id="bboard"></div><div class="panel"><h3>対戦チャット</h3>${chatBox('battle')}</div>`;
  app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin')refreshAdminChat();tcRenderAudioButton();tcSyncMusic();
@@ -597,7 +672,7 @@ async function auth(f){
   const old=db.users[n]||{};const remote=data.player||{};
   const serverProfile=!!remote.profile_initialized;
   db.users[n]={...old,name:n,display:serverProfile?(remote.display_name||old.display||n):(old.display||remote.display_name||n),coins:Number(remote.coins)||0,xp:Number(remote.xp)||0,level:Number(remote.level)||1,streak:Number(remote.streak)||old.streak||0,best:Number(remote.best)||old.best||0,cstreak:Number(remote.cstreak)||old.cstreak||0,cbest:Number(remote.cbest)||old.cbest||0,char:serverProfile?(Number.isInteger(remote.char)?remote.char:0):(Number(old.char)||0),chars:serverProfile?(Array.isArray(remote.chars)&&remote.chars.length?remote.chars:[0]):(old.chars||[0]),img:serverProfile?(remote.img||''):(old.img||''),story:serverProfile?(Number(remote.story)||0):(Number(old.story)||0),mail:old.mail||[],banned:false};
-  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
+  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
  }catch(e){go('auth',e.message||'ログインに失敗しました')}
 }
 async function adminLogin(f){
@@ -607,7 +682,7 @@ async function adminLogin(f){
   const n=data.isAdmin?f.n.value.trim():'';
   if(!n)throw new Error('運営ログインに失敗しました');
   if(!db.users[n])db.users[n]={name:n,display:'運営',pw:'-',coins:0,xp:0,level:1,streak:0,best:0,char:0,chars:[0],img:'',mail:[],banned:false};
-  save();me=n;isAdmin=true;setSess();await loadGlobalGameConfig();go('admin');
+  save();me=n;isAdmin=true;setSess();await loadGlobalGameConfig();await loadGlobalMissions(true);go('admin');
  }catch(e){go('adminlogin',e.message||'運営ログインに失敗しました')}
 }
 async function pull(){const u=U();try{const d=await apiCall('/player/spend',{amount:1});u.coins=Number(d.player.coins)||0;}catch(e){return go('gacha',e.message||'コインを使えませんでした')}try{missEvent('gacha',1)}catch(e){}const r=Math.random(),i=r<.5?Math.floor(Math.random()*3):Math.floor(Math.random()*CHARS.length);const dup=u.chars.includes(i);if(!dup)u.chars.push(i);u.char=i;u.img='';save();try{await syncCloudProfile()}catch(e){console.warn('プロフィール同期失敗',e)}go('gacha',`${CHARS[i][0]} ${CHARS[i][1]} を獲得!${dup?'(重複)':'NEW!'}`)}
