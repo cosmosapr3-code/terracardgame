@@ -1020,7 +1020,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
    if(t&&t.alive){hurt(t,6,'サイコロ',1,i);G.log+=' '+t.name+'に6ダメージ！';}
    else G.log+=' 攻撃できる相手がいない';
   }else{
-   hurt(p,4,'リクエストが来た（自分へのダメージ）',1);
+   hurt(p,4,'サイコロ（自分へのダメージ）',1,i);
    G.log+=' 自分に4ダメージ！';
   }
  }
