@@ -196,6 +196,10 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
 .tc-match-intro-title{font-size:clamp(18px,3vw,30px);font-weight:900;letter-spacing:.18em;color:#ffe16a;margin-bottom:clamp(12px,3vh,28px);text-shadow:0 2px 8px #000}
 .tc-match-intro-vsline{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:clamp(8px,2vw,22px);line-height:1.25}
 .tc-match-intro-name{font-size:clamp(25px,6vw,64px);font-weight:1000;overflow-wrap:anywhere;text-shadow:0 4px 0 #000,0 0 18px rgba(255,255,255,.22);max-width:100%}
+.tc-match-intro-player{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-width:0;max-width:min(34vw,240px)}
+.tc-match-intro-avatar{width:clamp(58px,13vw,116px);height:clamp(58px,13vw,116px);border:3px solid #fff;border-radius:18px;object-fit:cover;background:#26364a;box-shadow:0 4px 14px #0009}
+.tc-match-intro-avatar-emoji{display:flex;align-items:center;justify-content:center;font-size:clamp(42px,9vw,86px);line-height:1;background:#26364a}
+
 .tc-match-intro-vs{font-size:clamp(28px,7vw,76px);font-weight:1000;font-style:italic;color:#ffdc39;-webkit-text-stroke:1px #6b3900;text-shadow:0 4px 0 #000,0 0 20px rgba(255,210,40,.55)}
 @keyframes tcMatchPop{0%{opacity:0;transform:scale(.82) translateY(16px)}100%{opacity:1;transform:scale(1) translateY(0)}}
 @media(prefers-reduced-motion:reduce){.tc-match-intro,.tc-match-intro-box{animation:none;transition:none}}
@@ -206,6 +210,12 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
 #tc-cardidea-toast{display:none;margin:0 0 9px auto;padding:13px 15px;border:2px solid #ffe082;border-radius:12px;background:#102b49;color:#fff;box-shadow:0 6px 24px #06172dcc;cursor:pointer;font-weight:800;animation:tcCardIdeaNoticeIn .22s ease-out}
 @keyframes tcCardIdeaNoticeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){#tc-cardidea-toast{animation:none}}
+/* 運営配布通知 */
+#tc-player-notification{position:fixed;right:14px;top:14px;z-index:100010;display:none;max-width:min(92vw,380px);font-family:system-ui,sans-serif}
+#tc-player-notification button{border:2px solid #f6d365;border-radius:999px;padding:10px 14px;background:#173b5d;color:#fff;font-weight:900;box-shadow:0 5px 18px #06172dcc}
+#tc-player-notification-toast{display:none;margin:0 0 8px auto;padding:12px 14px;border:2px solid #f6d365;border-radius:12px;background:#102b49;color:#fff;box-shadow:0 6px 24px #06172dcc;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){#tc-player-notification-toast{animation:none}}
+
 
 .tc-cost-under-image{display:block;background:#f1c53d;color:#171717;font-weight:900;text-align:center;padding:2px 4px;border-radius:4px;margin-top:3px;font-size:11px}.tc-charm-rarity{font-weight:900}
 </style></head><body><div id="app"></div>
@@ -672,15 +682,26 @@ const TUT=[
  ['🎯 ミッションとポスト','ミッションやポストに受け取れる報酬が複数あるときは「一括受け取り」を使えます。受取済みの報酬は二重にもらえません。'],
  ['💡 運営へのカード案','カード追加リクエストは、送った本人と運営だけの個別連絡です。運営から返信が来ると通知が表示されます。'],
  ['📢 運営からのお知らせ','運営が「更新した」ボタンで公開した説明は、全プレイヤーに届きます。ログイン中なら画面に通知され、次回ログイン時にも確認できます。'],
+ ['🎁 運営からの配布と通知','運営はプレイヤーを指定してお守りやポストのプレゼントを配布できます。配布されたお守り・コイン・XP・ミッションには本人だけに通知が届きます。画面のベル、またはホームの「通知」から内容を何度でも確認できます。配布されたお守りは自動装備されず、お守り画面で自分で装備します。'],
  ['🏁 それでは対戦へ！','ホームから対戦・カード一覧・ガチャ・お守り・ミッション・ポストへ進めます。カードのコストと効果を確認しながら楽しもう！']
 ];
 
-let tutStep=-1;
-function startTutorial(){tutStep=0;tutPaint()}
+let tutStep=-1,tutIndexMode=false;
+function startTutorial(){tutStep=0;tutIndexMode=false;tutPaint()}
+function openTutorialIndex(){tutIndexMode=true;tutPaint()}
+function tutGoto(n){tutStep=Math.max(0,Math.min(TUT.length-1,Number(n)||0));tutIndexMode=false;tutPaint()}
+function closeTutorial(){tutStep=-1;tutIndexMode=false;const el=document.getElementById('tutoverlay');if(el)el.remove()}
 function tutPaint(){let el=document.getElementById('tutoverlay');
- if(tutStep<0||tutStep>=TUT.length){tutStep=-1;if(el)el.remove();return}
+ if(tutStep<0&&!tutIndexMode){if(el)el.remove();return}
  if(!el){el=document.createElement('div');el.id='tutoverlay';document.body.appendChild(el)}
- const tt=TUT[tutStep];el.innerHTML='<div style="position:fixed;inset:0;background:#000c;z-index:999;display:flex;align-items:center;justify-content:center;padding:10px"><div class="panel" style="max-width:470px;width:100%"><h2>'+esc(tt[0])+'</h2><p>'+esc(tt[1])+'</p><div class="row"><span style="flex:1"></span><button class="sm" onclick="tutStep=-1;tutPaint()">スキップ</button><button onclick="tutStep++;tutPaint()">'+(tutStep+1>=TUT.length?'はじめる':'次へ')+'</button></div><p class="sm">'+(tutStep+1)+'/'+TUT.length+'</p></div></div>'}
+ const shell='<div style="position:fixed;inset:0;background:#000c;z-index:999;display:flex;align-items:center;justify-content:center;padding:10px"><div class="panel" style="max-width:520px;width:100%;max-height:90vh;overflow:auto;background:var(--panel,#fff)">';
+ if(tutIndexMode){
+  el.innerHTML=shell+'<div class="row" style="align-items:center"><h2 style="flex:1">📖 チュートリアル目次</h2><button class="sm" onclick="closeTutorial()">閉じる</button></div><p>読み返したい項目を選んでね。</p><div style="display:grid;gap:6px">'+TUT.map((x,i)=>'<button type="button" class="sm" style="text-align:left;white-space:normal" onclick="tutGoto('+i+')">'+(i+1)+'. '+esc(x[0])+'</button>').join('')+'</div></div></div>';
+  return;
+ }
+ const tt=TUT[tutStep];
+ el.innerHTML=shell+'<div class="row" style="align-items:center"><h2 style="flex:1">'+esc(tt[0])+'</h2><button class="sm" onclick="closeTutorial()">閉じる</button></div><p style="white-space:pre-wrap">'+esc(tt[1])+'</p><p class="sm">'+(tutStep+1)+' / '+TUT.length+'</p><div class="row"><button class="sm" '+(tutStep===0?'disabled':'')+' onclick="tutStep--;tutPaint()">← 前へ</button><button class="sm" onclick="openTutorialIndex()">目次</button><span style="flex:1"></span><button class="sm" onclick="closeTutorial()">スキップ</button><button onclick="'+(tutStep+1>=TUT.length?'closeTutorial()':'tutStep++;tutPaint()')+'">'+(tutStep+1>=TUT.length?'終了':'次へ →')+'</button></div></div></div>';
+}
 
 let HCPUS=2,HLV=2,HMODE='story';
 const masterOK=u=>rankOf(topBest(u))!==RANKS[0]&&RANK_AT[RANKS.indexOf(rankOf(topBest(u)))]>=10;
@@ -835,7 +856,69 @@ document.addEventListener('pointerdown',tcAudioGesture,{capture:true,passive:tru
 document.addEventListener('keydown',tcAudioGesture,{capture:true});
 // ---------- end TERRACARD original audio system ----------
 
-function go(s,m=''){screen=s;msg=m;render();if(s==='missions'&&me)loadGlobalMissions(true)}
+let PLAYER_NOTIFICATIONS=[];
+let PLAYER_NOTIFICATION_UNREAD=0;
+let playerNoticeOwner='';
+let playerNoticeLastId=0;
+let playerNoticeInitialized=false;
+let playerNoticeToastTimer=0;
+function ensurePlayerNotificationUI(){
+ let root=document.getElementById('tc-player-notification');
+ if(!root){
+  root=document.createElement('div');root.id='tc-player-notification';
+  root.innerHTML='<div id="tc-player-notification-toast" role="status" aria-live="polite"></div><button type="button" id="tc-player-notification-button">🔔 運営からの通知 <span id="tc-player-notification-count">0</span></button>';
+  document.body.appendChild(root);
+  const open=()=>go('notifications');
+  root.querySelector('#tc-player-notification-button').addEventListener('click',open);
+  root.querySelector('#tc-player-notification-toast').addEventListener('click',open);
+ }
+ return root;
+}
+function updatePlayerNotificationUI(){
+ if(!me||isAdmin||!TERRACARD_TOKEN){const old=document.getElementById('tc-player-notification');if(old)old.style.display='none';return;}
+ const root=ensurePlayerNotificationUI();
+ root.style.display=PLAYER_NOTIFICATION_UNREAD>0?'block':'none';
+ const count=root.querySelector('#tc-player-notification-count');if(count)count.textContent=String(PLAYER_NOTIFICATION_UNREAD);
+}
+function showPlayerNotificationToast(n){
+ const root=ensurePlayerNotificationUI(),toast=root.querySelector('#tc-player-notification-toast');
+ toast.textContent='🎁 '+String(n.title||'運営から配布が届きました')+'\n'+String(n.body||'通知を確認してください')+'（タップして確認）';
+ toast.style.display='block';
+ if(playerNoticeToastTimer)clearTimeout(playerNoticeToastTimer);
+ playerNoticeToastTimer=setTimeout(()=>{toast.style.display='none';playerNoticeToastTimer=0;},9000);
+}
+async function refreshPlayerNotifications(showNew=true){
+ if(!me||isAdmin||!TERRACARD_TOKEN){updatePlayerNotificationUI();return;}
+ try{
+  if(playerNoticeOwner!==me){playerNoticeOwner=me;playerNoticeLastId=0;playerNoticeInitialized=false;PLAYER_NOTIFICATIONS=[];PLAYER_NOTIFICATION_UNREAD=0;}
+  const d=await apiCall('/player/notifications');
+  PLAYER_NOTIFICATIONS=Array.isArray(d.notifications)?d.notifications:[];
+  PLAYER_NOTIFICATION_UNREAD=Math.max(0,Number(d.unread_count)||0);
+  const newestUnread=PLAYER_NOTIFICATIONS.filter(n=>!n.read_at).reduce((m,n)=>Math.max(m,Number(n.id)||0),0);
+  if(showNew&&newestUnread>0&&(!playerNoticeInitialized||newestUnread>playerNoticeLastId)){
+   const item=PLAYER_NOTIFICATIONS.find(n=>!n.read_at);
+   if(item)showPlayerNotificationToast(item);
+  }
+  playerNoticeLastId=Math.max(playerNoticeLastId,newestUnread);
+  playerNoticeInitialized=true;
+  updatePlayerNotificationUI();
+  if(screen==='notifications')render();
+ }catch(e){/* 通知取得に失敗してもゲームは続けられる */}
+}
+async function openPlayerNotifications(){
+ if(!me||isAdmin)return;
+ try{
+  const d=await apiCall('/player/notifications');
+  PLAYER_NOTIFICATIONS=Array.isArray(d.notifications)?d.notifications:[];
+  if(Number(d.unread_count)>0){
+   await apiCall('/player/notifications/read',{all:true});
+   PLAYER_NOTIFICATIONS=PLAYER_NOTIFICATIONS.map(n=>({...n,read_at:n.read_at||new Date().toISOString()}));
+  }
+  PLAYER_NOTIFICATION_UNREAD=0;updatePlayerNotificationUI();render();
+ }catch(e){msg=e.message||'通知を読み込めませんでした';render();}
+}
+setInterval(()=>{if(me&&!isAdmin)refreshPlayerNotifications(true)},10000);
+function go(s,m=''){screen=s;msg=m;render();if(s==='missions'&&me)loadGlobalMissions(true);if(s==='charms'&&me&&!isAdmin)refreshCloudInbox().then(()=>{if(screen==='charms')render()}).catch(e=>console.warn('お守り情報の更新に失敗しました',e));if(s==='notifications'&&me&&!isAdmin)openPlayerNotifications()}
 function render(){
  if(screen!=='battle')clearInterval(G&&G.timer);
  const u=me&&U();
@@ -843,13 +926,14 @@ function render(){
  let h='';
  if(screen==='auth')h=`<div class="panel"><h1>Card Grid Clash</h1><p>アカウント名とパスワードで新規登録/ログイン</p><form onsubmit="event.preventDefault();auth(this)" class="row"><input name="n" placeholder="アカウント名" maxlength="16"><input name="p" type="password" placeholder="パスワード"><button name="m" value="login">ログイン</button><button name="m" value="reg" onclick="this.form.mode='reg'">新規登録</button></form><p class="err">${esc(msg)}</p><hr><button onclick="go('adminlogin')">運営</button></div>`;
  if(screen==='adminlogin')h=`<div class="panel"><h2>運営ログイン</h2><form onsubmit="event.preventDefault();adminLogin(this)" class="row"><input name="n" placeholder="ユーザー名"><input name="p" type="password" placeholder="パスワード"><button>ログイン</button><button type="button" onclick="go('auth')">戻る</button></form><p class="err">${esc(msg)}</p></div>`;
- if(screen==='home')h=nav+`<div class="panel"><h2>ホーム</h2><div class="row"><label>CPU対戦 <select id="md" onchange="HMODE=this.value;render()"><option value="story" ${HMODE==='story'?'selected':''}>ストーリー対戦</option><option value="prac" ${HMODE==='prac'?'selected':''}>練習対戦</option></select></label>${HMODE==='prac'?`<label>CPU人数 <select id="cpus" onchange="HCPUS=+this.value">${[1,2,3,4,5].map(n=>`<option ${n===HCPUS?'selected':''}>${n}</option>`).join('')}</select></label><label>CPUの強さ <select id="lv" onchange="HLV=+this.value"><option value="1" ${HLV===1?'selected':''}>弱い</option><option value="2" ${HLV===2?'selected':''}>普通</option><option value="3" ${HLV===3?'selected':''}>強い</option>${masterOK(u)?`<option value="4" ${HLV===4?'selected':''}>達人</option>`:''}</select></label><button onclick="startPractice()">⚔️ 練習対戦</button>`:`<div class="panel" style="width:100%"><b>1章 ストーリー</b>(クリア ${u.story||0}/20節)<div class="row">${Array.from({length:20},(_,i)=>`<button class="sm" ${i>(u.story||0)?'disabled':''} onclick="startStory(${i+1})">${i+1}節</button>`).join('')}</div></div>`}${isAdmin?'<button onclick="dlHtml()">💾 HTML版を保存</button>':''}<button onclick="go('online')">🌐 オンライン対戦</button><button onclick="go('cards')">🃏 カード一覧</button><button onclick="go('gacha')">🎰 ガチャ</button><button onclick="go('charms')">🧿 お守り ${u.charms&&u.charms.length?'('+u.charms.length+')':''}</button><button onclick="go('profile')">👤 プロフィール</button><button onclick="go('post')">📮 ポスト${u.mail.filter(m=>!m.done).length?' ('+u.mail.filter(m=>!m.done).length+')':''}</button><button onclick="go('missions')">🎯 ミッション</button>${!isAdmin?'<button onclick=\"go(\'cardIdeas\')\">💡 カード追加リクエスト</button>':''}<button onclick="go('rank')">🏆 ランキング</button><button type="button" onclick="startTutorial()">📖 チュートリアル</button>${isAdmin?'<button onclick="go(\'admin\')">🛠 運営</button>':''}</div><p>XP ${u.xp}/${needXp(u.level)}　ホームチャットは同じブラウザの他タブと共有されます。</p></div><div class="panel"><h3>ホームチャット</h3>${chatBox('home')}</div>`;
+ if(screen==='home')h=nav+`<div class="panel"><h2>ホーム</h2><div class="row"><label>CPU対戦 <select id="md" onchange="HMODE=this.value;render()"><option value="story" ${HMODE==='story'?'selected':''}>ストーリー対戦</option><option value="prac" ${HMODE==='prac'?'selected':''}>練習対戦</option></select></label>${HMODE==='prac'?`<label>CPU人数 <select id="cpus" onchange="HCPUS=+this.value">${[1,2,3,4,5].map(n=>`<option ${n===HCPUS?'selected':''}>${n}</option>`).join('')}</select></label><label>CPUの強さ <select id="lv" onchange="HLV=+this.value"><option value="1" ${HLV===1?'selected':''}>弱い</option><option value="2" ${HLV===2?'selected':''}>普通</option><option value="3" ${HLV===3?'selected':''}>強い</option>${masterOK(u)?`<option value="4" ${HLV===4?'selected':''}>達人</option>`:''}</select></label><button onclick="startPractice()">⚔️ 練習対戦</button>`:`<div class="panel" style="width:100%"><b>1章 ストーリー</b>(クリア ${u.story||0}/20節)<div class="row">${Array.from({length:20},(_,i)=>`<button class="sm" ${i>(u.story||0)?'disabled':''} onclick="startStory(${i+1})">${i+1}節</button>`).join('')}</div></div>`}${isAdmin?'<button onclick="dlHtml()">💾 HTML版を保存</button>':''}<button onclick="go('online')">🌐 オンライン対戦</button><button onclick="go('cards')">🃏 カード一覧</button><button onclick="go('gacha')">🎰 ガチャ</button><button onclick="go('charms')">🧿 お守り ${u.charms&&u.charms.length?'('+u.charms.length+')':''}</button><button onclick="go('profile')">👤 プロフィール</button><button onclick="go('post')">📮 ポスト${u.mail.filter(m=>!m.done).length?' ('+u.mail.filter(m=>!m.done).length+')':''}</button><button onclick="go('notifications')">🔔 通知${PLAYER_NOTIFICATION_UNREAD?' ('+PLAYER_NOTIFICATION_UNREAD+')':''}</button><button onclick="go('missions')">🎯 ミッション</button>${!isAdmin?'<button onclick=\"go(\'cardIdeas\')\">💡 カード追加リクエスト</button>':''}<button onclick="go('rank')">🏆 ランキング</button><button type="button" onclick="startTutorial()">📖 チュートリアル（目次から見返せる）</button>${isAdmin?'<button onclick="go(\'admin\')">🛠 運営</button>':''}</div><p>XP ${u.xp}/${needXp(u.level)}　ホームチャットは同じブラウザの他タブと共有されます。</p></div><div class="panel"><h3>ホームチャット</h3>${chatBox('home')}</div>`;
  if(screen==='cards')h=nav+`<div class="panel"><h2>カード一覧</h2>${cardListHtml()}</div>`;
  if(screen==='gacha'){const __gp=CFG.gachaPrices||DEFAULT_GACHA_PRICES,__charPrice=Math.max(0,Math.floor(Number(__gp.character)||0)),__charmPrice=Math.max(0,Math.floor(Number(__gp.charm)||0));h=nav+`<div class="panel"><h2>キャラクターガチャ</h2><p>1回 🪙${__charPrice} ／ 10連 🪙${__charPrice*10} ・ 所持 🪙${u.coins}</p><div class="row"><button onclick="pull(1)" ${u.coins<__charPrice?'disabled':''}>1回引く</button><button onclick="pull(10)" ${u.coins<__charPrice*10?'disabled':''}>10連ガチャ</button></div><p>${msg}</p><div class="row">${CHARS.map((c,i)=>`<button class="sm" ${u.chars.includes(i)?'':'disabled'} onclick="U().char=${i};U().img='';save();syncCloudProfile().catch(e=>alert(e.message));render()"><span style="font-size:28px">${c[0]}</span><br>${c[1]}</button>`).join('')}</div></div><div class="panel"><h2>🧿 お守りガチャ</h2><p>1回 🪙${__charmPrice} ／ 10連 🪙${__charmPrice*10} ・ 所持 🪙${u.coins}</p><div class="row"><button onclick="pullCharm(1)" ${u.coins<__charmPrice?'disabled':''}>1回引く</button><button onclick="pullCharm(10)" ${u.coins<__charmPrice*10?'disabled':''}>お守り10連</button></div><p>レア度の出現率：N 60% / R 25% / SR 10% / SSR 4% / UR 1%</p><p>お守りは7種類の効果からランダムで1つ。レア度が高いほど効果が強くなります。装備は1つだけ。</p><div class="row">${Object.entries(CHARM_RARITIES).map(([k,v])=>`<span class="panel" style="border:2px solid ${v.color};padding:8px">${esc(v.label)}：${v.weight}%</span>`).join('')}</div><p>${msg}</p><button type="button" onclick="go('charms')">所持お守り・装備を管理</button></div>`;}
  if(screen==='charms')h=nav+charmScreenHtml(u)+`<p>${esc(msg)}</p>`;
  if(screen==='profile')h=nav+`<div class="panel"><h2>プロフィール</h2><p>${avatar(u)} Lv.${u.level} ${rankOf(u.best)} / 最高連勝 ${u.best}</p><form class="row" onsubmit="event.preventDefault();U().display=this.d.value.slice(0,12)||U().display;save();try{missEvent('profile',1)}catch(e){};syncCloudProfile().catch(e=>alert(e.message));render()"><input name="d" value="${esc(u.display)}" maxlength="12"><button>名前変更</button></form><p>画像を参照して変更: <input type="file" accept="image/*" onchange="setImg(this.files[0])"></p><button type="button" onclick="startTutorial()">📖 チュートリアルをもう一度見る</button></div>`;
  if(screen==='rank'){h=nav+`<h2>連勝ランキング</h2><div id="cloud-rankings"><p>ランキングを読み込み中...</p></div>`}
  if(screen==='post'){const __mailPending=(u.mail||[]).filter(m=>!m.done&&m.serverId).length;h=nav+`<div class="panel"><h2>ポスト</h2>${__mailPending?`<button type="button" onclick="claimAllMail()">📦 未受取を一括受け取り（${__mailPending}件）</button>`:''}${u.mail.length?u.mail.map((m,i)=>`<div class="panel"><b>${esc(m.from)}</b>: ${esc(m.text)} ${m.coins?'🪙'+m.coins:''} ${m.xp?'XP'+m.xp:''} ${m.done?'(受取済)':`<button class="sm" onclick="claim(${i})">受け取る</button>`}</div>`).join(''):'<p>手紙はありません</p>'}<h3>手紙を送る</h3><form class="row" onsubmit="event.preventDefault();sendMail(this)"><input name="to" placeholder="宛先アカウント名"><input name="t" placeholder="本文"><button>送信</button></form><p>${esc(msg)}</p></div>`;}
+ if(screen==='notifications')h=nav+`<div class="panel"><h2>🔔 運営からの通知</h2><p>運営からあなた個人に届いた配布・プレゼント・お知らせです。他のプレイヤーには表示されません。</p>${PLAYER_NOTIFICATIONS.length?PLAYER_NOTIFICATIONS.map(n=>`<div class="panel" style="border-color:${n.read_at?'#46708f':'#f6d365'}"><div class="row"><b>${esc(n.title||'運営からのお知らせ')}</b><span style="flex:1"></span><small>${n.read_at?'確認済み':'未読'}</small></div><p style="white-space:pre-wrap">${esc(n.body||'')}</p><small>${esc(n.created_at||'')}</small></div>`).join(''):'<p>通知はまだありません。</p>'}<button type="button" onclick="go('home')">ホームに戻る</button></div>`;
  if(screen==='cardIdeas')h=nav+`<div class="panel"><h2>💡 運営へのカード追加リクエスト</h2><p>ここに送った内容は、あなたと運営だけが見られます。他のプレイヤーには公開されません。</p><form class="panel" onsubmit="event.preventDefault();createCardIdea(this)"><label>追加してほしいカード名<br><input name="title" maxlength="60" required placeholder="カード名"></label><label>カードの効果・説明<br><textarea name="message" maxlength="1000" rows="4" required style="width:100%;box-sizing:border-box" placeholder="どんな効果のカードにしてほしいか書いてね"></textarea></label><button>運営に送信する</button></form><div class="panel"><h3>あなたのリクエスト・運営との個別連絡</h3><div id="player-card-ideas-list">読み込み中...</div><div id="player-card-idea-thread"></div></div><p class="err">${esc(msg)}</p></div>`;
  if(screen==='online')h=nav+`<div class="panel"><h2>🌐 オンライン対戦(最大4人)</h2><p class="err">${esc(msg)}</p><div class="row"><div class="panel"><h3>オープン対戦</h3><p>パスワードなし。誰でも参加できます。</p><button onclick="netJoin('open')">⚔️ 対戦相手を探す</button> <button onclick="netJoin('openNew')">ルームを新規作成</button></div><div class="panel"><h3>プライベート対戦</h3><p>パスワードを知っている人だけ参加できます。</p><form class="row" onsubmit="event.preventDefault();netJoin('pcreate',this.p.value)"><input name="p" placeholder="パスワード設定" maxlength="32" required><button>ルーム作成</button></form><form class="row" onsubmit="event.preventDefault();netJoin('pjoin',this.p.value,this.i.value)"><input name="i" placeholder="ルームID" required><input name="p" placeholder="パスワード" maxlength="32"><button>参加</button></form></div></div></div>`;
  if(screen==='room'&&roster)h=nav+`<div class="panel"><h2>${roster.kind==='private'?'🔒 プライベート':'🌐 オープン'}ルーム</h2><p>ルームID: <b>${esc(roster.roomId)}</b>${roster.kind==='private'?'(パスワードと一緒に友達へ共有)':''}</p><div>${roster.names.map((n,i)=>`<div>${i+1}. ${esc(n)}${i===0?' 👑ホスト':''}${i===roster.seat?' (あなた)':''}</div>`).join('')}</div><p>${roster.names.length}/4人</p><div class="row">${HOST?`<button ${roster.names.length<2?'disabled':''} onclick="room.send('start')">▶ 対戦開始</button>`:'<span>ホストの開始を待っています…</span>'}<button onclick="leaveNet();go('online')">退出</button></div></div>`;
@@ -864,10 +948,10 @@ function render(){
    return row(esc(MTYPES[m.type]||m.type)+(m.note?' <span class="sm">※'+esc(m.note)+'</span>':''),m.prog,m.tgt,m.rw,m.done,m.claimed,"msClaimCustom('"+esc(m.id)+"')",extra);
   }).join(''):'<p class="sm">運営から配布されたミッションはまだありません。</p>';
   const creator=isAdmin?'<div class="panel"><h3>✏️ 運営ミッション作成</h3><form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>全員に配布</button></form><p class="sm">作成したミッションは全プレイヤーに配布され、進捗と報酬受取は各プレイヤー別に保存されます。</p></div>':'';
-  const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">チュートリアルをもう一度見る</button></div>';}
- if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
+  const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">📖 チュートリアルを見返す</button></div>';}
+ if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCharmGrantHtml()}${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
  if(screen==='battle')h=nav+`<div id="bboard"></div><div class="panel"><h3>対戦チャット</h3>${chatBox('battle')}</div>`;
- app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin'){refreshAdminChat();refreshAdminCardIdeas()}if(screen==='cardIdeas')loadPlayerCardIdeas();tcRenderAudioButton();tcSyncMusic();
+ app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin'){refreshAdminChat();refreshAdminCardIdeas()}if(screen==='cardIdeas')loadPlayerCardIdeas();updatePlayerNotificationUI();tcRenderAudioButton();tcSyncMusic();
 }
 async function auth(f){
  const n=f.n.value.trim(),p=f.p.value;
@@ -880,7 +964,7 @@ async function auth(f){
   const old=db.users[n]||{};const remote=data.player||{};
   const serverProfile=!!remote.profile_initialized;
   db.users[n]={...old,name:n,display:serverProfile?(remote.display_name||old.display||n):(old.display||remote.display_name||n),coins:Number(remote.coins)||0,xp:Number(remote.xp)||0,level:Number(remote.level)||1,streak:Number(remote.streak)||old.streak||0,best:Number(remote.best)||old.best||0,cstreak:Number(remote.cstreak)||old.cstreak||0,cbest:Number(remote.cbest)||old.cbest||0,char:serverProfile?(Number.isInteger(remote.char)?remote.char:0):(Number(old.char)||0),chars:serverProfile?(Array.isArray(remote.chars)&&remote.chars.length?remote.chars:[0]):(old.chars||[0]),img:serverProfile?(remote.img||''):(old.img||''),story:serverProfile?(Number(remote.story)||0):(Number(old.story)||0),charms:serverProfile&&Array.isArray(remote.charms)?remote.charms:(Array.isArray(old.charms)?old.charms:[]),equippedCharmId:serverProfile?(remote.equipped_charm_id||remote.equippedCharmId||null):(old.equippedCharmId||null),mail:old.mail||[],banned:false};
-  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');setTimeout(()=>pollCardIdeaNotifications(),500);setTimeout(()=>pollGlobalUpdateNotice(),800);if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
+  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');setTimeout(()=>pollCardIdeaNotifications(),500);setTimeout(()=>pollGlobalUpdateNotice(),800);setTimeout(()=>refreshPlayerNotifications(true),1100);if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
  }catch(e){go('auth',e.message||'ログインに失敗しました')}
 }
 async function adminLogin(f){
@@ -914,7 +998,21 @@ function getEquippedCharm(){const u=U();if(!u)return null;return (u.charms||[]).
 function pickCharmLocal(){const roll=Math.random()*100;let acc=0,rarity='N';for(const [r,v] of Object.entries(CHARM_RARITIES)){acc+=v.weight;if(roll<acc){rarity=r;break}}const type=CHARM_TYPES[Math.floor(Math.random()*CHARM_TYPES.length)];return{id:'ch'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),type:type.id,rarity,createdAt:new Date().toISOString()}}
 async function pullCharm(count=1){const u=U(),n=count===10?10:1,unit=Math.max(0,Math.floor(Number(CFG.gachaPrices?.charm??1)));if(!u||Number(u.coins)<unit*n)return go('gacha','コインが足りません');try{const d=await apiCall('/player/charm/gacha',{count:n});u.coins=Number(d.player?.coins)||0;u.charms=Array.isArray(d.charms)?d.charms:(u.charms||[]).concat(d.results||d.charm||[]);const results=Array.isArray(d.results)?d.results:(d.charm?[d.charm]:[]);try{missEvent('gacha',n)}catch(e){}save();const summary=results.map(x=>`${charmType(x.type).name}(${x.rarity})`).join('、');go('gacha',`${n===10?'お守り10連':'お守りガチャ'}：${summary||'獲得しました'}`)}catch(e){go('gacha',e.message||'お守りガチャに失敗しました')}}
 async function equipCharm(id){const u=U();if(!u)return;if(id&&!u.charms.some(x=>x.id===id))return go('charms','そのお守りを所持していません');try{const d=await apiCall('/player/charm/equip',{id:id||null});u.charms=Array.isArray(d.charms)?d.charms:u.charms;u.equippedCharmId=d.equipped_charm_id||null;save();go('charms',id?'お守りを装備しました':'お守りを外しました');}catch(e){go('charms',e.message||'装備を変更できませんでした')}}
-function charmScreenHtml(u){const list=Array.isArray(u.charms)?u.charms:[],equipped=getEquippedCharm();return `<div class="panel"><h2>🧿 お守り</h2><p>装備できるお守りは1つだけです。</p><div class="panel"><b>現在の装備</b><p>${equipped?esc(charmText(equipped)):'未装備'}</p>${equipped?'<button class="sm" onclick="equipCharm(null)">装備を外す</button>':''}</div>${list.length?list.map(c=>{const r=CHARM_RARITIES[c.rarity]||CHARM_RARITIES.N,t=charmType(c.type),on=c.id===u.equippedCharmId;return `<div class="panel row" style="border-color:${r.color};border-width:2px"><div style="font-size:28px">${t.icon}</div><div style="flex:1"><b style="color:${r.color}">${esc(r.label)}</b>　${esc(t.name)}<br><small>${esc(charmText(c))}</small></div>${on?'<b>装備中</b>':`<button class="sm" onclick="equipCharm('${esc(c.id)}')">装備</button>`}</div>`}).join(''):'<p>お守りはまだ持っていません。ガチャで入手できます。</p>'}</div>`}
+function sortCharmsByRarity(charms){const rank={UR:5,SSR:4,SR:3,R:2,N:1};return (Array.isArray(charms)?charms:[]).slice().sort((a,b)=>(rank[b.rarity]||1)-(rank[a.rarity]||1)||String(a.createdAt||'').localeCompare(String(b.createdAt||'')));}
+function charmScreenHtml(u){const list=sortCharmsByRarity(u.charms),equipped=getEquippedCharm();return `<div class="panel"><h2>🧿 お守り</h2><p>装備できるお守りは1つだけです。所持品はレアリティの高い順（UR→SSR→SR→R→N）に表示されます。</p><div class="panel"><b>現在の装備</b><p>${equipped?esc(charmText(equipped)):'未装備'}</p>${equipped?'<button class="sm" onclick="equipCharm(null)">装備を外す</button>':''}</div>${list.length?list.map(c=>{const r=CHARM_RARITIES[c.rarity]||CHARM_RARITIES.N,t=charmType(c.type),on=c.id===u.equippedCharmId;return `<div class="panel row" style="border-color:${r.color};border-width:2px"><div style="font-size:28px">${t.icon}</div><div style="flex:1"><b style="color:${r.color}">${esc(r.label)}</b>　${esc(t.name)}<br><small>${esc(charmText(c))}</small></div>${on?'<b>装備中</b>':`<button class="sm" onclick="equipCharm('${esc(c.id)}')">装備</button>`}</div>`}).join(''):'<p>お守りはまだ持っていません。ガチャで入手できます。</p>'}</div>`}
+function adminCharmGrantHtml(){
+ return `<div class="panel"><h3>🎁 プレイヤーにお守りを配布</h3><p class="sm">指定したプレイヤーの所持お守りに追加します。自動装備はされません。</p><form class="row" onsubmit="event.preventDefault();adminGrantCharm(this)"><input name="username" maxlength="16" required placeholder="配布先アカウント名"><select name="type">${CHARM_TYPES.map(t=>`<option value="${t.id}">${t.icon} ${esc(t.name)}</option>`).join('')}</select><select name="rarity">${Object.entries(CHARM_RARITIES).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')}</select><button>お守りを配布</button></form></div>`;
+}
+async function adminGrantCharm(form){
+ if(!isAdmin)return;
+ const username=String(form.username.value||'').trim(),type=String(form.type.value||''),rarity=String(form.rarity.value||'N');
+ if(!username)return go('admin','配布先のアカウント名を入力してください');
+ try{
+  const d=await apiCall('/admin/charm/grant',{username,type,rarity});
+  const t=charmType(d.charm?.type||type),r=CHARM_RARITIES[d.charm?.rarity||rarity]||CHARM_RARITIES.N;
+  go('admin',`${username} に ${r.label} ${t.name} を配布しました。次にお守り画面を開くと反映されます。`);
+ }catch(e){go('admin',e.message||'お守りの配布に失敗しました')}
+}
 function publishUpdateNotice(form){if(!isAdmin)return;const text=String(form.description.value||'').trim().slice(0,1000);if(!text)return go('admin','全員に伝える更新内容を入力してください');const notice={id:'u'+Date.now().toString(36),text,by:'運営',at:new Date().toISOString()};CFG.updateNotice=notice;localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();apiCall('/admin/game/config',{config:CFG}).then(()=>go('admin','更新内容を全プレイヤーに公開しました')).catch(e=>go('admin','保存に失敗しました: '+(e.message||e)));}
 let __lastUpdateNoticeId='';let __updateNoticeTimer=0;
 function showUpdateNotice(notice){if(!notice||!notice.id||!notice.text)return;const key='cgc_update_seen_'+(me||'guest');let seen='';try{seen=localStorage.getItem(key)||''}catch(e){}if(seen===notice.id)return;try{localStorage.setItem(key,notice.id)}catch(e){}const old=document.getElementById('tc-global-update-notice');if(old)old.remove();const box=document.createElement('div');box.id='tc-global-update-notice';box.style.cssText='position:fixed;z-index:30000;left:50%;top:14px;transform:translateX(-50%);width:min(92vw,620px);background:#172b45;color:white;border:3px solid #f2c94c;border-radius:14px;padding:14px 16px;box-shadow:0 8px 30px #0008;white-space:pre-wrap;overflow-wrap:anywhere';box.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><b style="font-size:17px">📢 運営から更新のお知らせ</b><button type="button" style="margin-left:auto" onclick="this.parentNode.parentNode.remove()">閉じる</button></div><div style="margin-top:8px">${esc(notice.text)}</div><small style="display:block;margin-top:8px;opacity:.8">${esc(notice.at||'')}</small>`;document.body.appendChild(box);if(__updateNoticeTimer)clearTimeout(__updateNoticeTimer);__updateNoticeTimer=setTimeout(()=>box.remove(),12000)}
@@ -970,33 +1068,41 @@ function mkField(){return Array.from({length:25},()=>{const r=Math.random();retu
 const S=()=>CFG.s;
 const rc=(player=null)=>{if(!POOL.length)return 'fire';const charm=player&&player.charm;if(charm&&charm.type==='cardLuck'){const counts={};POOL.forEach(k=>counts[k]=(counts[k]||0)+1);const weights=POOL.map(k=>1+((counts[k]||0)<=1?0.45*charmPower(charm):0));const total=weights.reduce((a,b)=>a+b,0);let r=Math.random()*total;for(let i=0;i<POOL.length;i++){r-=weights[i];if(r<=0)return POOL[i]}return POOL[POOL.length-1]}return POOL[Math.floor(Math.random()*POOL.length)]};
 let tcMatchIntroTimer=0;
-function showMatchIntro(playerNames,online){
+function matchIntroAvatar(p){
+ const img=String(p&&p.img||'');
+ if(img && (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)||/^https:\/\//i.test(img)))return '<img class="tc-match-intro-avatar" src="'+esc(img)+'" alt="">';
+ const ch=Number.isInteger(Number(p&&p.char))?Number(p.char):0;
+ return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc((CHARS[ch]||CHARS[0])[0])+'</span>';
+}
+function showMatchIntro(playerEntries,online){
  try{
   if(tcMatchIntroTimer){clearTimeout(tcMatchIntroTimer);tcMatchIntroTimer=0;}
   const old=document.getElementById('tc-match-intro');if(old)old.remove();
-  const names=(Array.isArray(playerNames)?playerNames:[]).map(v=>String(v||'プレイヤー').trim()).filter(Boolean);
-  const lineup=online?names:[(names[0]||U().display||'プレイヤー'),'CPU'];
+  let lineup=(Array.isArray(playerEntries)?playerEntries:[]).map(v=>typeof v==='string'?{name:v,char:0,img:''}:{name:String(v&&v.name||'プレイヤー').trim(),char:Number(v&&v.char)||0,img:v&&v.img||''}).filter(v=>v.name);
+  if(!online){if(!lineup.length)lineup=[{name:U().display||'プレイヤー',char:U().char||0,img:U().img||''}];if(lineup.length===1)lineup.push({name:'CPU',char:1,img:''});}
   if(!lineup.length)return;
   const root=document.createElement('div');root.id='tc-match-intro';root.className='tc-match-intro';root.setAttribute('role','status');root.setAttribute('aria-live','assertive');
-  const items=[];lineup.forEach((name,i)=>{if(i)items.push('<span class="tc-match-intro-vs">VS</span>');items.push('<span class="tc-match-intro-name">'+esc(name)+'</span>')});
+  const items=[];lineup.forEach((player,i)=>{if(i)items.push('<span class="tc-match-intro-vs">VS</span>');items.push('<span class="tc-match-intro-player">'+matchIntroAvatar(player)+'<span class="tc-match-intro-name">'+esc(player.name)+'</span></span>')});
   root.innerHTML='<div class="tc-match-intro-box"><div class="tc-match-intro-title">⚔ 対 戦 開 始 ⚔</div><div class="tc-match-intro-vsline">'+items.join('')+'</div></div>';
   document.body.appendChild(root);
   tcMatchIntroTimer=setTimeout(()=>{root.classList.add('is-hiding');setTimeout(()=>{if(root.parentNode)root.remove();},500);tcMatchIntroTimer=0;},3000);
  }catch(e){console.warn('対戦開始表示を出せませんでした',e)}
 }
 
-function startBattle(cpus,names,charms){
+function startBattle(cpus,names,charms,profiles){
  if(!names){ONL=false;SEAT=0}
  const u=U(),n=names?names.length:cpus+1,ps=[];
  for(let i=0;i<n;i++){
   const charm=names?(Array.isArray(charms)?charms[i]||null:null):(i===0?getEquippedCharm():null);
-  const p={name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:i?{char:i%CHARS.length,img:''}:u,charm,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:[],copyrightDisabled:[],cactusTurns:0,bleeding:false,bleedSourceIndex:-1,lastMove:0,draws:0,turns:0,ap:0,apMax:0,youtubeAtkBonus:0,alive:true};
+  const profile=names?(Array.isArray(profiles)?profiles[i]||{}:{}):(i===0?u:{char:i%CHARS.length,img:''});
+  const playerUser={char:Number.isInteger(Number(profile.char))?Number(profile.char):0,img:typeof profile.img==='string'?profile.img:''};
+  const p={name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:playerUser,charm,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:[],copyrightDisabled:[],cactusTurns:0,bleeding:false,bleedSourceIndex:-1,lastMove:0,draws:0,turns:0,ap:0,apMax:0,youtubeAtkBonus:0,alive:true};
   p.hand=Array.from({length:S().hand},()=>rc(p));ps.push(p);
  }
  ps.forEach(p=>p.f[12]={c:'w',d:3});
  G={ps,hist:[],snow:{left:0,lvl:0},turn:Math.floor(Math.random()*n),turnSeq:0,ap:S().ap,sel:null,card:null,target:1,over:false,keys:{},log:'',timer:0,done:false};
  G.target=nextAlive(0,1);battleLog=[];startTurn(false);
- G.timer=setInterval(tick,50);screen='battle';render();showMatchIntro(ps.map(p=>p.name),!!names);if(names)pushSoon();
+ G.timer=setInterval(tick,50);screen='battle';render();showMatchIntro(ps.map(p=>({name:p.name,char:p.u.char,img:p.u.img})),!!names);if(names)pushSoon();
 }
 function nextAlive(from,step){const n=G.ps.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(G.ps[j].alive&&j!==from)return j}return from}
 function snap(){return JSON.stringify({turn:G.turn,turnSeq:G.turnSeq||0,ps:G.ps.map(p=>({hp:p.hp,sh:p.sh,atk:p.atk,umb:p.umb,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,draws:p.draws||0,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1}))})}
@@ -1379,17 +1485,17 @@ addEventListener('blur',()=>{if(G)G.keys={}});
 
 // ---------- online ----------
 let ONL=false,HOST=false,SEAT=0,room=null,roster=null,pushT=0,lastMv=0;
-function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,charm:p.charm||null,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1}))}}
+function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,charm:p.charm||null,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,img:p.u.img||'',sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1}))}}
 function pushSoon(){if(pushT||!room||!HOST)return;pushT=setTimeout(()=>{pushT=0;if(room&&HOST&&G)room.send('state',pack())},80)}
 function applyState(d){  const __tcFirstOnlineState=!G;  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc){if(CARDS[k]){if(CFG.cards&&CFG.cards[k])CARDS[k]={...CARDS[k],...d.cc[k]};}else CARDS[k]=d.cc[k];}for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
  if(!G){G={ps:[],hist:[],snow:{left:0,lvl:0},card:null,target:(SEAT+1)%d.ps.length,keys:{},timer:setInterval(tick,50)};}
- G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,bleeding:!!q.bleeding,bleedSourceIndex:Number.isInteger(q.bleedSourceIndex)?q.bleedSourceIndex:-1,charm:q.charm&&typeof q.charm==='object'?q.charm:null,human:true,u:{char:q.char||0,img:''}}));
+ G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,bleeding:!!q.bleeding,bleedSourceIndex:Number.isInteger(q.bleedSourceIndex)?q.bleedSourceIndex:-1,charm:q.charm&&typeof q.charm==='object'?q.charm:null,human:true,u:{char:q.char||0,img:typeof q.img==='string'?q.img:''}}));
  Object.assign(G,{turn:d.turn,turnSeq:Number.isFinite(d.turnSeq)?d.turnSeq:(G.turnSeq||0),ap:d.ap,apMax:d.apMax,log:d.log,over:d.over,snow:d.snow,inc:Array.isArray(d.inc)?d.inc:[]});
  if(__tcPreviousTurn!==d.turn&&d.turn===SEAT)showOwnTurnNotice();
  if(TC_CARD_ACTION_BUSY)releaseCardAction();
  if(G.ps[G.turn]){G.ap=G.ps[G.turn].ap;G.apMax=G.ps[G.turn].apMax;}
  if(G.target===SEAT||!G.ps[G.target])G.target=G.ps.findIndex((p,i)=>i!==SEAT&&p.alive);
- if(screen!=='battle'){screen='battle';render()}else paintBattle();if(__tcFirstOnlineState)showMatchIntro(G.ps.map(p=>p.name),true)}
+ if(screen!=='battle'){screen='battle';render()}else paintBattle();if(__tcFirstOnlineState)showMatchIntro(G.ps.map(p=>({name:p.name,char:p.u&&p.u.char||0,img:p.u&&p.u.img||''})),true)}
 function onAct(seat,a){if(!G||G.over||!HOST)return;if(a&&a.k){G._tcRemoteCardAt=G._tcRemoteCardAt||{};const now=Date.now(),last=G._tcRemoteCardAt[seat]||0;if(now-last<350)return;G._tcRemoteCardAt[seat]=now;}const t=G.target;G.target=a.target!=null&&a.target!==seat?a.target:t;
  if(a.mv)move(seat,a.mv[0],a.mv[1]);else if(a.k&&CARDS[a.k]&&G.ps[seat].hand.concat(['draw','end']).includes(a.k))playCard(seat,a.k,a.tile);G.target=t;paintBattle()}
 function perform(a){if(ONL&&!HOST){if(a.mv){const n=performance.now();if(n-lastMv<250)return false;lastMv=n}if(!room)return false;room.send('act',{...a,target:G.target});return true}
@@ -1407,17 +1513,17 @@ async function p2pRoom(mode,pw,id){
   // 空きルームの探索待ちを短縮。存在しない部屋で長時間止まらないようにする。
   const to=setTimeout(()=>{if(!up){try{p.destroy()}catch(e){}ng(new Error('ルームから応答がありません'))}},1600);
   const r=Object.assign(em,{onLeave(f){left=f},send(t,v){c.open&&c.send({t,v})},leave(){try{p.destroy()}catch(e){}}});
-  c.on('open',()=>{up=true;clearTimeout(to);c.send({t:'join',name,pw,charm:getEquippedCharm()});ok(r)});
+  c.on('open',()=>{up=true;clearTimeout(to);const profile=U();c.send({t:'join',name,pw,charm:getEquippedCharm(),profile:{char:Number(profile.char)||0,img:profile.img||''}});ok(r)});
   c.on('data',d=>{if(d.t==='err'){ng(new Error(d.v));return}em.emit(d.t,d.v)});
   c.on('close',()=>{left&&left()});c.on('error',e=>{if(!up)ng(e)})});
  if(mode==='pjoin')return joinAs(id.trim());
  const kind=(mode==='pcreate')?'private':'open';
- const host=async(rid)=>{const p=await open(pre+rid);const em=mkEmitter();let left=null,started=false;const seats=[{c:null,name,charm:getEquippedCharm()}];
-  const rost=()=>{seats.forEach((s,i)=>{const m={seat:i,names:seats.map(x=>x.name),charms:seats.map(x=>x.charm||null),kind,roomId:rid,started};if(s.c)s.c.send({t:'roster',v:m});else em.emit('roster',m)})};
+ const host=async(rid)=>{const p=await open(pre+rid);const em=mkEmitter();let left=null,started=false;const localProfile=U();const seats=[{c:null,name,charm:getEquippedCharm(),profile:{char:Number(localProfile.char)||0,img:localProfile.img||''}}];
+  const rost=()=>{seats.forEach((s,i)=>{const m={seat:i,names:seats.map(x=>x.name),charms:seats.map(x=>x.charm||null),profiles:seats.map(x=>x.profile||{char:0,img:''}),kind,roomId:rid,started};if(s.c)s.c.send({t:'roster',v:m});else em.emit('roster',m)})};
   const bc=(t,v)=>seats.forEach(s=>s.c&&s.c.open&&s.c.send({t,v}));
   p.on('connection',c=>{let me=null;c.on('data',d=>{if(d.t==='join'){if(started||seats.length>=4){c.send({t:'err',v:'満員または開始済みです'});return}
     if(kind==='private'&&pw&&d.pw!==pw){c.send({t:'err',v:'パスワードが違います'});return}
-    me={c,name:String(d.name||'Player').slice(0,16),charm:d.charm&&typeof d.charm==='object'?d.charm:null};seats.push(me);rost()}
+    me={c,name:String(d.name||'Player').slice(0,16),charm:d.charm&&typeof d.charm==='object'?d.charm:null,profile:d.profile&&typeof d.profile==='object'?{char:Number(d.profile.char)||0,img:typeof d.profile.img==='string'?d.profile.img:''}:{char:0,img:''}};seats.push(me);rost()}
    else if(me&&d.t==='act')em.emit('act',{seat:seats.indexOf(me),a:d.v});else if(me&&d.t==='chat'){bc('chat',d.v);em.emit('chat',d.v)}});
    c.on('close',()=>{if(!me)return;const i=seats.indexOf(me);if(i>0)seats.splice(i,1);if(started&&seats.length<2){bc('closed',{});em.emit('closed',{})}else rost()})});
   const r=Object.assign(em,{onLeave(f){left=f},send(t,v){if(t==='chat'){bc('chat',v);em.emit('chat',v)}else if(t==='state')bc('state',v);else if(t==='start'){if(seats.length<2)return;started=true;bc('started',{n:seats.length});em.emit('started',{n:seats.length});rost()}},leave(){bc('closed',{});try{p.destroy()}catch(e){}}});
@@ -1447,12 +1553,12 @@ async function netJoin(mode,pw='',id=''){
 }
 function attach(r){room=r;ONL=true;G=null;
  r.onMessage('roster',m=>{roster=m;if(!m.started||!G){SEAT=m.seat;HOST=m.seat===0}if(screen!=='battle')go('room')});
- r.onMessage('started',m=>{if(HOST)startBattle(0,roster.names,roster.charms)});
+ r.onMessage('started',m=>{if(HOST)startBattle(0,roster.names,roster.charms,roster.profiles)});
  r.onMessage('chat',m=>{if(!(m&&m.name===U().display&&m.room==='battle'&&0))addChat('battle',m)});r.onMessage('state',applyState);r.onMessage('act',m=>onAct(m.seat,m.a));
  r.onMessage('closed',()=>{if(room===r)leaveNet('ホストが退出したため終了しました')});
  r.onLeave(()=>{if(room===r)leaveNet('接続が切れました')})}
 // ---------- boot ----------
-(async()=>{await loadGlobalGameConfig();render();if(me){setTimeout(()=>pollCardIdeaNotifications(),700);setTimeout(()=>pollGlobalUpdateNotice(),900)}})();
+(async()=>{await loadGlobalGameConfig();render();if(me){setTimeout(()=>pollCardIdeaNotifications(),700);setTimeout(()=>pollGlobalUpdateNotice(),900);if(!isAdmin)setTimeout(()=>refreshPlayerNotifications(true),1100)}})();
 </script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body></html>
