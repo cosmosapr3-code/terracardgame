@@ -470,12 +470,42 @@ async function loadPlayerCardIdeas(){
   if(selectedPlayerCardIdea&&rows.some(t=>Number(t.id)===Number(selectedPlayerCardIdea))) await openPlayerCardIdea(selectedPlayerCardIdea,false);
  }catch(e){list.textContent=e.message||'リクエストを読み込めませんでした';}
 }
+// カードリクエスト画像：送信前にJPEGへ縮小し、D1の1行サイズ制限に収める
+async function cardIdeaImageToDataUrl(file){
+ if(!file)return '';
+ if(!String(file.type||'').startsWith('image/'))throw new Error('画像ファイルを選んでください');
+ if(file.size>10*1024*1024)throw new Error('元画像は10MB以下にしてください');
+ const source=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(new Error('画像を読み込めませんでした'));r.readAsDataURL(file)});
+ const img=await new Promise((resolve,reject)=>{const el=new Image();el.onload=()=>resolve(el);el.onerror=()=>reject(new Error('画像を開けませんでした'));el.src=source});
+ const maxSide=960,scale=Math.min(1,maxSide/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
+ let w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale)),h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+ const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');if(!ctx)throw new Error('画像を圧縮できませんでした');
+ let result='';
+ for(let i=0;i<7;i++){
+  canvas.width=w;canvas.height=h;ctx.clearRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
+  const quality=[.78,.68,.58,.48,.42,.38,.34][i];result=canvas.toDataURL('image/jpeg',quality);
+  if(result.length<=950000)break;
+  w=Math.max(1,Math.round(w*.82));h=Math.max(1,Math.round(h*.82));
+ }
+ if(!/^data:image\/jpeg;base64,/.test(result)||result.length>950000)throw new Error('画像を小さくできませんでした。別の画像を選んでください');
+ return result;
+}
+function previewCardIdeaImage(input,previewId){
+ const preview=document.getElementById(previewId);if(!preview)return;
+ if(preview.dataset.objectUrl){URL.revokeObjectURL(preview.dataset.objectUrl);delete preview.dataset.objectUrl;}
+ const file=input&&input.files&&input.files[0];
+ if(!file){preview.innerHTML='';return;}
+ if(!String(file.type||'').startsWith('image/')){input.value='';preview.textContent='画像ファイルを選んでください';return;}
+ if(file.size>10*1024*1024){input.value='';preview.textContent='元画像は10MB以下にしてください';return;}
+ const url=URL.createObjectURL(file);preview.dataset.objectUrl=url;preview.innerHTML=`<img src="${url}" alt="添付画像プレビュー" style="display:block;max-width:220px;max-height:180px;object-fit:contain;border:1px solid #9aa;border-radius:8px;margin-top:8px"><small>画像を添付します（送信時に自動で縮小）</small>`;
+}
 async function createCardIdea(form){
  const title=String(form.title.value||'').trim(),message=String(form.message.value||'').trim();
  if(!title||!message)return alert('カード名と内容を入力してください');
- try{const d=await apiCall('/card-ideas/create',{title,message});form.reset();selectedPlayerCardIdea=Number(d.id);await loadPlayerCardIdeas();await openPlayerCardIdea(selectedPlayerCardIdea);alert('運営に個別送信しました。他のプレイヤーには表示されません。');}
+ try{const image_data=await cardIdeaImageToDataUrl(form.elements.namedItem('image')?.files?.[0]);const d=await apiCall('/card-ideas/create',{title,message,image_data});form.reset();previewCardIdeaImage(null,'card-idea-file-preview');selectedPlayerCardIdea=Number(d.id);await loadPlayerCardIdeas();await openPlayerCardIdea(selectedPlayerCardIdea);alert('運営に個別送信しました。他のプレイヤーには表示されません。');}
  catch(e){alert(e.message||'送信できませんでした');}
 }
+function cardIdeaImageMarkup(value){const image=String(value||'');if(!image||image.length>950000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image))return '';return `<div style="margin-top:8px"><img src="${image}" alt="添付画像" loading="lazy" style="max-width:min(100%,340px);max-height:320px;object-fit:contain;border:1px solid #9aa;border-radius:9px;background:#fff"></div>`;}
 async function openPlayerCardIdea(id,refreshList=true){
  selectedPlayerCardIdea=Number(id);
  const host=document.getElementById('player-card-idea-thread');if(!host)return;
@@ -483,11 +513,11 @@ async function openPlayerCardIdea(id,refreshList=true){
  try{
   const d=await apiCall('/card-ideas/thread?id='+encodeURIComponent(id));
   const t=d.thread,m=d.messages||[];
-  host.innerHTML=`<div class="panel"><h3>${esc(t.title)}</h3><small>運営との個別スレッド ・ ${esc(t.status==='replied'?'運営から返信あり':'受付中')}</small>${m.map(x=>`<div class="panel" style="margin:8px 0;background:${x.sender_role==='admin'?'#e8f2ff':'#f5f5f5'};color:#111"><b>${x.sender_role==='admin'?'🛠 運営':'👤 あなた'}</b><small>　${esc(cardIdeaDate(x.created_at))}</small><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.message)}</div></div>`).join('')}<form class="row" onsubmit="event.preventDefault();replyPlayerCardIdea(this,${Number(id)})"><textarea name="message" maxlength="1000" rows="2" required style="flex:1;min-width:180px" placeholder="運営に返信する"></textarea><button>返信</button></form></div>`;
+  host.innerHTML=`<div class="panel"><h3>${esc(t.title)}</h3><small>運営との個別スレッド ・ ${esc(t.status==='replied'?'運営から返信あり':'受付中')}</small><p><b>運営設定の属性：</b>${t.attribute==='sound'?'🎵 音属性':'未設定'}</p>${m.map(x=>`<div class="panel" style="margin:8px 0;background:${x.sender_role==='admin'?'#e8f2ff':'#f5f5f5'};color:#111"><b>${x.sender_role==='admin'?'🛠 運営':'👤 あなた'}</b><small>　${esc(cardIdeaDate(x.created_at))}</small><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.message)}</div>${cardIdeaImageMarkup(x.image_data)}</div>`).join('')}<form class="row" onsubmit="event.preventDefault();replyPlayerCardIdea(this,${Number(id)})"><textarea name="message" maxlength="1000" rows="2" style="flex:1;min-width:180px" placeholder="運営に返信する"></textarea><label style="display:block;width:100%">画像を添付（任意）<input name="image" type="file" accept="image/*" onchange="previewCardIdeaImage(this,'card-idea-reply-preview')"></label><div id="card-idea-reply-preview" style="width:100%"></div><button>返信</button></form></div>`;
   if(refreshList)loadPlayerCardIdeas().catch(()=>{});
  }catch(e){host.textContent=e.message||'会話を開けませんでした';}
 }
-async function replyPlayerCardIdea(form,id){const message=String(form.message.value||'').trim();if(!message)return;try{await apiCall('/card-ideas/reply',{id:Number(id),message});await openPlayerCardIdea(id);await loadPlayerCardIdeas();}catch(e){alert(e.message||'返信できませんでした');}}
+async function replyPlayerCardIdea(form,id){const message=String(form.message.value||'').trim(),file=form.elements.namedItem('image')?.files?.[0];if(!message&&!file)return;try{const image_data=await cardIdeaImageToDataUrl(file);await apiCall('/card-ideas/reply',{id:Number(id),message:message||'画像を添付しました。',image_data});await openPlayerCardIdea(id);await loadPlayerCardIdeas();}catch(e){alert(e.message||'返信できませんでした');}}
 async function refreshAdminCardIdeas(){
  const list=document.getElementById('admin-card-ideas-list');if(!list||!isAdmin)return;
  list.textContent='読み込み中...';
@@ -499,11 +529,12 @@ async function refreshAdminCardIdeas(){
 async function openAdminCardIdea(id,refreshList=true){
  selectedAdminCardIdea=Number(id);const host=document.getElementById('admin-card-idea-thread');if(!host)return;host.textContent='会話を読み込み中...';
  try{const d=await apiCall('/admin/card-ideas/thread?id='+encodeURIComponent(id));const t=d.thread,m=d.messages||[];
-  host.innerHTML=`<div class="panel"><h3>${esc(t.title)}</h3><p>投稿者：<b>${esc(t.display_name||t.username)}</b>（${esc(t.username)}）</p>${m.map(x=>`<div class="panel" style="margin:8px 0;background:${x.sender_role==='admin'?'#e8f2ff':'#f5f5f5'};color:#111"><b>${x.sender_role==='admin'?'🛠 運営':'👤 '+esc(t.display_name||t.username)}</b><small>　${esc(cardIdeaDate(x.created_at))}</small><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.message)}</div></div>`).join('')}<form class="row" onsubmit="event.preventDefault();replyAdminCardIdea(this,${Number(id)})"><textarea name="message" maxlength="1000" rows="2" required style="flex:1;min-width:180px" placeholder="このプレイヤーだけに返信"></textarea><button>個別返信</button></form></div>`;
+  host.innerHTML=`<div class="panel"><h3>${esc(t.title)}</h3><p>投稿者：<b>${esc(t.display_name||t.username)}</b>（${esc(t.username)}）</p><div class="panel"><b>カード属性（運営設定）</b><div class="row"><select id="card-idea-attribute-${Number(id)}"><option value="" ${!t.attribute?'selected':''}>未設定</option><option value="sound" ${t.attribute==='sound'?'selected':''}>🎵 音属性</option></select><button type="button" onclick="saveAdminCardIdeaAttribute(${Number(id)})">属性を保存</button></div><small>音属性は今後カード効果を追加するときに使えるよう、リクエストに記録します。</small></div>${m.map(x=>`<div class="panel" style="margin:8px 0;background:${x.sender_role==='admin'?'#e8f2ff':'#f5f5f5'};color:#111"><b>${x.sender_role==='admin'?'🛠 運営':'👤 '+esc(t.display_name||t.username)}</b><small>　${esc(cardIdeaDate(x.created_at))}</small><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.message)}</div>${cardIdeaImageMarkup(x.image_data)}</div>`).join('')}<form class="row" onsubmit="event.preventDefault();replyAdminCardIdea(this,${Number(id)})"><textarea name="message" maxlength="1000" rows="2" style="flex:1;min-width:180px" placeholder="このプレイヤーだけに返信"></textarea><label style="display:block;width:100%">画像を添付（任意）<input name="image" type="file" accept="image/*" onchange="previewCardIdeaImage(this,'admin-card-idea-reply-preview')"></label><div id="admin-card-idea-reply-preview" style="width:100%"></div><button>個別返信</button></form></div>`;
   if(refreshList)refreshAdminCardIdeas().catch(()=>{});
  }catch(e){host.textContent=e.message||'会話を開けませんでした';}
 }
-async function replyAdminCardIdea(form,id){const message=String(form.message.value||'').trim();if(!message)return;try{await apiCall('/admin/card-ideas/reply',{id:Number(id),message});await openAdminCardIdea(id);await refreshAdminCardIdeas();}catch(e){alert(e.message||'返信できませんでした');}}
+async function replyAdminCardIdea(form,id){const message=String(form.message.value||'').trim(),file=form.elements.namedItem('image')?.files?.[0];if(!message&&!file)return;try{const image_data=await cardIdeaImageToDataUrl(file);await apiCall('/admin/card-ideas/reply',{id:Number(id),message:message||'画像を添付しました。',image_data});await openAdminCardIdea(id);await refreshAdminCardIdeas();}catch(e){alert(e.message||'返信できませんでした');}}
+async function saveAdminCardIdeaAttribute(id){const select=document.getElementById('card-idea-attribute-'+Number(id));if(!select)return;try{await apiCall('/admin/card-ideas/attribute',{id:Number(id),attribute:select.value});await openAdminCardIdea(id);await refreshAdminCardIdeas();alert('カード属性を保存しました');}catch(e){alert(e.message||'属性を保存できませんでした');}}
 
 // ---------- カード追加リクエストの新着通知（運営・プレイヤー双方） ----------
 let tcCardIdeaNotifyOwner='';
@@ -962,7 +993,7 @@ function render(){
  if(screen==='rank'){h=nav+`<h2>連勝ランキング</h2><div id="cloud-rankings"><p>ランキングを読み込み中...</p></div>`}
  if(screen==='post'){const __mailPending=(u.mail||[]).filter(m=>!m.done&&m.serverId).length;h=nav+`<div class="panel"><h2>ポスト</h2>${__mailPending?`<button type="button" onclick="claimAllMail()">📦 未受取を一括受け取り（${__mailPending}件）</button>`:''}${u.mail.length?u.mail.map((m,i)=>`<div class="panel"><b>${esc(m.from)}</b>: ${esc(m.text)} ${m.coins?'🪙'+m.coins:''} ${m.xp?'XP'+m.xp:''} ${m.done?'(受取済)':`<button class="sm" onclick="claim(${i})">受け取る</button>`}</div>`).join(''):'<p>手紙はありません</p>'}<h3>手紙を送る</h3><form class="row" onsubmit="event.preventDefault();sendMail(this)"><input name="to" placeholder="宛先アカウント名"><input name="t" placeholder="本文"><button>送信</button></form><p>${esc(msg)}</p></div>`;}
  if(screen==='notifications')h=nav+`<div class="panel"><h2>🔔 運営からの通知</h2><p>運営からあなた個人に届いた配布・プレゼント・お知らせです。他のプレイヤーには表示されません。</p>${PLAYER_NOTIFICATIONS.length?PLAYER_NOTIFICATIONS.map(n=>`<div class="panel" style="border-color:${n.read_at?'#46708f':'#f6d365'}"><div class="row"><b>${esc(n.title||'運営からのお知らせ')}</b><span style="flex:1"></span><small>${n.read_at?'確認済み':'未読'}</small></div><p style="white-space:pre-wrap">${esc(n.body||'')}</p><small>${esc(n.created_at||'')}</small></div>`).join(''):'<p>通知はまだありません。</p>'}<button type="button" onclick="go('home')">ホームに戻る</button></div>`;
- if(screen==='cardIdeas')h=nav+`<div class="panel"><h2>💡 運営へのカード追加リクエスト</h2><p>ここに送った内容は、あなたと運営だけが見られます。他のプレイヤーには公開されません。</p><form class="panel" onsubmit="event.preventDefault();createCardIdea(this)"><label>追加してほしいカード名<br><input name="title" maxlength="60" required placeholder="カード名"></label><label>カードの効果・説明<br><textarea name="message" maxlength="1000" rows="4" required style="width:100%;box-sizing:border-box" placeholder="どんな効果のカードにしてほしいか書いてね"></textarea></label><button>運営に送信する</button></form><div class="panel"><h3>あなたのリクエスト・運営との個別連絡</h3><div id="player-card-ideas-list">読み込み中...</div><div id="player-card-idea-thread"></div></div><p class="err">${esc(msg)}</p></div>`;
+ if(screen==='cardIdeas')h=nav+`<div class="panel"><h2>💡 運営へのカード追加リクエスト</h2><p>ここに送った内容は、あなたと運営だけが見られます。他のプレイヤーには公開されません。</p><form class="panel" onsubmit="event.preventDefault();createCardIdea(this)"><label>追加してほしいカード名<br><input name="title" maxlength="60" required placeholder="カード名"></label><label>カードの効果・説明<br><textarea name="message" maxlength="1000" rows="4" required style="width:100%;box-sizing:border-box" placeholder="どんな効果のカードにしてほしいか書いてね"></textarea></label><label>参考画像（任意）<br><input name="image" type="file" accept="image/*" onchange="previewCardIdeaImage(this,'card-idea-file-preview')"></label><div id="card-idea-file-preview"></div><small>画像は送信時に自動で縮小されます（元画像10MB以下）。</small><br><button>運営に送信する</button></form><div class="panel"><h3>あなたのリクエスト・運営との個別連絡</h3><div id="player-card-ideas-list">読み込み中...</div><div id="player-card-idea-thread"></div></div><p class="err">${esc(msg)}</p></div>`;
  if(screen==='online')h=nav+`<div class="panel"><h2>🌐 オンライン対戦(最大4人)</h2><p class="err">${esc(msg)}</p><div class="row"><div class="panel"><h3>オープン対戦</h3><p>パスワードなし。誰でも参加できます。</p><button onclick="netJoin('open')">⚔️ 対戦相手を探す</button> <button onclick="netJoin('openNew')">ルームを新規作成</button></div><div class="panel"><h3>プライベート対戦</h3><p>パスワードを知っている人だけ参加できます。</p><form class="row" onsubmit="event.preventDefault();netJoin('pcreate',this.p.value)"><input name="p" placeholder="パスワード設定" maxlength="32" required><button>ルーム作成</button></form><form class="row" onsubmit="event.preventDefault();netJoin('pjoin',this.p.value,this.i.value)"><input name="i" placeholder="ルームID" required><input name="p" placeholder="パスワード" maxlength="32"><button>参加</button></form></div></div></div>`;
  if(screen==='room'&&roster)h=nav+`<div class="panel"><h2>${roster.kind==='private'?'🔒 プライベート':'🌐 オープン'}ルーム</h2><p>ルームID: <b>${esc(roster.roomId)}</b>${roster.kind==='private'?'(パスワードと一緒に友達へ共有)':''}</p><div>${roster.names.map((n,i)=>`<div>${i+1}. ${esc(n)}${i===0?' 👑ホスト':''}${i===roster.seat?' (あなた)':''}</div>`).join('')}</div><p>${roster.names.length}/4人</p><div class="row">${HOST?`<button ${roster.names.length<2?'disabled':''} onclick="room.send('start')">▶ 対戦開始</button>`:'<span>ホストの開始を待っています…</span>'}<button onclick="leaveNet();go('online')">退出</button></div></div>`;
  if(screen==='missions'&&me){msCheck();const row=(label,prog,tgt,rw,done,claimed,fn,extra='')=>'<div class="panel"><div class="row"><b>'+label+'</b><span style="flex:1"></span><span>'+(done?'✔ 達成!':'進捗 '+prog+'/'+tgt)+'</span>'+(done&&!claimed?'<button class="sm" onclick="'+fn+'">🪙'+rw+' 受取</button>':(claimed?'<span class="sm">受取済</span>':''))+'</div>'+(extra||'')+'</div>';
