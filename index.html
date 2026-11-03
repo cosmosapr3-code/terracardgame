@@ -206,6 +206,8 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
 #tc-cardidea-toast{display:none;margin:0 0 9px auto;padding:13px 15px;border:2px solid #ffe082;border-radius:12px;background:#102b49;color:#fff;box-shadow:0 6px 24px #06172dcc;cursor:pointer;font-weight:800;animation:tcCardIdeaNoticeIn .22s ease-out}
 @keyframes tcCardIdeaNoticeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){#tc-cardidea-toast{animation:none}}
+
+.tc-cost-under-image{display:block;background:#f1c53d;color:#171717;font-weight:900;text-align:center;padding:2px 4px;border-radius:4px;margin-top:3px;font-size:11px}.tc-charm-rarity{font-weight:900}
 </style></head><body><div id="app"></div>
 <script>
 // Opaque-origin preview/file safety: keep normal browser storage when available,
@@ -358,7 +360,7 @@ const BASE_KEYS=Object.keys(CARDS).filter(k=>!CARDS[k].fixed);
 const DEF_S={hp:10,ap:5,hand:3,maxHand:7,drawCost:1,apInc:1};
 const BASE_ENABLED=BASE_KEYS.filter(k=>!['sovres','ally'].includes(k));
 // admin-editable data
-let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];
+let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;
 let POOL=[];
 const saveCfg=()=>{
  localStorage.cgc_cfg=JSON.stringify(CFG);
@@ -383,9 +385,9 @@ const save=()=>localStorage.cgc_db=JSON.stringify(db);
 const TERRACARD_API='https://terracard-api.cosmos-apr-3.workers.dev';
 let TERRACARD_TOKEN=localStorage.cgc_token||'';
 async function apiCall(path,body=null){const r=await fetch(TERRACARD_API+path,{method:body===null?'GET':'POST',headers:{'Content-Type':'application/json',...(TERRACARD_TOKEN?{Authorization:'Bearer '+TERRACARD_TOKEN}:{})},...(body===null?{}:{body:JSON.stringify(body)})});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'サーバーに接続できません');return d;}
-async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config');if(d&&d.config&&typeof d.config==='object'){const c=d.config;CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[]};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();return true}if(isAdmin){await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.warn('運営ゲーム設定を取得できませんでした',e)}return false;}
-async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0});u.profileInitialized=true;return d;}
-async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Number(d.player.coins)||0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number(d.player.char)||0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';u.story=Number(d.player.story)||0;u.profileInitialized=true;}save();return d;}
+async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config');if(d&&d.config&&typeof d.config==='object'){const c=d.config;CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();return true}if(isAdmin){await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.warn('運営ゲーム設定を取得できませんでした',e)}return false;}
+async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0,charms:Array.isArray(u.charms)?u.charms:[],equippedCharmId:u.equippedCharmId||null});u.profileInitialized=true;return d;}
+async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Number(d.player.coins)||0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number(d.player.char)||0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';u.story=Number(d.player.story)||0;u.charms=Array.isArray(d.player.charms)?d.player.charms:[];u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.profileInitialized=true;}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
 setInterval(()=>{if(me&&!isAdmin&&screen==='home')refreshCloudChat()},5000);
 const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cgc'+s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 let me=null,isAdmin=false,screen='auth',msg='';
@@ -643,12 +645,24 @@ async function msAddCustom(f){if(!isAdmin)return msMsg('ミッション作成は
 }
 function msMsg(t){msg=t;if(screen==='missions')render()}
 // ---------- チュートリアル ----------
-const TUT=[['👋 ようこそ!','Card Grid Clashへようこそ。カードとマスを使った対戦ゲームです。基本の流れを紹介します。'],
- ['⚔️ CPU対戦','ホームから「ストーリー対戦」または「練習対戦」ができます。まずはストーリー第1節から始めてみましょう。相手のライフを0にすると勝利です。'],
- ['🌐 オンライン対戦','友達と最大4人で対戦できます。「ルームを新規作成」でルームIDが発行され、相手はID(とパスワード)で参加します。直接つながらない環境では接続設定のリレー(TURN)を使ってください。'],
- ['🃏 ガチャ','対戦で勝つとガチャコイン🪙がもらえます。コインでキャラクターガチャが引けます。'],
- ['🎯 ミッション','デイリーミッション(毎日リセット)・通常ミッション(段階的に報酬アップ)・自作ミッションでコインを稼げます。毎日チェックしよう。'],
- ['👤 プロフィール','名前やアイコンを変更できます。ポストには運営からのプレゼントが届くことも。それでは楽しい対戦を!']];
+const TUT=[
+ ['👋 ようこそ！','TERRACARDへようこそ。カードを使い、地面を移動しながら相手と対戦するゲームです。ここでは追加された機能もまとめて紹介します。'],
+ ['🧱 地面と移動','自分の5×5フィールド内を移動します。地面には耐久値があり、耐久が0になると穴になります。穴に入ると退場するので、足場にも注意しよう。'],
+ ['⚡ コストとカード','カードにはコストが表示されています。自分のターンに使えるコストの範囲でカードを選びます。手札の「ドロー」はターンごとに回数制限があります。'],
+ ['🛠️ 地面を直す','「リペア」は壊れた地面を耐久1で復活させます。壊れていない地面なら耐久を2回復し、最大3まで戻します。'],
+ ['🎲 特殊カード','「サイコロ」は1〜3なら相手に6ダメージ、4〜6なら自分に4ダメージ。「サボテン」は3ターン、受けたHPダメージの半分を相手に返します。カードごとの説明とコストを確認しよう。'],
+ ['©️ 属性カード','運営はカードに「著作権侵害属性」を付けられます。「著作権」は相手の手札にある属性付きカードを使用不能にし、「復活権限」は50%で戻します。'],
+ ['🌐 オンライン対戦','オンラインでは最大4人で対戦できます。ルームを作るか、友達のルームIDで参加します。対戦開始時は参加者の名前がVS表示されます。'],
+ ['🎰 ガチャとお守り','キャラクターガチャのほかに「お守りガチャ」があります。お守りはN・R・SR・SSR・URの5段階。レア度が高いほど効果が強くなります。装備できるお守りは1つだけです。'],
+ ['🧿 お守りの効果','カード運は出現率の低いカードを引きやすくし、コスト運はカード使用コストを下げることがあります。アイテム運は勝利時のお守りドロップ、ターンコスト運はターン開始時のコスト追加、攻撃・防御・体力プラス運は確率で能力を上げます。'],
+ ['🃏 新しいカード','博久（データなんかねえよ）は全相手の手札を最大2枚ずつ減らし、50%で全相手に5ダメージ。ホバキはHPを3回復。スピキは手札にホバキがなければ攻撃力+5、HP-5です。'],
+ ['💡 カードのコスト表示','カード一覧・手札・カード選択画面でコストを確認できます。ドローは初回0、2回目以降はゲーム設定のドローコスト、ターン終了は0です。'],
+ ['🎯 ミッションとポスト','ミッションやポストに受け取れる報酬が複数あるときは「一括受け取り」を使えます。受取済みの報酬は二重にもらえません。'],
+ ['💡 運営へのカード案','カード追加リクエストは、送った本人と運営だけの個別連絡です。運営から返信が来ると通知が表示されます。'],
+ ['📢 運営からのお知らせ','運営が「更新した」ボタンで公開した説明は、全プレイヤーに届きます。ログイン中なら画面に通知され、次回ログイン時にも確認できます。'],
+ ['🏁 それでは対戦へ！','ホームから対戦・カード一覧・ガチャ・お守り・ミッション・ポストへ進めます。カードのコストと効果を確認しながら楽しもう！']
+];
+
 let tutStep=-1;
 function startTutorial(){tutStep=0;tutPaint()}
 function tutPaint(){let el=document.getElementById('tutoverlay');
@@ -662,14 +676,14 @@ function startStory(n){const lv=n<=6?1:n<=15?2:n<=18?3:4;CPULV=lv;STORY=n;startB
 function startPractice(){STORY=0;CPULV=HLV;startBattle(HCPUS)}
 function wishPick(i){
  const p=G.ps[i];
- if(ONL||i!==SEAT||G.ps[i].human===false){p.hand.push(rc());return}
+ if(ONL||i!==SEAT||G.ps[i].human===false){p.hand.push(rc(p));return}
  G.wish=i;
  const d=document.createElement('div');
  d.className='resov';
  d.id='wishov';
  const picks=Object.keys(CARDS)
   .filter(k=>!CARDS[k].fixed&&!['wish','cheat','cheat_limit'].includes(k))
-  .map(k=>`<button class="sm" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;white-space:normal;min-width:190px;max-width:320px;gap:4px" onclick="wishTake('${k}')"><b>${esc(CARDS[k].i)} ${esc(CARDS[k].n)}</b></button>`)
+  .map(k=>`<button class="sm" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;white-space:normal;min-width:190px;max-width:320px;gap:4px" onclick="wishTake('${k}')"><b>${esc(CARDS[k].i)} ${esc(CARDS[k].n)}</b><small>コスト：${esc(String((k==='cheat'||k==='cheat_limit')?'∞':CARDS[k].c))}</small></button>`)
   .join('');
  d.innerHTML=`<div class="resbox" style="max-width:760px;max-height:80vh;overflow:auto"><h2>🌟 好きなカードを選ぼう</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px">${picks}</div></div>`;
  document.body.appendChild(d);
@@ -817,9 +831,10 @@ function render(){
  let h='';
  if(screen==='auth')h=`<div class="panel"><h1>Card Grid Clash</h1><p>アカウント名とパスワードで新規登録/ログイン</p><form onsubmit="event.preventDefault();auth(this)" class="row"><input name="n" placeholder="アカウント名" maxlength="16"><input name="p" type="password" placeholder="パスワード"><button name="m" value="login">ログイン</button><button name="m" value="reg" onclick="this.form.mode='reg'">新規登録</button></form><p class="err">${esc(msg)}</p><hr><button onclick="go('adminlogin')">運営</button></div>`;
  if(screen==='adminlogin')h=`<div class="panel"><h2>運営ログイン</h2><form onsubmit="event.preventDefault();adminLogin(this)" class="row"><input name="n" placeholder="ユーザー名"><input name="p" type="password" placeholder="パスワード"><button>ログイン</button><button type="button" onclick="go('auth')">戻る</button></form><p class="err">${esc(msg)}</p></div>`;
- if(screen==='home')h=nav+`<div class="panel"><h2>ホーム</h2><div class="row"><label>CPU対戦 <select id="md" onchange="HMODE=this.value;render()"><option value="story" ${HMODE==='story'?'selected':''}>ストーリー対戦</option><option value="prac" ${HMODE==='prac'?'selected':''}>練習対戦</option></select></label>${HMODE==='prac'?`<label>CPU人数 <select id="cpus" onchange="HCPUS=+this.value">${[1,2,3,4,5].map(n=>`<option ${n===HCPUS?'selected':''}>${n}</option>`).join('')}</select></label><label>CPUの強さ <select id="lv" onchange="HLV=+this.value"><option value="1" ${HLV===1?'selected':''}>弱い</option><option value="2" ${HLV===2?'selected':''}>普通</option><option value="3" ${HLV===3?'selected':''}>強い</option>${masterOK(u)?`<option value="4" ${HLV===4?'selected':''}>達人</option>`:''}</select></label><button onclick="startPractice()">⚔️ 練習対戦</button>`:`<div class="panel" style="width:100%"><b>1章 ストーリー</b>(クリア ${u.story||0}/20節)<div class="row">${Array.from({length:20},(_,i)=>`<button class="sm" ${i>(u.story||0)?'disabled':''} onclick="startStory(${i+1})">${i+1}節</button>`).join('')}</div></div>`}${isAdmin?'<button onclick="dlHtml()">💾 HTML版を保存</button>':''}<button onclick="go('online')">🌐 オンライン対戦</button><button onclick="go('cards')">🃏 カード一覧</button><button onclick="go('gacha')">🎰 ガチャ</button><button onclick="go('profile')">👤 プロフィール</button><button onclick="go('post')">📮 ポスト${u.mail.filter(m=>!m.done).length?' ('+u.mail.filter(m=>!m.done).length+')':''}</button><button onclick="go('missions')">🎯 ミッション</button>${!isAdmin?'<button onclick=\"go(\'cardIdeas\')\">💡 カード追加リクエスト</button>':''}<button onclick="go('rank')">🏆 ランキング</button><button type="button" onclick="startTutorial()">📖 チュートリアル</button>${isAdmin?'<button onclick="go(\'admin\')">🛠 運営</button>':''}</div><p>XP ${u.xp}/${needXp(u.level)}　ホームチャットは同じブラウザの他タブと共有されます。</p></div><div class="panel"><h3>ホームチャット</h3>${chatBox('home')}</div>`;
+ if(screen==='home')h=nav+`<div class="panel"><h2>ホーム</h2><div class="row"><label>CPU対戦 <select id="md" onchange="HMODE=this.value;render()"><option value="story" ${HMODE==='story'?'selected':''}>ストーリー対戦</option><option value="prac" ${HMODE==='prac'?'selected':''}>練習対戦</option></select></label>${HMODE==='prac'?`<label>CPU人数 <select id="cpus" onchange="HCPUS=+this.value">${[1,2,3,4,5].map(n=>`<option ${n===HCPUS?'selected':''}>${n}</option>`).join('')}</select></label><label>CPUの強さ <select id="lv" onchange="HLV=+this.value"><option value="1" ${HLV===1?'selected':''}>弱い</option><option value="2" ${HLV===2?'selected':''}>普通</option><option value="3" ${HLV===3?'selected':''}>強い</option>${masterOK(u)?`<option value="4" ${HLV===4?'selected':''}>達人</option>`:''}</select></label><button onclick="startPractice()">⚔️ 練習対戦</button>`:`<div class="panel" style="width:100%"><b>1章 ストーリー</b>(クリア ${u.story||0}/20節)<div class="row">${Array.from({length:20},(_,i)=>`<button class="sm" ${i>(u.story||0)?'disabled':''} onclick="startStory(${i+1})">${i+1}節</button>`).join('')}</div></div>`}${isAdmin?'<button onclick="dlHtml()">💾 HTML版を保存</button>':''}<button onclick="go('online')">🌐 オンライン対戦</button><button onclick="go('cards')">🃏 カード一覧</button><button onclick="go('gacha')">🎰 ガチャ</button><button onclick="go('charms')">🧿 お守り ${u.charms&&u.charms.length?'('+u.charms.length+')':''}</button><button onclick="go('profile')">👤 プロフィール</button><button onclick="go('post')">📮 ポスト${u.mail.filter(m=>!m.done).length?' ('+u.mail.filter(m=>!m.done).length+')':''}</button><button onclick="go('missions')">🎯 ミッション</button>${!isAdmin?'<button onclick=\"go(\'cardIdeas\')\">💡 カード追加リクエスト</button>':''}<button onclick="go('rank')">🏆 ランキング</button><button type="button" onclick="startTutorial()">📖 チュートリアル</button>${isAdmin?'<button onclick="go(\'admin\')">🛠 運営</button>':''}</div><p>XP ${u.xp}/${needXp(u.level)}　ホームチャットは同じブラウザの他タブと共有されます。</p></div><div class="panel"><h3>ホームチャット</h3>${chatBox('home')}</div>`;
  if(screen==='cards')h=nav+`<div class="panel"><h2>カード一覧</h2>${cardListHtml()}</div>`;
- if(screen==='gacha')h=nav+`<div class="panel"><h2>キャラクターガチャ</h2><p>1回 🪙1 ・ 所持 🪙${u.coins}</p><button onclick="pull()" ${u.coins<1?'disabled':''}>ガチャを引く</button><p>${msg}</p><div class="row">${CHARS.map((c,i)=>`<button class="sm" ${u.chars.includes(i)?'':'disabled'} onclick="U().char=${i};U().img='';save();syncCloudProfile().catch(e=>alert(e.message));render()"><span style="font-size:28px">${c[0]}</span><br>${c[1]}</button>`).join('')}</div></div>`;
+ if(screen==='gacha')h=nav+`<div class="panel"><h2>キャラクターガチャ</h2><p>1回 🪙1 ・ 所持 🪙${u.coins}</p><button onclick="pull()" ${u.coins<1?'disabled':''}>キャラクターガチャを引く</button><p>${msg}</p><div class="row">${CHARS.map((c,i)=>`<button class="sm" ${u.chars.includes(i)?'':'disabled'} onclick="U().char=${i};U().img='';save();syncCloudProfile().catch(e=>alert(e.message));render()"><span style="font-size:28px">${c[0]}</span><br>${c[1]}</button>`).join('')}</div></div><div class="panel"><h2>🧿 お守りガチャ</h2><p>1回 🪙1 ・ 所持 🪙${u.coins}</p><button onclick="pullCharm()" ${u.coins<1?'disabled':''}>お守りガチャを引く</button><p>レア度の出現率：N 60% / R 25% / SR 10% / SSR 4% / UR 1%</p><p>お守りは7種類の効果からランダムで1つ。レア度が高いほど効果が強くなります。装備は1つだけ。</p><div class="row">${Object.entries(CHARM_RARITIES).map(([k,v])=>`<span class="panel" style="border:2px solid ${v.color};padding:8px">${esc(v.label)}：${v.weight}%</span>`).join('')}</div><p>${msg}</p><button type="button" onclick="go('charms')">所持お守り・装備を管理</button></div>`;
+ if(screen==='charms')h=nav+charmScreenHtml(u)+`<p>${esc(msg)}</p>`;
  if(screen==='profile')h=nav+`<div class="panel"><h2>プロフィール</h2><p>${avatar(u)} Lv.${u.level} ${rankOf(u.best)} / 最高連勝 ${u.best}</p><form class="row" onsubmit="event.preventDefault();U().display=this.d.value.slice(0,12)||U().display;save();try{missEvent('profile',1)}catch(e){};syncCloudProfile().catch(e=>alert(e.message));render()"><input name="d" value="${esc(u.display)}" maxlength="12"><button>名前変更</button></form><p>画像を参照して変更: <input type="file" accept="image/*" onchange="setImg(this.files[0])"></p><button type="button" onclick="startTutorial()">📖 チュートリアルをもう一度見る</button></div>`;
  if(screen==='rank'){h=nav+`<h2>連勝ランキング</h2><div id="cloud-rankings"><p>ランキングを読み込み中...</p></div>`}
  if(screen==='post'){const __mailPending=(u.mail||[]).filter(m=>!m.done&&m.serverId).length;h=nav+`<div class="panel"><h2>ポスト</h2>${__mailPending?`<button type="button" onclick="claimAllMail()">📦 未受取を一括受け取り（${__mailPending}件）</button>`:''}${u.mail.length?u.mail.map((m,i)=>`<div class="panel"><b>${esc(m.from)}</b>: ${esc(m.text)} ${m.coins?'🪙'+m.coins:''} ${m.xp?'XP'+m.xp:''} ${m.done?'(受取済)':`<button class="sm" onclick="claim(${i})">受け取る</button>`}</div>`).join(''):'<p>手紙はありません</p>'}<h3>手紙を送る</h3><form class="row" onsubmit="event.preventDefault();sendMail(this)"><input name="to" placeholder="宛先アカウント名"><input name="t" placeholder="本文"><button>送信</button></form><p>${esc(msg)}</p></div>`;}
@@ -838,7 +853,7 @@ function render(){
   }).join(''):'<p class="sm">運営から配布されたミッションはまだありません。</p>';
   const creator=isAdmin?'<div class="panel"><h3>✏️ 運営ミッション作成</h3><form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>全員に配布</button></form><p class="sm">作成したミッションは全プレイヤーに配布され、進捗と報酬受取は各プレイヤー別に保存されます。</p></div>':'';
   const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">チュートリアルをもう一度見る</button></div>';}
- if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
+ if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
  if(screen==='battle')h=nav+`<div id="bboard"></div><div class="panel"><h3>対戦チャット</h3>${chatBox('battle')}</div>`;
  app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin'){refreshAdminChat();refreshAdminCardIdeas()}if(screen==='cardIdeas')loadPlayerCardIdeas();tcRenderAudioButton();tcSyncMusic();
 }
@@ -852,8 +867,8 @@ async function auth(f){
   await loadGlobalGameConfig();
   const old=db.users[n]||{};const remote=data.player||{};
   const serverProfile=!!remote.profile_initialized;
-  db.users[n]={...old,name:n,display:serverProfile?(remote.display_name||old.display||n):(old.display||remote.display_name||n),coins:Number(remote.coins)||0,xp:Number(remote.xp)||0,level:Number(remote.level)||1,streak:Number(remote.streak)||old.streak||0,best:Number(remote.best)||old.best||0,cstreak:Number(remote.cstreak)||old.cstreak||0,cbest:Number(remote.cbest)||old.cbest||0,char:serverProfile?(Number.isInteger(remote.char)?remote.char:0):(Number(old.char)||0),chars:serverProfile?(Array.isArray(remote.chars)&&remote.chars.length?remote.chars:[0]):(old.chars||[0]),img:serverProfile?(remote.img||''):(old.img||''),story:serverProfile?(Number(remote.story)||0):(Number(old.story)||0),mail:old.mail||[],banned:false};
-  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');setTimeout(()=>pollCardIdeaNotifications(),500);if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
+  db.users[n]={...old,name:n,display:serverProfile?(remote.display_name||old.display||n):(old.display||remote.display_name||n),coins:Number(remote.coins)||0,xp:Number(remote.xp)||0,level:Number(remote.level)||1,streak:Number(remote.streak)||old.streak||0,best:Number(remote.best)||old.best||0,cstreak:Number(remote.cstreak)||old.cstreak||0,cbest:Number(remote.cbest)||old.cbest||0,char:serverProfile?(Number.isInteger(remote.char)?remote.char:0):(Number(old.char)||0),chars:serverProfile?(Array.isArray(remote.chars)&&remote.chars.length?remote.chars:[0]):(old.chars||[0]),img:serverProfile?(remote.img||''):(old.img||''),story:serverProfile?(Number(remote.story)||0):(Number(old.story)||0),charms:serverProfile&&Array.isArray(remote.charms)?remote.charms:(Array.isArray(old.charms)?old.charms:[]),equippedCharmId:serverProfile?(remote.equipped_charm_id||remote.equippedCharmId||null):(old.equippedCharmId||null),mail:old.mail||[],banned:false};
+  save();me=n;isAdmin=false;setSess();await refreshCloudInbox();await loadGlobalMissions(true);if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');setTimeout(()=>pollCardIdeaNotifications(),500);setTimeout(()=>pollGlobalUpdateNotice(),800);if(!U().tut){U().tut=1;save();setTimeout(startTutorial,800)}
  }catch(e){go('auth',e.message||'ログインに失敗しました')}
 }
 async function adminLogin(f){
@@ -862,10 +877,37 @@ async function adminLogin(f){
   TERRACARD_TOKEN=data.token;localStorage.cgc_token=TERRACARD_TOKEN;
   const n=data.isAdmin?f.n.value.trim():'';
   if(!n)throw new Error('運営ログインに失敗しました');
-  if(!db.users[n])db.users[n]={name:n,display:'運営',pw:'-',coins:0,xp:0,level:1,streak:0,best:0,char:0,chars:[0],img:'',mail:[],banned:false};
+  if(!db.users[n])db.users[n]={name:n,display:'運営',pw:'-',coins:0,xp:0,level:1,streak:0,best:0,char:0,chars:[0],img:'',charms:[],equippedCharmId:null,mail:[],banned:false};
   save();me=n;isAdmin=true;setSess();await loadGlobalGameConfig();await loadGlobalMissions(true);go('admin');setTimeout(()=>pollCardIdeaNotifications(),500);
  }catch(e){go('adminlogin',e.message||'運営ログインに失敗しました')}
 }
+const CHARM_RARITIES={N:{label:'N ノーマル',power:1,color:'#9aa0a6',weight:60},R:{label:'R レア',power:2,color:'#36a269',weight:25},SR:{label:'SR 激レア',power:3,color:'#368be6',weight:10},SSR:{label:'SSR 超激レア',power:4,color:'#a45de2',weight:4},UR:{label:'UR ウルトラレア',power:5,color:'#f0aa27',weight:1}};
+const CHARM_TYPES=[
+ {id:'cardLuck',name:'カード運',icon:'🃏',desc:'出現率の低いカードが出やすくなる'},
+ {id:'costLuck',name:'コスト運',icon:'⚡',desc:'カード使用時、確率でコストを1下げる'},
+ {id:'itemLuck',name:'アイテム運',icon:'🎁',desc:'試合に勝った時、低確率でお守りを獲得'},
+ {id:'turnCostLuck',name:'ターンコスト運',icon:'➕',desc:'自分のターン開始時、確率でコスト+1'},
+ {id:'attackLuck',name:'攻撃プラス運',icon:'⚔️',desc:'自分のターン開始時、確率で攻撃力が上がる'},
+ {id:'defenseLuck',name:'防御プラス運',icon:'🛡️',desc:'自分のターン開始時、確率で防御力が上がる'},
+ {id:'hpLuck',name:'体力プラス運',icon:'❤️',desc:'自分のターン開始時、確率で体力が上がる'}
+];
+const CHARM_CHANCE=[0,5,10,15,20,25];
+const CHARM_ITEM_CHANCE=[0,1,2,3,5,8];
+const CHARM_STAT_BONUS=[0,1,1,1,2,2];
+function charmType(id){return CHARM_TYPES.find(x=>x.id===id)||CHARM_TYPES[0]}
+function charmPower(charm){return Math.max(1,Math.min(5,Number(CHARM_RARITIES[charm&&charm.rarity]?.power)||1))}
+function charmChance(charm){return CHARM_CHANCE[charmPower(charm)]||5}
+function charmText(charm){if(!charm)return '未装備';const t=charmType(charm.type),p=charmPower(charm),chance=charm.type==='itemLuck'?CHARM_ITEM_CHANCE[p]:CHARM_CHANCE[p];return `${t.icon} ${t.name}：${t.desc}（発動率 ${chance}%・${charm.rarity}）`}
+function getEquippedCharm(){const u=U();if(!u)return null;return (u.charms||[]).find(x=>x.id===u.equippedCharmId)||null}
+function pickCharmLocal(){const roll=Math.random()*100;let acc=0,rarity='N';for(const [r,v] of Object.entries(CHARM_RARITIES)){acc+=v.weight;if(roll<acc){rarity=r;break}}const type=CHARM_TYPES[Math.floor(Math.random()*CHARM_TYPES.length)];return{id:'ch'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),type:type.id,rarity,createdAt:new Date().toISOString()}}
+async function pullCharm(){const u=U();if(!u||Number(u.coins)<1)return go('gacha','コインが足りません');try{const d=await apiCall('/player/charm/gacha',{});u.coins=Number(d.player?.coins)||0;u.charms=Array.isArray(d.charms)?d.charms:(u.charms||[]).concat(d.charm||[]);try{missEvent('gacha',1)}catch(e){}save();go('gacha',`${charmType(d.charm.type).name}（${d.charm.rarity}）を獲得！`)}catch(e){go('gacha',e.message||'お守りガチャに失敗しました')}}
+async function equipCharm(id){const u=U();if(!u)return;if(id&&!u.charms.some(x=>x.id===id))return go('charms','そのお守りを所持していません');try{const d=await apiCall('/player/charm/equip',{id:id||null});u.charms=Array.isArray(d.charms)?d.charms:u.charms;u.equippedCharmId=d.equipped_charm_id||null;save();go('charms',id?'お守りを装備しました':'お守りを外しました');}catch(e){go('charms',e.message||'装備を変更できませんでした')}}
+function charmScreenHtml(u){const list=Array.isArray(u.charms)?u.charms:[],equipped=getEquippedCharm();return `<div class="panel"><h2>🧿 お守り</h2><p>装備できるお守りは1つだけです。</p><div class="panel"><b>現在の装備</b><p>${equipped?esc(charmText(equipped)):'未装備'}</p>${equipped?'<button class="sm" onclick="equipCharm(null)">装備を外す</button>':''}</div>${list.length?list.map(c=>{const r=CHARM_RARITIES[c.rarity]||CHARM_RARITIES.N,t=charmType(c.type),on=c.id===u.equippedCharmId;return `<div class="panel row" style="border-color:${r.color};border-width:2px"><div style="font-size:28px">${t.icon}</div><div style="flex:1"><b style="color:${r.color}">${esc(r.label)}</b>　${esc(t.name)}<br><small>${esc(charmText(c))}</small></div>${on?'<b>装備中</b>':`<button class="sm" onclick="equipCharm('${esc(c.id)}')">装備</button>`}</div>`}).join(''):'<p>お守りはまだ持っていません。ガチャで入手できます。</p>'}</div>`}
+function publishUpdateNotice(form){if(!isAdmin)return;const text=String(form.description.value||'').trim().slice(0,1000);if(!text)return go('admin','全員に伝える更新内容を入力してください');const notice={id:'u'+Date.now().toString(36),text,by:'運営',at:new Date().toISOString()};CFG.updateNotice=notice;localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();apiCall('/admin/game/config',{config:CFG}).then(()=>go('admin','更新内容を全プレイヤーに公開しました')).catch(e=>go('admin','保存に失敗しました: '+(e.message||e)));}
+let __lastUpdateNoticeId='';let __updateNoticeTimer=0;
+function showUpdateNotice(notice){if(!notice||!notice.id||!notice.text)return;const key='cgc_update_seen_'+(me||'guest');let seen='';try{seen=localStorage.getItem(key)||''}catch(e){}if(seen===notice.id)return;try{localStorage.setItem(key,notice.id)}catch(e){}const old=document.getElementById('tc-global-update-notice');if(old)old.remove();const box=document.createElement('div');box.id='tc-global-update-notice';box.style.cssText='position:fixed;z-index:30000;left:50%;top:14px;transform:translateX(-50%);width:min(92vw,620px);background:#172b45;color:white;border:3px solid #f2c94c;border-radius:14px;padding:14px 16px;box-shadow:0 8px 30px #0008;white-space:pre-wrap;overflow-wrap:anywhere';box.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><b style="font-size:17px">📢 運営から更新のお知らせ</b><button type="button" style="margin-left:auto" onclick="this.parentNode.parentNode.remove()">閉じる</button></div><div style="margin-top:8px">${esc(notice.text)}</div><small style="display:block;margin-top:8px;opacity:.8">${esc(notice.at||'')}</small>`;document.body.appendChild(box);if(__updateNoticeTimer)clearTimeout(__updateNoticeTimer);__updateNoticeTimer=setTimeout(()=>box.remove(),12000)}
+async function pollGlobalUpdateNotice(){if(!me||isAdmin||!TERRACARD_TOKEN)return;try{const d=await apiCall('/game/config');const n=d?.config?.updateNotice;if(n&&n.id)showUpdateNotice(n)}catch(e){}}
+setInterval(()=>{if(me&&!isAdmin)pollGlobalUpdateNotice()},12000);
 async function pull(){const u=U();try{const d=await apiCall('/player/spend',{amount:1});u.coins=Number(d.player.coins)||0;}catch(e){return go('gacha',e.message||'コインを使えませんでした')}try{missEvent('gacha',1)}catch(e){}const r=Math.random(),i=r<.5?Math.floor(Math.random()*3):Math.floor(Math.random()*CHARS.length);const dup=u.chars.includes(i);if(!dup)u.chars.push(i);u.char=i;u.img='';save();try{await syncCloudProfile()}catch(e){console.warn('プロフィール同期失敗',e)}go('gacha',`${CHARS[i][0]} ${CHARS[i][1]} を獲得!${dup?'(重複)':'NEW!'}`)}
 function setImg(file){if(!file)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=96;const x=c.getContext('2d');const s=Math.min(im.width,im.height);x.drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,96,96);U().img=c.toDataURL('image/jpeg',.8);save();try{missEvent('profile',1)}catch(e){};syncCloudProfile().catch(e=>alert(e.message));render()};im.src=r.result};r.readAsDataURL(file)}
 async function claim(i){const u=U(),m=u.mail[i];if(!m||m.done)return;if(!m.serverId)return go('post','この手紙は旧形式です。運営配布の受信箱を更新してください');try{await apiCall('/messages/claim',{id:m.serverId});await refreshCloudInbox();render()}catch(e){go('post',e.message||'受け取りに失敗しました')}}
@@ -896,7 +938,7 @@ function adminCfg(){const S0=CFG.s;
  <h3>カード管理(コスト・出現率 0=出ない)</h3><p><small>「著作権侵害属性」を付けたカードは、相手が「著作権」カードを使うと使用不能になり、「復活権限」で50%の確率で手札に戻せます。この設定は全プレイヤーに共有されます。</small></p><div style="max-height:360px;overflow:auto"><table style="width:100%"><thead><tr><th>カード</th><th>コスト</th><th>出現率</th><th>ダメージ対象</th><th>著作権侵害属性</th><th></th></tr></thead><tbody>${keys.map(k=>{const c=CARDS[k],o=CFG.over[k]||{},w=POOL.filter(x=>x===k).length,marked=CFG.copyrightCards.includes(k);return `<tr><td>${c.i} ${esc(c.n)}${CFG.cards[k]?' ★':''}</td><td><input type="number" min="0" max="9" value="${c.c}" style="width:56px" onchange="cardOver('${k}','c',this.value)"></td><td><input type="number" min="0" max="9" value="${w}" style="width:56px" onchange="cardOver('${k}','w',this.value)"></td><td>${CFG.cards[k]&&CFG.cards[k].gen&&CFG.cards[k].gen.dmg?`<select aria-label="${esc(c.n)}のダメージ対象" onchange="cardTargetMode('${k}',this.value)"><option value="random" ${(c.targetMode||'random')==='random'?'selected':''}>ランダムな相手</option><option value="all" ${c.targetMode==='all'?'selected':''}>全員（自分を含む）</option></select>`:'—'}</td><td><label><input type="checkbox" ${marked?'checked':''} onchange="setCopyrightFlag('${k}',this.checked)"> 付ける</label></td><td>${CFG.cards[k]?`<button class="sm" onclick="delCard('${k}')">削除</button>`:''}</td></tr>`}).join('')}</tbody></table></div>
  <h3>カードを追加</h3><form class="row" onsubmit="event.preventDefault();addCard(this)"><input name="n" placeholder="カード名" required><input name="desc" placeholder="カードの説明" style="width:220px"><input name="i" placeholder="絵文字" maxlength="4" style="width:70px" value="⭐"><label>コスト <input name="c" type="number" min="0" max="9" value="1" style="width:56px"></label><label>ダメージ <input name="dmg" type="number" min="0" value="0" style="width:56px"></label><label>回復 <input name="heal" type="number" min="0" value="0" style="width:56px"></label><label>シールド <input name="shield" type="number" min="0" value="0" style="width:56px"></label><label>攻撃力+ <input name="atk" type="number" min="0" value="0" style="width:56px"></label><label>ドロー <input name="draw" type="number" min="0" value="0" style="width:56px"></label><label>ダメージ対象 <select name="targetMode"><option value="random">ランダムな相手</option><option value="all">全員（自分を含む）</option></select></label><button>追加</button></form>`}
 function setCfg(f){for(const k of ['hp','ap','apInc','hand','maxHand','drawCost'])CFG.s[k]=Math.max(k==='hp'||k==='ap'?1:0,+f[k].value||0);saveCfg();go('admin','設定を保存しました(次の対戦から有効)')}
-async function resetCfg(){CFG={s:{...DEF_S},cards:{},over:{},copyrightCards:[]};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(isAdmin&&TERRACARD_TOKEN){try{await apiCall('/admin/game/config',{config:CFG})}catch(e){alert('設定の共有に失敗しました: '+(e.message||e));return}}location.reload()}
+async function resetCfg(){const keepNotice=CFG.updateNotice||null,keepOnline=CFG.online||null;CFG={s:{...DEF_S},cards:{},over:{},copyrightCards:[],updateNotice:keepNotice,online:keepOnline};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(isAdmin&&TERRACARD_TOKEN){try{await apiCall('/admin/game/config',{config:CFG})}catch(e){alert('設定の共有に失敗しました: '+(e.message||e));return}}location.reload()}
 function setCopyrightFlag(k,on){CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];if(on){if(!CFG.copyrightCards.includes(k))CFG.copyrightCards.push(k)}else CFG.copyrightCards=CFG.copyrightCards.filter(x=>x!==k);saveCfg();go('admin',on?'著作権侵害属性を設定しました':'著作権侵害属性を解除しました')} function cardOver(k,f,v){CFG.over[k]=CFG.over[k]||{};CFG.over[k][f]=Math.max(0,+v||0);saveCfg();go('admin','更新しました')}
 function cardTargetMode(k,v){if(!CFG.cards[k]||!CFG.cards[k].gen||!CFG.cards[k].gen.dmg)return;CFG.cards[k].targetMode=v==='all'?'all':'random';saveCfg();go('admin',CFG.cards[k].n+' のダメージ対象を'+(v==='all'?'全員':'ランダムな相手')+'に変更しました')}
 function addCard(f){const g={};for(const k of ['dmg','heal','shield','atk','draw'])if(+f[k].value>0)g[k]=+f[k].value;if(!Object.keys(g).length)return go('admin','効果を1つ以上入力してください');
@@ -912,7 +954,7 @@ let G=null;
 const POS=['左上','右上','右下','左下'];
 function mkField(){return Array.from({length:25},()=>{const r=Math.random();return{c:r<.55?'w':'rbg'[Math.floor(Math.random()*3)],d:3}})}
 const S=()=>CFG.s;
-const rc=()=>POOL[Math.floor(Math.random()*POOL.length)];
+const rc=(player=null)=>{if(!POOL.length)return 'fire';const charm=player&&player.charm;if(charm&&charm.type==='cardLuck'){const counts={};POOL.forEach(k=>counts[k]=(counts[k]||0)+1);const weights=POOL.map(k=>1+((counts[k]||0)<=1?0.45*charmPower(charm):0));const total=weights.reduce((a,b)=>a+b,0);let r=Math.random()*total;for(let i=0;i<POOL.length;i++){r-=weights[i];if(r<=0)return POOL[i]}return POOL[POOL.length-1]}return POOL[Math.floor(Math.random()*POOL.length)]};
 let tcMatchIntroTimer=0;
 function showMatchIntro(playerNames,online){
  try{
@@ -929,10 +971,14 @@ function showMatchIntro(playerNames,online){
  }catch(e){console.warn('対戦開始表示を出せませんでした',e)}
 }
 
-function startBattle(cpus,names){
+function startBattle(cpus,names,charms){
  if(!names){ONL=false;SEAT=0}
  const u=U(),n=names?names.length:cpus+1,ps=[];
- for(let i=0;i<n;i++)ps.push({name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:i?{char:i%CHARS.length,img:''}:u,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:Array.from({length:S().hand},rc),copyrightDisabled:[],cactusTurns:0,lastMove:0,draws:0,turns:0,ap:0,apMax:0,youtubeAtkBonus:0,alive:true});
+ for(let i=0;i<n;i++){
+  const charm=names?(Array.isArray(charms)?charms[i]||null:null):(i===0?getEquippedCharm():null);
+  const p={name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:i?{char:i%CHARS.length,img:''}:u,charm,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:[],copyrightDisabled:[],cactusTurns:0,lastMove:0,draws:0,turns:0,ap:0,apMax:0,youtubeAtkBonus:0,alive:true};
+  p.hand=Array.from({length:S().hand},()=>rc(p));ps.push(p);
+ }
  ps.forEach(p=>p.f[12]={c:'w',d:3});
  G={ps,hist:[],snow:{left:0,lvl:0},turn:Math.floor(Math.random()*n),turnSeq:0,ap:S().ap,sel:null,card:null,target:1,over:false,keys:{},log:'',timer:0,done:false};
  G.target=nextAlive(0,1);battleLog=[];startTurn(false);
@@ -955,7 +1001,12 @@ function startTurn(r=true){const cp=G.ps[G.turn];G.hist.push(snap());if(G.hist.l
  if(cp.f[cp.y*5+cp.x].c==='y')ap++;
  if(G.snow.lvl>0){if(!umbBlock(cp))ap=Math.max(0,ap-G.snow.lvl);if(ap<=0&&!cp.hand.includes('umbrella')){hurt(cp,1,'島雪');ap=0}}
  if(cp.boost>0){cp.boost--;ap=810;cp.apMax=810;hurt(cp,1,'コスト増強810',1)}
- cp.ap=ap;G.ap=cp.ap;G.apMax=cp.apMax;cp.draws=0;G.card=null;G.cpuT=performance.now()+900;G.log=`${G.ps[G.turn].name} のターン`;if(G.turn===SEAT)showOwnTurnNotice();if(cp.cheatActive){const risk=Math.max(1,Math.min(1000,Number(cp.cheatRisk)||100));if(rnd(1000)<risk){cp.hp=0;cp.alive=false;G.log=cp.name+'はチートの反動で退場した…';checkEnd();if(!G.over)endTurn();return}cp.cheatRisk=Math.min(1000,risk+100)}if(cp.sleep>0){cp.sleep--;G.log=cp.name+'は眠っている… 移動もできない';checkEnd();if(!G.over)endTurn();return}if(r)paintBattle()}
+ const charm=cp.charm||null,power=charmPower(charm),rollCharm=()=>!!charm&&Math.random()*100<charmChance(charm),bonus=CHARM_STAT_BONUS[power]||1,charmLogs=[];
+ if(charm&&charm.type==='turnCostLuck'&&rollCharm()&&ap<cp.apMax){ap=Math.min(cp.apMax,ap+1);charmLogs.push('ターンコスト運 +1');}
+ if(charm&&charm.type==='attackLuck'&&rollCharm()){cp.atk=(Number(cp.atk)||0)+bonus;charmLogs.push('攻撃力+'+bonus);}
+ if(charm&&charm.type==='defenseLuck'&&rollCharm()){cp.sh=(Number(cp.sh)||0)+bonus;charmLogs.push('防御力+'+bonus);}
+ if(charm&&charm.type==='hpLuck'&&rollCharm()){cp.mhp=(Number(cp.mhp)||S().hp)+bonus;cp.hp=(Number(cp.hp)||0)+bonus;charmLogs.push('体力+'+bonus);}
+ cp.ap=ap;G.ap=cp.ap;G.apMax=cp.apMax;cp.draws=0;G.card=null;G.cpuT=performance.now()+900;G.log=`${G.ps[G.turn].name} のターン`+(charmLogs.length?' 🧿'+charmLogs.join(' / '):'');if(G.turn===SEAT)showOwnTurnNotice();if(cp.cheatActive){const risk=Math.max(1,Math.min(1000,Number(cp.cheatRisk)||100));if(rnd(1000)<risk){cp.hp=0;cp.alive=false;G.log=cp.name+'はチートの反動で退場した…';checkEnd();if(!G.over)endTurn();return}cp.cheatRisk=Math.min(1000,risk+100)}if(cp.sleep>0){cp.sleep--;G.log=cp.name+'は眠っている… 移動もできない';checkEnd();if(!G.over)endTurn();return}if(r)paintBattle()}
 function gmBlock(t){if(t.hand.includes('gasmask')){t.gm=(t.gm==null?3:t.gm)-1;if(t.gm<=0){t.hand.splice(t.hand.indexOf('gasmask'),1);t.gm=3}G.log=t.name+'のガスマスクが匂いを無効化';return true}return false}
 function endTurn(){if(G.over)return;const __endingPlayer=G.ps[G.turn];if(__endingPlayer&&Number(__endingPlayer.cactusTurns)>0)__endingPlayer.cactusTurns=Math.max(0,Number(__endingPlayer.cactusTurns)-1);if(__endingPlayer&&__endingPlayer.bannedCards){for(const __key of Object.keys(__endingPlayer.bannedCards)){const __left=Number(__endingPlayer.bannedCards[__key])||0;if(__left<=1)delete __endingPlayer.bannedCards[__key];else __endingPlayer.bannedCards[__key]=__left-1;}}if(G.smell>0){G.smell--;G.ps.forEach(q=>{if(q.alive&&!gmBlock(q))hurt(q,1,'体臭',1)});checkEnd();if(G.over)return}if(G.snow.left>0){G.snow.left--;G.snow.lvl++}else G.snow.lvl=0;G.turn=nextAlive(G.turn,1);G.ps.forEach((p,i)=>{});startTurn();if(G.turn===0&&G.target===0)G.target=nextAlive(0,1)}
 function enemyOf(i){return G.target!==i&&G.ps[G.target]&&G.ps[G.target].alive?G.target:nextAlive(i,1)}
@@ -965,17 +1016,17 @@ function playCard(i,k,tile){ // i player, k card key, tile {pi,ti}
  if(k==='cheat_limit'){if(!cheatLimitReady(p)){G.log='チート制限は対象カードを手札に持つと変化します';return false}k='cheat'}
  const c=CARDS[k];if(!c)return false;
  if(k==='draw'&&p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}
- let cost=c.c;if(k==='draw')cost=p.draws>0?S().drawCost:0;if(p.cheatActive&&k!=='cheat')cost=0;if(k==='rewind'&&G.over)return false;if(cost>(Number(p.ap)||0))return false;if(k==='youtube'&&(Number(p.ap)||0)<10){G.log='Youtubeの効果にはコスト10以上が必要です';return false}
+ let cost=c.c,costReduced=false;if(k==='draw')cost=p.draws>0?S().drawCost:0;if(p.cheatActive&&k!=='cheat')cost=0;const costCharm=p.charm;if(cost>0&&costCharm&&costCharm.type==='costLuck'&&Math.random()*100<charmChance(costCharm)){cost=Math.max(0,cost-1);costReduced=true;}if(k==='rewind'&&G.over)return false;if(cost>(Number(p.ap)||0))return false;if(k==='youtube'&&(Number(p.ap)||0)<10){G.log='Youtubeの効果にはコスト10以上が必要です';return false}
  const here=p.f[p.y*5+p.x].c;
  if(k==='end'){endTurn();return true}
- if(k==='draw'){if(p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}if(p.hand.length<S().maxHand+4)p.hand.push(rc());else{G.log='手札がいっぱいです';return false}p.draws++;p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;return true}
+ if(k==='draw'){if(p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}if(p.hand.length<S().maxHand+4)p.hand.push(rc(p));else{G.log='手札がいっぱいです';return false}p.draws++;p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;if(costReduced)G.log='🧿コスト運！ドローのコストが1下がった';return true}
  if(c.passive)return false;
- if(FX(i,k,c,cost,originalK)){if(i===G.turn)G.ap=p.ap;return true;}
+ if(FX(i,k,c,cost,originalK)){if(costReduced)G.log+='（🧿コスト運：コスト-1）';if(i===G.turn)G.ap=p.ap;return true;}
  if(c.tile){if(!tile)return false;const t=G.ps[tile.pi].f[tile.ti];if(k==='repair'){const durability=Math.max(0,Number(t.d)||0);if(durability===0){t.d=1;G.log='リペア：壊れた地面を耐久1で復活させた！'}else if(durability<3){t.d=Math.min(3,durability+2);G.log='リペア：地面の耐久を'+durability+'から'+t.d+'に回復した！'}else{G.log='リペア：その地面はすでに耐久MAXです';return false}}else if(k==='crush')t.d=Math.max(0,t.d-2);else t.c={w:'r',r:'b',b:'g',g:'r'}[t.c];}
  if(k==='fire'){const t=G.ps[enemyOf(i)];let d=2+p.atk+(here==='g'?1:0);hurt(t,d,p.name+' → '+t.name,1,i)}
  if(k==='heal')p.hp=Math.min(p.mhp,p.hp+2+(here==='r'?1:0));
  if(k==='guard')p.sh+=2+(here==='b'?1:0);
- p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;const ix=p.hand.indexOf(k);if(ix>=0)p.hand.splice(ix,1);
+ p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;const ix=p.hand.indexOf(k);if(ix>=0)p.hand.splice(ix,1);if(costReduced)G.log+='（🧿コスト運：コスト-1）';
  checkEnd();return true}
 function umbBlock(t){if(t.hand.includes('umbrella')){if(--t.umb<=0){t.hand.splice(t.hand.indexOf('umbrella'),1);t.umb=3}G.log=t.name+'の傘が無効化';return true}return false}
 function hurt(t,d,why,unav,sourceIndex,noReflect){
@@ -1011,7 +1062,7 @@ function fireMissile(i){const f=foes(i);if(!f.length)return;const t=f[rnd(f.leng
 function resolveInc(){if(!G.inc||!G.inc.length)return;const now=performance.now(),k=[];let changed=false;G.inc.forEach(m=>{if(now<m.at){k.push(m);return}changed=true;const t=G.ps[m.t];if(!t||!t.alive)return;if(m.ti===t.y*5+t.x)hurt(t,m.dm||10,m.dm?'弾幕':'ミサイル直撃',1,m.from);else t.f[m.ti].d=0;});G.inc=k;if(changed){checkEnd();paintBattle()}}
 function cheatLimitReady(p){const trigger=['horse','deathnote','dencha','rewind','taishu','crew','luck'];return !!p&&Array.isArray(p.hand)&&p.hand.some(k=>trigger.includes(k))}
 function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
- if(c.gen){const g=c.gen;if(g.dmg){let targets=[];if(c.targetMode==='all'){targets=G.ps.filter(q=>q.alive)}else{const f=foes(i);if(f.length)targets=[f[rnd(f.length)]]}targets.forEach(t=>hurt(t,g.dmg+p.atk,c.n,1,i));G.log=targets.length?(c.targetMode==='all'?c.n+'：全員（自分を含む）に'+(g.dmg+p.atk)+'ダメージ':c.n+'：'+targets[0].name+'に'+(g.dmg+p.atk)+'ダメージ'):c.n+'：対象の相手がいません'}else G.log=c.n;if(g.heal)p.hp=Math.min(p.mhp,p.hp+g.heal);if(g.shield)p.sh+=g.shield;if(g.atk)p.atk+=g.atk;if(g.draw)add(p,rc(),g.draw)}
+ if(c.gen){const g=c.gen;if(g.dmg){let targets=[];if(c.targetMode==='all'){targets=G.ps.filter(q=>q.alive)}else{const f=foes(i);if(f.length)targets=[f[rnd(f.length)]]}targets.forEach(t=>hurt(t,g.dmg+p.atk,c.n,1,i));G.log=targets.length?(c.targetMode==='all'?c.n+'：全員（自分を含む）に'+(g.dmg+p.atk)+'ダメージ':c.n+'：'+targets[0].name+'に'+(g.dmg+p.atk)+'ダメージ'):c.n+'：対象の相手がいません'}else G.log=c.n;if(g.heal)p.hp=Math.min(p.mhp,p.hp+g.heal);if(g.shield)p.sh+=g.shield;if(g.atk)p.atk+=g.atk;if(g.draw)add(p,rc(p),g.draw)}
  else if(c.paint){const w=p.f.map((t,j)=>t.c==='w'&&t.d>0?j:-1).filter(j=>j>=0);if(!w.length)return false;p.f[w[rnd(w.length)]].c=c.paint}
 
  else if(k==='taishu'){G.smell=3;G.log='体臭が漂う…'}
@@ -1159,7 +1210,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
 function checkEnd(){
  G.ps.forEach(p=>{if(p.alive&&p.f[p.y*5+p.x].d<=0){p.alive=false;p.hp=0;G.log=p.name+'は足場が壊れて落下!'}});
  G.ps.forEach((p,i)=>{if(!p.alive&&p.hand.includes('rewind')&&G.hist.length){const s=G.hist[Math.max(0,G.hist.length-1-(1+rnd(2)))];const d=JSON.parse(s);Object.assign(p,d.ps[i]);p.hand.splice(p.hand.indexOf('rewind'),1);p.alive=true;if(p.hp<=0)p.hp=p.mhp;G.log=p.name+'は逆戻りで復活!'}});const alive=G.ps.filter(p=>p.alive);if(ONL?alive.length<=1:(!G.ps[0].alive||alive.length===1))G.over=true}
-function finish(){if(!G.over||G.fin)return;G.fin=1;const win=G.ps[SEAT].alive;const u=U();const mul=STORY?1+STORY*0.15:1;const r=gain(u,win,!ONL,mul);if(win&&STORY&&!ONL){u.story=Math.max(u.story||0,STORY);save();syncCloudProfile().catch(e=>console.warn('ストーリー進行の同期失敗',e))}G.res={win,xp:r.xp,up:r.up,lv:u.level,st:ONL?u.streak:(u.cstreak||0)};try{missBattle(win,ONL,u)}catch(e){}}
+function finish(){if(!G.over||G.fin)return;G.fin=1;const win=G.ps[SEAT].alive;const u=U();const mul=STORY?1+STORY*0.15:1;const r=gain(u,win,!ONL,mul);let charmDrop=null;const equipped=getEquippedCharm();if(win&&equipped&&equipped.type==='itemLuck'&&Math.random()*100<CHARM_ITEM_CHANCE[charmPower(equipped)]){charmDrop=pickCharmLocal();u.charms=Array.isArray(u.charms)?u.charms:[];u.charms.push(charmDrop);syncCloudProfile().catch(e=>console.warn('お守りドロップ保存失敗',e));save();}if(win&&STORY&&!ONL){u.story=Math.max(u.story||0,STORY);save();syncCloudProfile().catch(e=>console.warn('ストーリー進行の同期失敗',e))}G.res={win,xp:r.xp,up:r.up,lv:u.level,st:ONL?u.streak:(u.cstreak||0),charmDrop};try{missBattle(win,ONL,u)}catch(e){}}
 let cpuPaintTimer=0;
 function scheduleCpuBattlePaint(){if(cpuPaintTimer)return;cpuPaintTimer=setTimeout(()=>{cpuPaintTimer=0;paintBattle()},100)}
 function move(i,dx,dy){const p=G.ps[i],now=performance.now();if(G.over||!p.alive||now-p.lastMove<250)return false;if((Number(p.sleep)||0)>0){if(i===SEAT){G.log='眠っているため移動できません';paintBattle()}return false;}const nx=p.x+dx,ny=p.y+dy;if(nx<0||ny<0||nx>4||ny>4||p.f[ny*5+nx].d<=0)return false;p.x=nx;p.y=ny;p.lastMove=now;if(i===SEAT)paintBattle();else scheduleCpuBattlePaint();return true}
@@ -1200,7 +1251,7 @@ function paintBattle(){
   if(window.__tcHandPointerActive){window.__tcHandRefreshPending=true;}
   else {hand.innerHTML=`${you.hand.map((k,hi)=>cardHtml(k,hi)).join('')}${cardHtml('draw')}${cardHtml('end')}`;el.dataset.handKey=handKey;}
  }
- result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY&&G.res.win&&STORY<20?` <button onclick="startStory(${STORY+1})">次の節へ</button>`:` <button onclick="STORY?startStory(${STORY}):startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
+ result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.charmDrop?`<br>🎁 お守りドロップ：${esc(charmText(G.res.charmDrop))}`:''}${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY&&G.res.win&&STORY<20?` <button onclick="startStory(${STORY+1})">次の節へ</button>`:` <button onclick="STORY?startStory(${STORY}):startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
  const notice=G.turnNoticeUntil&&Date.now()<G.turnNoticeUntil&&G.turn===SEAT;
  let noticeEl=el.querySelector('.tc-turn-notice');
  if(notice&&!noticeEl){noticeEl=document.createElement('div');noticeEl.className='tc-turn-notice';noticeEl.textContent='あなたのターン！';noticeEl.setAttribute('role','status');noticeEl.setAttribute('aria-live','polite');el.appendChild(noticeEl);}
@@ -1219,10 +1270,10 @@ function paintBattle(){
    : `<div class="i">${esc(c.i)}</div>`;
  // Full-card assets already contain the original title and description. Do not crop or redraw them.
  const textMarkup=fullImage?'':`<b>${esc(k==='draw'?`ドロー (${p.draws}/3)`:c.n)}</b>${c.d?`<small class="card-desc">${esc(c.d)}</small>`:''}`;
- return `<div class="card ${k==='wish'?'wish-card ':''}${fullImage?'imgc tc-full-image-card ':''}${G.card===k&&!c.fixed?'sel':''}${limited?' draw-limited':''}${banTurns?' tc-banned-card':''}" data-card-key="${esc(k)}" role="button" tabindex="0" aria-label="${esc(c.n)}${banTurns?' BAN中 残り'+banTurns+'ターン':''}" aria-disabled="${banTurns?'true':'false'}" style="border-color:${c.col}" title="${esc(c.n)}${banTurns?'（BAN中・残り'+banTurns+'ターン）':''}">${!fullImage?`<span class="c">${esc(costLabel)}</span>`:''}${imageMarkup}${textMarkup}${banTurns?`<small class="tc-ban-label">BAN中 ${banTurns}ターン</small>`:''}${limited?'<small>このターンのドロー上限です</small>':''}</div>`;
+ return `<div class="card ${k==='wish'?'wish-card ':''}${fullImage?'imgc tc-full-image-card ':''}${G.card===k&&!c.fixed?'sel':''}${limited?' draw-limited':''}${banTurns?' tc-banned-card':''}" data-card-key="${esc(k)}" role="button" tabindex="0" aria-label="${esc(c.n)}${banTurns?' BAN中 残り'+banTurns+'ターン':''}" aria-disabled="${banTurns?'true':'false'}" style="border-color:${c.col}" title="${esc(c.n)}${banTurns?'（BAN中・残り'+banTurns+'ターン）':''}">${!fullImage?`<span class="c">${esc(costLabel)}</span>`:''}${imageMarkup}${fullImage?`<small class="tc-cost-under-image">コスト：${esc(String(costLabel))}</small>`:''}${textMarkup}${banTurns?`<small class="tc-ban-label">BAN中 ${banTurns}ターン</small>`:''}${limited?'<small>このターンのドロー上限です</small>':''}</div>`;
 }
-function cardFace(k){const c=CARDS[k],costLabel=(k==='cheat'||k==='cheat_limit')?'∞':c.c;return c.img?`<img src="${c.img}" alt="${esc(c.n)}" style="width:100%;border-radius:6px">`:`<div class="card" style="border-color:${c.col};width:auto"><span class="c">${costLabel}</span><div class="i">${c.i}</div><b>${esc(c.n)}</b></div>`}
-function cardListHtml(){return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px">${Object.keys(CARDS).filter(k=>!CARDS[k].fixed).map(k=>{const c=CARDS[k];return `<div class="panel">${cardFace(k)}${c.img?'':`<p><b>${esc(c.n)}</b> コスト${c.c}</p>${c.d?`<p class="card-list-desc">${esc(c.d)}</p>`:''}`}</div>`}).join('')}</div>`}
+function cardFace(k){const c=CARDS[k],costLabel=(k==='cheat'||k==='cheat_limit')?'∞':(k==='draw'?'0':c.c);return c.img?`<img src="${c.img}" alt="${esc(c.n)}" style="width:100%;border-radius:6px">`:`<div class="card" style="border-color:${c.col};width:auto"><span class="c">${esc(String(costLabel))}</span><div class="i">${c.i}</div><b>${esc(c.n)}</b></div>`}
+function cardListHtml(){return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px">${Object.keys(CARDS).map(k=>{const c=CARDS[k],costLabel=(k==='cheat'||k==='cheat_limit')?'∞':(k==='draw'?`初回0 / 2回目以降${S().drawCost}`:c.c);return `<div class="panel">${cardFace(k)}<p style="font-weight:800;background:#f0c33c;color:#171717;display:inline-block;padding:4px 10px;border-radius:8px;margin:8px 0">コスト：${esc(String(costLabel))}</p><p><b>${esc(c.n)}</b></p>${c.d?`<p class="card-list-desc">${esc(c.d)}</p>`:''}</div>`}).join('')}</div>`}
 let TC_CARD_ACTION_BUSY=false,TC_CARD_ACTION_TIMER=0,TC_TURN_NOTICE_TIMER=0;
 function releaseCardAction(){TC_CARD_ACTION_BUSY=false;if(TC_CARD_ACTION_TIMER){clearTimeout(TC_CARD_ACTION_TIMER);TC_CARD_ACTION_TIMER=0;}}
 function armCardAction(remote){if(TC_CARD_ACTION_TIMER)clearTimeout(TC_CARD_ACTION_TIMER);TC_CARD_ACTION_TIMER=setTimeout(releaseCardAction,remote?2400:380);}
@@ -1233,7 +1284,7 @@ function cardClick(k){
  if(k==='draw'&&G.ps[SEAT].draws>=3){G.log='1ターンに引けるカードは3枚までです';paintBattle();return;}
  const p=G.ps[SEAT],shown=(k==='cheat_limit'&&cheatLimitReady(p))?'cheat':k,c=CARDS[shown]||CARDS[k];
  if(!c)return;
- if(c.tile){if(c.c>(Number(p.ap)||0)&&!p.cheatActive){G.log='コストが足りません';paintBattle();return;}G.card=G.card===k?null:k;G.log=G.card?'対象の地面をクリック':'';return paintBattle();}
+ if(c.tile){const minTileCost=p.charm&&p.charm.type==='costLuck'?Math.max(0,Number(c.c||0)-1):Number(c.c||0);if(minTileCost>(Number(p.ap)||0)&&!p.cheatActive){G.log='コストが足りません';paintBattle();return;}G.card=G.card===k?null:k;G.log=G.card?'対象の地面をクリック':'';return paintBattle();}
  TC_CARD_ACTION_BUSY=true;
  const ok=perform({k});
  if(ok===false){releaseCardAction();G.log='カードを使用できません(コスト・効果・ターンを確認)';paintBattle();return;}
@@ -1310,11 +1361,11 @@ addEventListener('blur',()=>{if(G)G.keys={}});
 
 // ---------- online ----------
 let ONL=false,HOST=false,SEAT=0,room=null,roster=null,pushT=0,lastMv=0;
-function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,cactusTurns:p.cactusTurns||0}))}}
+function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,charm:p.charm||null,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,cactusTurns:p.cactusTurns||0}))}}
 function pushSoon(){if(pushT||!room||!HOST)return;pushT=setTimeout(()=>{pushT=0;if(room&&HOST&&G)room.send('state',pack())},80)}
 function applyState(d){  const __tcFirstOnlineState=!G;  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc){if(CARDS[k]){if(CFG.cards&&CFG.cards[k])CARDS[k]={...CARDS[k],...d.cc[k]};}else CARDS[k]=d.cc[k];}for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
  if(!G){G={ps:[],hist:[],snow:{left:0,lvl:0},card:null,target:(SEAT+1)%d.ps.length,keys:{},timer:setInterval(tick,50)};}
- G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,human:true,u:{char:q.char||0,img:''}}));
+ G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,charm:q.charm&&typeof q.charm==='object'?q.charm:null,human:true,u:{char:q.char||0,img:''}}));
  Object.assign(G,{turn:d.turn,turnSeq:Number.isFinite(d.turnSeq)?d.turnSeq:(G.turnSeq||0),ap:d.ap,apMax:d.apMax,log:d.log,over:d.over,snow:d.snow,inc:Array.isArray(d.inc)?d.inc:[]});
  if(__tcPreviousTurn!==d.turn&&d.turn===SEAT)showOwnTurnNotice();
  if(TC_CARD_ACTION_BUSY)releaseCardAction();
@@ -1338,17 +1389,17 @@ async function p2pRoom(mode,pw,id){
   // 空きルームの探索待ちを短縮。存在しない部屋で長時間止まらないようにする。
   const to=setTimeout(()=>{if(!up){try{p.destroy()}catch(e){}ng(new Error('ルームから応答がありません'))}},1600);
   const r=Object.assign(em,{onLeave(f){left=f},send(t,v){c.open&&c.send({t,v})},leave(){try{p.destroy()}catch(e){}}});
-  c.on('open',()=>{up=true;clearTimeout(to);c.send({t:'join',name,pw});ok(r)});
+  c.on('open',()=>{up=true;clearTimeout(to);c.send({t:'join',name,pw,charm:getEquippedCharm()});ok(r)});
   c.on('data',d=>{if(d.t==='err'){ng(new Error(d.v));return}em.emit(d.t,d.v)});
   c.on('close',()=>{left&&left()});c.on('error',e=>{if(!up)ng(e)})});
  if(mode==='pjoin')return joinAs(id.trim());
  const kind=(mode==='pcreate')?'private':'open';
- const host=async(rid)=>{const p=await open(pre+rid);const em=mkEmitter();let left=null,started=false;const seats=[{c:null,name}];
-  const rost=()=>{seats.forEach((s,i)=>{const m={seat:i,names:seats.map(x=>x.name),kind,roomId:rid,started};if(s.c)s.c.send({t:'roster',v:m});else em.emit('roster',m)})};
+ const host=async(rid)=>{const p=await open(pre+rid);const em=mkEmitter();let left=null,started=false;const seats=[{c:null,name,charm:getEquippedCharm()}];
+  const rost=()=>{seats.forEach((s,i)=>{const m={seat:i,names:seats.map(x=>x.name),charms:seats.map(x=>x.charm||null),kind,roomId:rid,started};if(s.c)s.c.send({t:'roster',v:m});else em.emit('roster',m)})};
   const bc=(t,v)=>seats.forEach(s=>s.c&&s.c.open&&s.c.send({t,v}));
   p.on('connection',c=>{let me=null;c.on('data',d=>{if(d.t==='join'){if(started||seats.length>=4){c.send({t:'err',v:'満員または開始済みです'});return}
     if(kind==='private'&&pw&&d.pw!==pw){c.send({t:'err',v:'パスワードが違います'});return}
-    me={c,name:String(d.name||'Player').slice(0,16)};seats.push(me);rost()}
+    me={c,name:String(d.name||'Player').slice(0,16),charm:d.charm&&typeof d.charm==='object'?d.charm:null};seats.push(me);rost()}
    else if(me&&d.t==='act')em.emit('act',{seat:seats.indexOf(me),a:d.v});else if(me&&d.t==='chat'){bc('chat',d.v);em.emit('chat',d.v)}});
    c.on('close',()=>{if(!me)return;const i=seats.indexOf(me);if(i>0)seats.splice(i,1);if(started&&seats.length<2){bc('closed',{});em.emit('closed',{})}else rost()})});
   const r=Object.assign(em,{onLeave(f){left=f},send(t,v){if(t==='chat'){bc('chat',v);em.emit('chat',v)}else if(t==='state')bc('state',v);else if(t==='start'){if(seats.length<2)return;started=true;bc('started',{n:seats.length});em.emit('started',{n:seats.length});rost()}},leave(){bc('closed',{});try{p.destroy()}catch(e){}}});
@@ -1378,12 +1429,12 @@ async function netJoin(mode,pw='',id=''){
 }
 function attach(r){room=r;ONL=true;G=null;
  r.onMessage('roster',m=>{roster=m;if(!m.started||!G){SEAT=m.seat;HOST=m.seat===0}if(screen!=='battle')go('room')});
- r.onMessage('started',m=>{if(HOST)startBattle(0,roster.names)});
+ r.onMessage('started',m=>{if(HOST)startBattle(0,roster.names,roster.charms)});
  r.onMessage('chat',m=>{if(!(m&&m.name===U().display&&m.room==='battle'&&0))addChat('battle',m)});r.onMessage('state',applyState);r.onMessage('act',m=>onAct(m.seat,m.a));
  r.onMessage('closed',()=>{if(room===r)leaveNet('ホストが退出したため終了しました')});
  r.onLeave(()=>{if(room===r)leaveNet('接続が切れました')})}
 // ---------- boot ----------
-(async()=>{await loadGlobalGameConfig();render();if(me)setTimeout(()=>pollCardIdeaNotifications(),700)})();
+(async()=>{await loadGlobalGameConfig();render();if(me){setTimeout(()=>pollCardIdeaNotifications(),700);setTimeout(()=>pollGlobalUpdateNotice(),900)}})();
 </script><script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body></html>
