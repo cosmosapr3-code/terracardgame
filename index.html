@@ -897,7 +897,7 @@ const TUT=[
  ['🧱 地面と移動','自分の5×5フィールド内を移動します。地面には耐久値があり、耐久が0になると穴になります。穴に入ると退場するので、足場にも注意しよう。'],
  ['⚡ コストとカード','カードにはコストが表示されています。自分のターンに使えるコストの範囲でカードを選びます。手札の「ドロー」はターンごとに回数制限があります。'],
  ['🛠️ 地面を直す','「リペア」は壊れた地面を耐久1で復活させます。壊れていない地面なら耐久を2回復し、最大3まで戻します。'],
- ['🎲 特殊カード','「サイコロ」は1〜3なら相手に6ダメージ、4〜6なら自分に4ダメージ。「サボテン」は3ターン、受けたHPダメージの半分を相手に返します。カードごとの説明とコストを確認しよう。'],
+ ['🌵 特殊カード','「サボテン」は3ターン、受けたHPダメージの半分を相手に返します。カードごとの説明とコストを確認しよう。'],
  ['©️ 属性カード','運営はカードに「著作権侵害属性」を付けられます。「著作権」は相手の手札にある属性付きカードを使用不能にし、「復活権限」は50%で戻します。'],
  ['🌐 オンライン対戦','オンラインでは最大4人で対戦できます。ルームを作るか、友達のルームIDで参加します。対戦開始時は参加者の名前がVS表示されます。'],
  ['🎰 ガチャとお守り','キャラクターガチャのほかに「お守りガチャ」があります。お守りはN・R・SR・SSR・URの5段階。レア度が高いほど効果が強くなります。装備できるお守りは1つだけです。'],
@@ -1365,7 +1365,7 @@ function attachBattleLog(target){
    const last=target.eventLog[target.eventLog.length-1];
    if(last&&last.text===current&&last.turn===(Number(target.turnSeq)||0))return;
    target.eventLog.push({turn:Number(target.turnSeq)||0,player:target.ps?.[target.turn]?.name||'',text:current,at:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
-   if(target.eventLog.length>160)target.eventLog.splice(0,target.eventLog.length-160);
+   if(target.eventLog.length>100)target.eventLog.splice(0,target.eventLog.length-100);
   }
  });
  Object.defineProperty(target,'__tcLogAttached',{value:true,configurable:true});
@@ -1529,10 +1529,16 @@ function hurt(t,d,why,unav,sourceIndex,noReflect){
  if(!unav&&umbBlock(t))return;
  if(!noReflect&&hasBodyguard(t)){const gi=t.hand.findIndex(key=>key==='bodyguard'||String(CARDS[key]?.n||'').includes('ボディーガード'));if(gi>=0)t.hand.splice(gi,1);G.log=t.name+'のボディーガードが攻撃を無効化！ボディーガードの効果はなくなった';return}
  const incoming=Math.max(0,Math.floor(Number(d)||0));
+ // 攻撃を相手に命中させた側の攻撃力強化を0に戻す。
+ // 受けた側の攻撃力は変えず、自分への反動や反射ダメージでも解除しない。
+ const victimIndex=G.ps.indexOf(t);
+ const attackerIndex=Number.isInteger(sourceIndex)?sourceIndex:-1;
+ const attacker=attackerIndex>=0&&attackerIndex!==victimIndex?G.ps[attackerIndex]:null;
+ const attackBuffReset=incoming>0&&!noReflect&&!!attacker&&(Number(attacker.atk)||0)!==0;
+ if(attackBuffReset)attacker.atk=0;
  const ab=Math.min(Math.max(0,Number(t.sh)||0),incoming);t.sh=Math.max(0,(Number(t.sh)||0)-ab);
  const hpDamage=Math.max(0,incoming-ab);t.hp-=hpDamage;
- G.log=`${why}: ${t.name}に${incoming}ダメージ`;
- const victimIndex=G.ps.indexOf(t);
+ G.log=`${why}: ${t.name}に${incoming}ダメージ${attackBuffReset?'。攻撃が命中したため、'+attacker.name+'の攻撃力強化が0に戻った！':''}`;
  if(!noReflect&&hpDamage>0&&Number(t.cactusTurns)>0){
   let attackerIndex=Number.isInteger(sourceIndex)?sourceIndex:-1;
   if(attackerIndex<0||attackerIndex===victimIndex||!G.ps[attackerIndex]||!G.ps[attackerIndex].alive){
@@ -2009,13 +2015,27 @@ function paintBattle(){
   delete el.dataset.handKey;
  }
  const status=el.querySelector('.battle-status');
- const __tcBattleLogWasOpen=status.querySelector('.tc-battle-log')?.open ?? !!window.__tcBattleLogOpen;
+ const __tcOldBattleLog=status.querySelector('.tc-battle-log');
+ const __tcBattleLogWasOpen=__tcOldBattleLog?.open ?? !!window.__tcBattleLogOpen;
+ const __tcOldBattleLogList=__tcOldBattleLog?.querySelector('.tc-battle-log-list');
+ const __tcBattleLogScrollTop=__tcOldBattleLogList?.scrollTop||0;
+ const __tcBattleLogScrollHeight=__tcOldBattleLogList?.scrollHeight||0;
  const boards=el.querySelector('.boards');
  const hand=el.querySelector('.hand');
  const result=el.querySelector('.battle-result');
  status.innerHTML=`<div class="panel"><div class="row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax??S().ap}${G.snow.lvl?' ❄️':''}</span><span>⚔攻撃力 ${Number(you.atk)||0}</span><span>🛡防御力 ${Number(you.sh)||0}</span><span>❤️HP ${Number(you.hp)||0}/${Number(you.mhp)||0}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>${playerBuffBadges(you)}<div style="margin-top:5px">${esc(G.log)}</div></div>${battleLogHtml()}`;
  const __tcNewBattleLog=status.querySelector('.tc-battle-log');
- if(__tcNewBattleLog){__tcNewBattleLog.open=__tcBattleLogWasOpen;__tcNewBattleLog.addEventListener('toggle',()=>{window.__tcBattleLogOpen=__tcNewBattleLog.open;});}
+ if(__tcNewBattleLog){
+  __tcNewBattleLog.open=__tcBattleLogWasOpen;
+  __tcNewBattleLog.addEventListener('toggle',()=>{window.__tcBattleLogOpen=__tcNewBattleLog.open;});
+  const __tcNewBattleLogList=__tcNewBattleLog.querySelector('.tc-battle-log-list');
+  if(__tcNewBattleLogList){
+   // 最新ログは先頭に追加されるため、スクロール中の表示位置を
+   // 同じログ行に保つよう、増えた高さ分だけscrollTopを補正する。
+   const __tcHeightDelta=__tcNewBattleLogList.scrollHeight-__tcBattleLogScrollHeight;
+   __tcNewBattleLogList.scrollTop=Math.max(0,__tcBattleLogScrollTop+__tcHeightDelta);
+  }
+ }
  boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> <small>(${POS[i]})</small></div>${playerBuffBadges(p)}<div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
  const handKey=JSON.stringify([you.hand,G.card,you.draws,you.ap,G.ps[SEAT].cheatActive]);
  if(el.dataset.handKey!==handKey){
