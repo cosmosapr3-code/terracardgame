@@ -305,7 +305,7 @@ const CARDS={
  end:{n:'ターン終了',c:0,i:'⏭️',d:'ターンを終了する',col:'#aaa',fixed:1}};
 
 const NEWC={
- destroy:{n:'破壊破壊破壊',c:2,i:'🐱',d:'ランダムな地面5つを確定破壊',col:'#9966ff'},
+ destroy:{n:'破壊破壊破壊',c:2,i:'🐱',d:'全プレイヤーの全フィールドからランダムに地面を5つ選んで確定破壊',col:'#9966ff'},
  repair:{n:'リペア',c:2,i:'🛠️',d:'壊れた地面を耐久1で復活。壊れていない地面なら耐久を2回復（最大3）',col:'#58a6a6',tile:1},
  luck:{n:'運ゲー裁判',c:0,i:'⚖️',d:'1~10を抽選。9→相手-10 / 1→自分-10 / 7→もう一回',col:'#ffb36b'},
  beam:{n:'ビーム弾',c:2,i:'☄️',d:'ランダムな相手にビーム弾。当たると5ダメージ',col:'#9966ff'},
@@ -1983,7 +1983,36 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
    G.log='スピキ：ホバキが手札にあるため効果なし';
   }
  }
- else if(k==='destroy'){const f=foes(i);if(!f.length)return false;const t=f[rnd(f.length)];const a=t.f.map((q,j)=>q.d>0?j:-1).filter(j=>j>=0).sort(()=>Math.random()-.5).slice(0,5);if(!umbBlock(t))a.forEach(j=>t.f[j].d=0);G.log=t.name+'の地面が崩れた'}
+ else if(k==='destroy'){
+  // 全プレイヤーの全フィールドから、生きている地面を重複なしで最大5つ選ぶ。
+  const candidates=[];
+  G.ps.forEach((owner,pi)=>{
+   (Array.isArray(owner.f)?owner.f:[]).forEach((tile,ti)=>{
+    if(tile&&Number(tile.d)>0)candidates.push({owner,pi,ti,tile});
+   });
+  });
+  if(!candidates.length){G.log='破壊破壊破壊：破壊できる地面がない';return false;}
+  const count=Math.min(5,candidates.length);
+  // 部分Fisher-Yatesで、全フィールドをまとめた候補から均等に抽選する。
+  for(let n=0;n<count;n++){
+   const j=n+rnd(candidates.length-n);
+   [candidates[n],candidates[j]]=[candidates[j],candidates[n]];
+  }
+  const checked=new Set(),blocked=new Set(),destroyedBy={};
+  let destroyed=0,blockedFields=0;
+  candidates.slice(0,count).forEach(({owner,pi,tile})=>{
+   // 傘は同じプレイヤーのフィールドにつき1回だけ判定する。
+   if(!checked.has(pi)){
+    checked.add(pi);
+    if(umbBlock(owner)){blocked.add(pi);blockedFields++;}
+   }
+   if(blocked.has(pi))return;
+   tile.d=0;destroyed++;
+   destroyedBy[owner.name]=(destroyedBy[owner.name]||0)+1;
+  });
+  const details=Object.entries(destroyedBy).map(([name,n])=>name+' '+n+'個').join(' / ');
+  G.log='破壊破壊破壊：全フィールドから地面'+destroyed+'個を破壊！'+(details?'（'+details+'）':'')+(blockedFields?'。'+blockedFields+'人の傘が防いだ':'');
+ }
  else if(k==='luck'){let n,r=0;do{n=d10();G.log='運ゲー裁判: '+n;if(n===9){const f=foes(i);if(f.length)hurt(f[rnd(f.length)],10,'運ゲー裁判',1)}else if(n===1)hurt(p,10,'運ゲー裁判(自爆)',1)}while(n===7&&++r<5&&p.alive)}
  else if(k==='beam'){const f=foes(i);if(!f.length)return false;hurt(f[rnd(f.length)],5,'ビーム弾')}
  else if(k==='snow'){G.snow={left:3,lvl:0}}
