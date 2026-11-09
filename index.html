@@ -337,6 +337,157 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
  .tc-practice-start{min-height:60px}
 }
 </style>
+<style id="cg-casino-css">
+/* ============================================================
+   コイン系（ガチャ・ギャンブル） UI
+   ============================================================ */
+.cg-wrap{max-width:1000px;margin:12px auto;padding:clamp(12px,3vw,22px)}
+.cg-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cg-head h2{margin:0;font-size:clamp(19px,4vw,26px)}
+.cg-head>button{margin-left:auto}
+.cg-bal{margin-left:auto;background:linear-gradient(135deg,#4a3300,#7a5606);border:2px solid #ffd54a;border-radius:999px;padding:6px 14px;font-weight:900;color:#ffe89a;box-shadow:0 0 16px #ffd54a55;white-space:nowrap}
+.cg-bal small{display:block;font-size:10px;opacity:.8;font-weight:600;letter-spacing:.4px}
+.cg-sub{margin:5px 0 14px;color:#d8eaff;font-size:14px;line-height:1.5}
+.cg-menu{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.cg-menu>button{min-height:96px;font-size:16px;font-weight:900;border-radius:14px;border:2px solid #86b8dc;background:linear-gradient(135deg,#1b5680,#0e2f4a);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.25}
+.cg-menu>button span.cg-ico{font-size:30px}
+.cg-menu>button span.cg-txt{font-size:15px}
+.cg-menu>button span.cg-sub2{font-size:11px;font-weight:600;opacity:.85}
+.cg-menu>button:active{transform:scale(.97)}
+.cg-menu>button.cg-hi{border-color:#ffd54a;background:linear-gradient(135deg,#7a4d00,#3d2600);box-shadow:0 0 18px #ffd54a44}
+.cg-panel{background:linear-gradient(#0f3a66ee,#0a2a4cee);border:2px solid #5ab0f0;border-radius:14px;padding:12px 14px;margin:10px 0;box-shadow:0 4px 14px #0a2a5a66}
+.cg-panel h3{margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:6px}
+.cg-panel p{margin:5px 0;font-size:13.5px;line-height:1.55}
+.cg-rules summary{cursor:pointer;font-weight:800;font-size:14px;padding:4px 0;color:#ffe89a}
+.cg-rules ul{margin:6px 0 2px 18px;padding:0;font-size:13px;line-height:1.6}
+.cg-rules li{margin:2px 0}
+.cg-note{font-size:11.5px;color:#a9cbe6}
+.cg-msg{min-height:22px;font-weight:800;color:#ffe089;background:#0a2340aa;border-left:4px solid #ffd54a;padding:7px 10px;border-radius:6px;margin:8px 0;font-size:14px;line-height:1.45}
+.cg-msg.err{border-left-color:#ff6a6a;color:#ffb3b3}
+
+/* 掛け金 */
+.cg-betbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#0b2440cc;border:1px dashed #4d89b8;border-radius:12px;padding:9px 11px;margin:8px 0}
+.cg-betbar-label{font-size:12.5px;font-weight:900;color:#bfe0ff;letter-spacing:.5px}
+.cg-betinput{display:flex;align-items:center;gap:6px}
+.cg-betinput input{width:110px;text-align:right;font-weight:900;font-size:16px;background:#081a2ccc;border:2px solid #ffd54a;color:#fff}
+.cg-betinput button.cg-step{padding:6px 10px;font-weight:900;background:#2b6f9e}
+.cg-chips{display:flex;gap:6px;flex-wrap:wrap}
+.cg-chip{padding:6px 10px;font-size:12.5px;font-weight:900;border-radius:999px;background:#12405f;border:1px solid #7fb6dd}
+.cg-chip-max{background:linear-gradient(#8a5f00,#5a3c00);border-color:#ffd54a;color:#ffe89a}
+.cg-total{margin-left:auto;font-size:13px;font-weight:900;color:#ffd54a}
+
+/* カード */
+.cg-hand{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0}
+.cg-slot{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:0}
+.cg-slot:disabled{opacity:1}
+.cg-cardwrap{animation:cgDeal .55s cubic-bezier(.2,.8,.3,1) both}
+.cg-card{width:78px;height:112px;border-radius:9px;background:linear-gradient(160deg,#fdfefe,#dbe7f2);border:2px solid #b9c9d8;color:#16202b;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;box-shadow:0 6px 12px #0007, inset 0 0 0 3px #fff;position:relative;font-weight:900}
+.cg-card .cg-card-r{font-size:30px;line-height:1}
+.cg-card .cg-card-s{font-size:26px;line-height:1}
+.cg-card.cg-red{color:#d3273a}
+.cg-down{background:linear-gradient(160deg,#1b4d7a,#0a2540);border-color:#5f9ecb;box-shadow:0 6px 12px #0007}
+.cg-card-back{font-size:34px;color:#7fc4ff;text-shadow:0 0 10px #2f8fd6}
+.cg-emptycard{opacity:.3;font-size:30px}
+.cg-holdtag{font-size:10px;font-weight:900;color:#ffd54a;min-height:13px;letter-spacing:.5px}
+.cg-holding .cg-card{border-color:#ffd54a;box-shadow:0 0 0 3px #ffd54a, 0 6px 14px #0007}
+.cg-glowcard{border-color:#ffd54a;box-shadow:0 0 14px #ffd54a}
+@keyframes cgDeal{0%{opacity:0;transform:translate(60px,-90px) rotate(22deg) scale(.7)}70%{opacity:1}100%{opacity:1;transform:none}}
+@keyframes cgPop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+@keyframes cgShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes cgGlow{0%,100%{box-shadow:0 0 0 #ffd54a}50%{box-shadow:0 0 22px 6px #ffd54a}}
+.cg-dealer{padding:8px;border-radius:12px;background:#08233899;border:1px solid #2e6b96}
+.cg-dealer h4{margin:0 0 4px;font-size:12.5px;color:#a9d4f0;letter-spacing:.5px}
+.cg-score{font-size:15px;font-weight:900;color:#ffd54a}
+.cg-score.bust{color:#ff8a8a}
+
+/* ガチャ */
+.cg-reels{display:flex;gap:10px;justify-content:center;margin:14px 0}
+.cg-reel{width:86px;height:104px;border-radius:14px;border:2px solid #ffd54a;background:radial-gradient(circle at 50% 20%,#254a70,#08182a);display:flex;align-items:center;justify-content:center;font-size:44px;overflow:hidden;box-shadow:inset 0 0 18px #000a}
+.cg-reel.cg-spinning{animation:cgSpin .28s linear infinite}
+@keyframes cgSpin{0%{transform:translateY(-6px);filter:blur(1px)}50%{transform:translateY(6px);filter:blur(2px)}100%{transform:translateY(-6px);filter:blur(1px)}}
+.cg-gacha-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.cg-pull{min-height:56px;padding:10px 22px;font-size:16px;font-weight:900;border-radius:14px;border:2px solid #ffd54a;background:linear-gradient(135deg,#8a5f00,#4a3200);color:#ffe89a}
+.cg-pull.ten{background:linear-gradient(135deg,#7a1d5a,#3d0b2c);border-color:#ff8fd0;color:#ffd8ee}
+.cg-pull:disabled{opacity:.4}
+.cg-results{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.cg-prize{width:104px;padding:9px 6px;border-radius:12px;text-align:center;border:2px solid #5ab0f0;background:#0d2c48;animation:cgPop .45s both}
+.cg-prize .cg-pico{font-size:26px;display:block;line-height:1.1}
+.cg-prize b{display:block;font-size:11px;line-height:1.3}
+.cg-prize small{font-size:11px;color:#ffd54a;font-weight:900}
+.cg-prize.p0{border-color:#555;opacity:.75}
+.cg-prize.p1{border-color:#9fe3a0}
+.cg-prize.p2{border-color:#7fd4ff;box-shadow:0 0 14px #7fd4ff55}
+.cg-prize.p3{border-color:#ffd54a;box-shadow:0 0 18px #ffd54a66}
+.cg-prize.p4{border-color:#ff8fd0;box-shadow:0 0 26px #ff8fd0aa;animation:cgPop .45s both, cgGlow 1.2s infinite}
+.cg-rate{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.cg-rate th,.cg-rate td{border:1px solid #2e6b96;padding:4px 6px;text-align:center}
+.cg-rate th{background:#12395a;font-size:11.5px}
+.cg-rate td.cg-hit{color:#ffd54a;font-weight:900}
+
+/* ブラックジャック */
+.cg-table{background:radial-gradient(ellipse at 50% 0%,#1d6b46,#0a3524 70%);border:3px solid #b98b52;border-radius:16px;padding:12px;margin:10px 0;box-shadow:inset 0 0 40px #0008}
+.cg-table .cg-hand{margin:6px 0}
+.cg-act{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.cg-act button{min-height:48px;padding:8px 18px;font-size:15px;font-weight:900;border-radius:12px}
+.cg-act button.cg-primary{background:linear-gradient(135deg,#2f9e5a,#146b38);border-color:#9fe3a0}
+.cg-act button.cg-danger{background:linear-gradient(135deg,#b8402f,#6e2015);border-color:#ffb3a3}
+.cg-act button.cg-gold{background:linear-gradient(135deg,#a57900,#5f4300);border-color:#ffd54a;color:#ffe89a}
+.cg-banner{text-align:center;font-weight:900;font-size:15px;padding:8px;border-radius:10px;margin:8px auto;max-width:420px}
+.cg-banner.win{background:#1c5c33cc;border:2px solid #9fe3a0;color:#d9ffe4;animation:cgPop .4s both}
+.cg-banner.lose{background:#5c1c1ccc;border:2px solid #ff9a9a;color:#ffdcdc;animation:cgShake .4s both}
+.cg-banner.push{background:#3b4a5ccc;border:2px solid #b9d4e6;color:#eaf4ff}
+
+/* 競馬 */
+.cgk-track{position:relative;background:linear-gradient(#2e7a44,#1c5530 55%,#154225);border:3px solid #b98b52;border-radius:14px;padding:8px 0 8px 0;overflow:hidden;box-shadow:inset 0 4px 18px #0007}
+.cgk-lane{position:relative;height:40px;border-bottom:1px dashed #ffffff2e}
+.cgk-lane:last-child{border-bottom:none}
+.cgk-lane-no{position:absolute;left:4px;top:9px;font-size:11px;font-weight:900;color:#ffffffaa;z-index:3;background:#0006;border-radius:4px;padding:1px 4px}
+.cgk-runner{position:absolute;top:3px;left:0;font-size:26px;line-height:1;z-index:2;filter:drop-shadow(0 4px 3px #0008);transform:translateX(-2px)}
+.cgk-runner .cgk-e{display:inline-block}
+.cgk-runner.gallop .cgk-e{animation:cgGallop .22s infinite}
+.cgk-runner.win .cgk-e{animation:cgGallop .16s infinite}
+.cgk-runner.dust::after{content:'💨';position:absolute;left:-18px;top:8px;font-size:13px;opacity:.75;animation:cgDust .5s infinite}
+@keyframes cgGallop{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-5px) rotate(2deg)}}
+@keyframes cgDust{0%{opacity:.7;transform:translateX(0)}100%{opacity:0;transform:translateX(-8px)}}
+.cgk-finish{position:absolute;right:6px;top:0;bottom:0;width:14px;background:repeating-linear-gradient(0deg,#fff 0 8px,#111 8px 16px);opacity:.9;z-index:1;border-radius:2px}
+.cgk-goal{position:absolute;right:-2px;top:-2px;font-size:18px;z-index:4}
+.cgk-status{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;font-size:13px;font-weight:800;color:#ffd54a}
+.cgk-horses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
+.cgk-hbtn{display:flex;align-items:center;gap:8px;text-align:left;padding:8px 10px;border-radius:12px;border:2px solid #4d89b8;background:linear-gradient(135deg,#123d5c,#0b2740);font-size:13px;font-weight:800}
+.cgk-hbtn .cgk-no{width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#10202c;flex:0 0 22px}
+.cgk-hbtn .cgk-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cgk-hbtn .cgk-odds{color:#ffd54a;font-size:12px}
+.cgk-hbtn.sel{border-color:#ffd54a;box-shadow:0 0 0 2px #ffd54a inset,0 0 12px #ffd54a55;background:linear-gradient(135deg,#4a3a05,#1d2a10)}
+.cgk-hbtn:disabled{opacity:.45}
+.cgk-types{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.cgk-types button{padding:7px 12px;border-radius:999px;font-size:13px;font-weight:900;border:1px solid #7fb6dd;background:#10405f}
+.cgk-types button.on{background:linear-gradient(#8a5f00,#5a3c00);border-color:#ffd54a;color:#ffe89a;box-shadow:0 0 12px #ffd54a55}
+.cgk-explain{font-size:12.5px;line-height:1.55;background:#0a2340aa;border-left:4px solid #7fd4ff;border-radius:6px;padding:7px 10px;color:#d8eaff}
+.cgk-slip{width:100%;border-collapse:collapse;font-size:12.5px;margin:8px 0}
+.cgk-slip th,.cgk-slip td{border-bottom:1px solid #2e6b96;padding:6px 4px;text-align:left}
+.cgk-slip th{font-size:11px;color:#a9d4f0}
+.cgk-slip td.cgk-num{text-align:right;font-weight:900;color:#ffd54a}
+.cgk-slip .cgk-del{background:#8a2b2b;border:1px solid #ff9a9a;padding:3px 8px;font-size:11px;border-radius:8px}
+.cgk-result{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.cgk-result th,.cgk-result td{border:1px solid #2e6b96;padding:5px 6px;text-align:center}
+.cgk-result th{background:#12395a;font-size:11.5px}
+.cgk-result tr.pay td{background:#1c5c3355;color:#d9ffe4;font-weight:900}
+.cgk-result tr.miss td{opacity:.6}
+.cgk-podium{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0}
+.cgk-pod{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 10px;border-radius:12px;border:2px solid #5ab0f0;background:#0d2c48;animation:cgPop .45s both;font-size:12px;font-weight:800;min-width:96px}
+.cgk-pod.first{border-color:#ffd54a;box-shadow:0 0 18px #ffd54a66}
+.cgk-pod .cgk-pmedal{font-size:24px}
+.cgk-pod small{color:#ffd54a;font-weight:900}
+@media(max-width:650px){
+ .cg-menu{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .cgk-horses{grid-template-columns:1fr}
+ .cg-card{width:60px;height:88px}
+ .cg-card .cg-card-r{font-size:23px}.cg-card .cg-card-s{font-size:19px}
+ .cg-reel{width:64px;height:80px;font-size:32px}
+ .cg-betinput input{width:88px}
+}
+
+</style>
 </head><body><div id="app"></div>
 <script>
 // Opaque-origin preview/file safety: keep normal browser storage when available,
@@ -740,7 +891,7 @@ let TERRACARD_TOKEN=localStorage.cgc_token||'';
 async function apiCall(path,body=null){const r=await fetch(TERRACARD_API+path,{method:body===null?'GET':'POST',headers:{'Content-Type':'application/json',...(TERRACARD_TOKEN?{Authorization:'Bearer '+TERRACARD_TOKEN}:{})},...(body===null?{}:{body:JSON.stringify(body)})});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'サーバーに接続できません');return d;}
 async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config');if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1;if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.warn('運営ゲーム設定を取得できませんでした',e)}return false;}
 async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0,charms:Array.isArray(u.charms)?u.charms:[],equippedCharmId:u.equippedCharmId||null});u.profileInitialized=true;return d;}
-async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Number(d.player.coins)||0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number(d.player.char)||0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';u.story=Number(d.player.story)||0;u.charms=Array.isArray(d.player.charms)?d.player.charms:[];u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.profileInitialized=true;}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
+async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Math.max(0,Math.floor(Number(d.player.coins)||0)+Math.floor(Number(u.cgDelta)||0));u.cgDelta=0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number(d.player.char)||0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';u.story=Number(d.player.story)||0;u.charms=Array.isArray(d.player.charms)?d.player.charms:[];u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.profileInitialized=true;}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
 setInterval(()=>{if(me&&!isAdmin&&screen==='home')refreshCloudChat()},5000);
 const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cgc'+s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 let me=null,isAdmin=false,screen='auth',msg='';
@@ -1420,6 +1571,7 @@ function render(){
  if(screen==='otherMenu')h=nav+`<div class="panel tc-other-menu"><div class="tc-subpage-heading"><h2>☰ その他</h2><button type="button" onclick="go('home')">← ホーム</button></div><p>使いたい機能を選んでね。</p><div class="tc-other-grid">
  <button onclick="go('post')">📮 ポスト ${u.mail.filter(m=>!m.done).length?'('+u.mail.filter(m=>!m.done).length+')':''}</button>
  <button onclick="go('charms')">🧿 お守り ${u.charms&&u.charms.length?'('+u.charms.length+')':''}</button>
+ <button class="cg-menu-entry" onclick="go(\'coinMenu\')">🪙 コイン系</button>
  <button onclick="go('gacha')">🎰 ガチャ</button>
  <button onclick="go('cardMenu')">🃏 カード系</button>
  <button onclick="go('rank')">🏆 ランキング</button>
@@ -1462,6 +1614,13 @@ function render(){
   const creator=isAdmin?'<div class="panel"><h3>✏️ 運営ミッション作成</h3><form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>全員に配布</button></form><p class="sm">作成したミッションは全プレイヤーに配布され、進捗と報酬受取は各プレイヤー別に保存されます。</p></div>':'';
   const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">📖 チュートリアルを見返す</button></div>';}
  if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCharmGrantHtml()}${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
+ if(screen==='coinMenu')h=nav+cgCoinMenuHtml();
+ if(screen==='cgGacha')h=nav+cgGachaHtml();
+ if(screen==='cgGamble')h=nav+cgGambleMenuHtml();
+ if(screen==='cgPoker')h=nav+cgPokerHtml();
+ if(screen==='cgBJ')h=nav+cgBJHtml();
+ if(screen==='cgKeiba')h=nav+cgKeibaHtml();
+ if(screen==='cgGuide')h=nav+cgGuideHtml();
  if(screen==='battle')h=nav+`<div id="bboard"></div><div class="panel"><h3>対戦チャット</h3>${chatBox('battle')}</div>`;
  app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin'){refreshAdminChat();refreshAdminCardIdeas()}if(screen==='cardIdeas')loadPlayerCardIdeas();updatePlayerNotificationUI();tcRenderAudioButton();tcSyncMusic();
 }
@@ -2999,4 +3158,710 @@ function attach(r){room=r;ONL=true;G=null;
 #tc-audio-toggle.tc-audio-inline{position:static!important;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 18px;border-radius:10px!important}
 @media(max-width:650px){.tc-other-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tc-other-grid>button{min-height:62px;font-size:15px}.tc-home-actions-compact{gap:8px}}
 </style>
+<script id="cg-casino-js">
+/* =========================================================================
+   コイン系（ガチャ・ギャンブル）追加モジュール
+   ------------------------------------------------------------------------
+   既存の u.coins（ガチャコイン）をそのまま掛け金として使用する。
+   サーバー同期でコインが上書きされても、このモジュールの増減分
+   （u.cgDelta）は失われないように合算している。
+   ========================================================================= */
+const CG_STATE = { bet:{}, gacha:{ spinning:false, items:null, revealed:false }, pk:{}, bj:{}, k:{ tick:0 } };
+
+/* ---------- 共通 ---------- */
+function cgCoins(){ const u = U(); return u ? Math.max(0, Math.floor(Number(u.coins)||0)) : 0; }
+function cgAdd(delta){
+  const u = U(); if(!u) return 0;
+  const d = Math.floor(Number(delta)||0);
+  u.coins = Math.max(0, Math.floor(Number(u.coins)||0) + d);
+  u.cgDelta = Math.floor(Number(u.cgDelta)||0) + d;
+  save();
+  return u.coins;
+}
+function cgFmt(n){ return Math.floor(Number(n)||0).toLocaleString('ja-JP'); }
+function cgLog(text){ try{ const u=U(); if(!u) return; u.cgLog=Array.isArray(u.cgLog)?u.cgLog:[]; u.cgLog.unshift(String(text)); u.cgLog=u.cgLog.slice(0,12); save(); }catch(e){} }
+function cgMsgHtml(m,err){ if(!m) return '<div class="cg-msg" style="visibility:hidden">-</div>'; return `<div class="cg-msg${err?' err':''}">${esc(m)}</div>`; }
+
+function cgErr(stateKey, screenName, message){ const st=CG_STATE[stateKey]; if(st){ st.msg=message; st.err=true; } go(screenName, message); }
+function cgBetEnsure(id){ if(CG_STATE.bet[id]===undefined){ const c=cgCoins(); CG_STATE.bet[id]= c>=100?100:Math.max(1,Math.min(c,10)); } return Math.floor(Number(CG_STATE.bet[id])||0); }
+function cgBetHtml(id,label){
+  const coins = cgCoins();
+  if(!CG_STATE.bet[id]) CG_STATE.bet[id] = coins>=100 ? 100 : Math.max(1,Math.min(coins,10));
+  const v = Math.min(CG_STATE.bet[id], Math.max(1,coins));
+  return `<div class="cg-betbar"><span class="cg-betbar-label">掛け金</span>
+  <div class="cg-betinput"><button type="button" class="cg-step" onclick="cgBetStep('${id}',-1)">−</button>
+  <input id="${id}" type="number" inputmode="numeric" min="1" step="1" value="${v}" onchange="cgBetSync('${id}',this.value)">
+  <button type="button" class="cg-step" onclick="cgBetStep('${id}',1)">＋</button></div>
+  <div class="cg-chips">${[10,50,100,500,1000,5000].map(n=>`<button type="button" class="cg-chip" onclick="cgBetSet('${id}',${n})">${n}</button>`).join('')}
+  <button type="button" class="cg-chip" onclick="cgBetSet('${id}',${Math.floor(coins/2)})">½</button>
+  <button type="button" class="cg-chip cg-chip-max" onclick="cgBetSet('${id}',${coins})">MAX</button></div>
+  <span class="cg-total">所持 🪙${cgFmt(coins)}</span></div>`;
+}
+function cgBetSync(id,val){ CG_STATE.bet[id] = Math.max(0, Math.floor(Number(val)||0)); }
+function cgBetSet(id,n){
+  const coins=cgCoins(); const v=Math.max(1,Math.min(coins,Math.floor(Number(n)||1)));
+  CG_STATE.bet[id]=v; const el=document.getElementById(id); if(el) el.value=v;
+}
+function cgBetStep(id,d){
+  const coins=cgCoins(); const cur=Math.floor(Number(CG_STATE.bet[id])||0);
+  const step=Math.max(1, Math.round(Math.max(1,cur)*0.25));
+  let v=cur + d*step; if(v<1) v=1; if(v>coins) v=Math.max(1,coins);
+  cgBetSet(id,v);
+}
+/* 掛け金を検証: 1以上の整数かつ所持コイン以内 */
+function cgReadBet(id){
+  const coins=cgCoins();
+  const raw=CG_STATE.bet[id];
+  if(raw===undefined||raw===null||String(raw).trim()==='') return {err:'掛け金を入力してください'};
+  if(!/^\d+$/.test(String(raw).trim())) return {err:'掛け金は1以上の整数で入力してください'};
+  const v=Number(raw);
+  if(!Number.isFinite(v)||v<1) return {err:'掛け金は1コイン以上にしてください'};
+  if(v>coins) return {err:`コインが足りません（所持 🪙${cgFmt(coins)}）`};
+  return {v};
+}
+
+/* ---------- コイン系トップ ---------- */
+function cgCoinMenuHtml(){
+  const u=U(); const coins=cgCoins();
+  const log=(Array.isArray(u.cgLog)?u.cgLog:[]).slice(0,5);
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>🪙 コイン系</h2><button class="sm" type="button" onclick="go('otherMenu')">← その他</button><div class="cg-bal"><small>所持コイン</small>🪙 ${cgFmt(coins)}</div></div>
+  <p class="cg-sub">コインで遊べるガチャとギャンブルのコーナー。掛け金は自分で決められます。</p>
+  <div class="cg-menu">
+    <button type="button" class="cg-hi" onclick="go('cgGacha')"><span class="cg-ico">🎰</span><span class="cg-txt">ガチャ</span><span class="cg-sub2">1回100 / 10連900</span></button>
+    <button type="button" onclick="go('cgGamble')"><span class="cg-ico">🎲</span><span class="cg-txt">ギャンブル</span><span class="cg-sub2">ポーカー・BJ・競馬</span></button>
+    <button type="button" onclick="go('cgGuide')"><span class="cg-ico">📖</span><span class="cg-txt">遊び方</span><span class="cg-sub2">各ゲームの説明</span></button>
+  </div>
+  <div class="cg-panel"><h3>📜 最近の結果</h3>
+    ${log.length?`<ul style="margin:6px 0 0 18px;padding:0;font-size:13px;line-height:1.7">${log.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:'<p class="cg-note">まだ記録がありません。ゲームで遊ぶと結果が残ります。</p>'}
+  </div>
+  <div class="cg-panel"><h3>ℹ️ コインについて</h3>
+    <p>ガチャや配布で手に入るコインをそのまま掛け金に使います。勝てばコインが増え、負ければ減ります。<b>掛け金は各ゲームの画面で自由に設定できます</b>（1コイン以上・所持コインまで）。</p>
+    <p class="cg-note">※ コインはゲーム内のものだけが動きます。掛け金を所持コインより多くすることはできません。</p>
+  </div></div>`;
+}
+
+function cgGambleMenuHtml(){
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>🎲 ギャンブル</h2><button class="sm" type="button" onclick="go('coinMenu')">← コイン系</button><div class="cg-bal"><small>所持コイン</small>🪙 ${cgFmt(cgCoins())}</div></div>
+  <p class="cg-sub">好きなゲームを選んで、掛け金を決めてBETしよう。</p>
+  <div class="cg-menu">
+    <button type="button" onclick="go('cgPoker')"><span class="cg-ico">🃏</span><span class="cg-txt">ポーカー</span><span class="cg-sub2">5カードドロー</span></button>
+    <button type="button" onclick="go('cgBJ')"><span class="cg-ico">♠️</span><span class="cg-txt">ブラックジャック</span><span class="cg-sub2">ディーラーと21勝負</span></button>
+    <button type="button" class="cg-hi" onclick="go('cgKeiba')"><span class="cg-ico">🐎</span><span class="cg-txt">競馬</span><span class="cg-sub2">6頭立て・7種類の券種</span></button>
+  </div>
+  <div class="cg-panel"><h3>💡 かしこく遊ぶコツ</h3>
+    <p>・<b>競馬の複勝</b>は当たりやすいぶんオッズが低く、<b>三連単</b>は難しいぶん高配当です。<br>
+    ・ポーカーは「役」が強いほど配当倍率が上がります。<br>
+    ・ブラックジャックはディーラーが17以上で止まるので、16以下なら引くのが基本です。</p>
+  </div></div>`;
+}
+
+/* ============================ ガチャ ============================ */
+const CG_GACHA_ONE=100, CG_GACHA_TEN=900;
+const CG_PRIZES=[
+  {id:'none', name:'はずれ',       ico:'🍬', coin:5,    w:400, cls:'p0'},
+  {id:'small',name:'小当たり',     ico:'🪙', coin:40,   w:300, cls:'p1'},
+  {id:'mid',  name:'中当たり',     ico:'💰', coin:100,  w:170, cls:'p1'},
+  {id:'big',  name:'大当たり',     ico:'🎁', coin:300,  w:100, cls:'p2'},
+  {id:'huge', name:'超大当たり',   ico:'👑', coin:800,  w:25,  cls:'p3'},
+  {id:'legend',name:'伝説の一撃',  ico:'🌟', coin:3000, w:5,   cls:'p4'}
+];
+function cgGachaRoll(){
+  const tot=CG_PRIZES.reduce((s,p)=>s+p.w,0);
+  let r=Math.random()*tot;
+  for(const p of CG_PRIZES){ if((r-=p.w)<0) return p; }
+  return CG_PRIZES[0];
+}
+function cgGachaHtml(){
+  const st=CG_STATE.gacha, coins=cgCoins(), u=U();
+  const items=Array.isArray(st.items)?st.items:[];
+  const reels=[0,1,2].map(i=>{
+    const spinning=st.spinning||!st.revealed;
+    const it=items[i];
+    return `<div class="cg-reel${spinning?' cg-spinning':''}">${spinning?'❔':(it?it.ico:'🎰')}</div>`;
+  }).join('');
+  const grid=items.length?`<div class="cg-results">${items.map((it,i)=>`<div class="cg-prize ${it.cls}" style="animation-delay:${i*60}ms"><span class="cg-pico">${it.ico}</span><b>${esc(it.name)}</b><small>+🪙${cgFmt(it.coin)}</small></div>`).join('')}</div>`:'';
+  const used=CG_STATE.gacha.lastMsg||'';
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>🎰 コインガチャ</h2><button class="sm" type="button" onclick="go('coinMenu')">← コイン系</button><div class="cg-bal"><small>所持コイン</small>🪙 ${cgFmt(coins)}</div></div>
+  <p class="cg-sub">1回 🪙${CG_GACHA_ONE} ／ 10連 🪙${CG_GACHA_TEN}（10連は1回分おトク）。出た景品はそのままコインで戻ってきます。</p>
+  ${cgMsgHtml(used)}
+  <div class="cg-reels">${reels}</div>
+  <div class="cg-gacha-btns">
+    <button type="button" class="cg-pull" onclick="cgGachaPull(1)" ${coins<CG_GACHA_ONE||st.spinning?'disabled':''}>1回引く 🪙${CG_GACHA_ONE}</button>
+    <button type="button" class="cg-pull ten" onclick="cgGachaPull(10)" ${coins<CG_GACHA_TEN||st.spinning?'disabled':''}>10連ガチャ 🪙${CG_GACHA_TEN}</button>
+  </div>
+  ${grid}
+  <div class="cg-panel cg-rules" style="margin-top:14px"><h3>📖 ガチャの説明</h3>
+    <p>コインを払って抽選し、出た景品のコインが即座に手元に戻る方式です。ハズレでも少しコインが戻ります。</p>
+    <table class="cg-rate"><tr><th>景品</th><th>戻ってくるコイン</th><th>確率</th></tr>
+    ${CG_PRIZES.slice().reverse().map(p=>`<tr><td>${p.ico} ${esc(p.name)}</td><td class="cg-hit">🪙${cgFmt(p.coin)}</td><td>${(p.w/10).toFixed(1)}%</td></tr>`).join('')}
+    </table>
+    <p class="cg-note">※ 10連は内部的に1回抽選を10回行います。1枚ずつ結果が表示されます。</p>
+  </div></div>`;
+}
+function cgGachaPull(n){
+  const st=CG_STATE.gacha;
+  if(st.spinning) return;
+  const cost = n===10 ? CG_GACHA_TEN : CG_GACHA_ONE;
+  if(cgCoins() < cost){ CG_STATE.gacha.lastMsg='コインが足りません'; return go('cgGacha','コインが足りません'); }
+  cgAdd(-cost);
+  const items=[]; let back=0;
+  for(let i=0;i<n;i++){ const p=cgGachaRoll(); items.push(p); back+=p.coin; }
+  cgAdd(back);
+  st.items=items; st.spinning=true; st.revealed=false;
+  st.lastMsg=`${n===10?'10連':'1回'}ガチャ：支払 🪙${cost} → 獲得 🪙${cgFmt(back)}（差引 ${back-cost>=0?'+':''}${cgFmt(back-cost)}）`;
+  cgLog(`ガチャ${n===10?'10連':'1回'}：${items.map(i=>i.name).join('・')} / 収支 ${back-cost>=0?'+':''}${cgFmt(back-cost)}`);
+  go('cgGacha');
+  setTimeout(()=>{ st.spinning=false; st.revealed=true; if(screen==='cgGacha') render(); }, n===10?1500:1100);
+}
+
+/* ============================ ポーカー ============================ */
+const CG_SUITS=[['♠','s'],['♥','h'],['♦','d'],['♣','c']];
+const CG_RANKS=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const CG_POKER_PAY=[
+  {name:'ロイヤルストレートフラッシュ', mult:250, note:'A,K,Q,J,10 の同じマーク'},
+  {name:'ストレートフラッシュ',       mult:50,  note:'同じマークで5枚連続'},
+  {name:'フォーカード',               mult:25,  note:'同じ数字4枚'},
+  {name:'フルハウス',                 mult:9,   note:'3枚+2枚の組み合わせ'},
+  {name:'フラッシュ',                 mult:6,   note:'同じマーク5枚'},
+  {name:'ストレート',                 mult:4,   note:'数字が5枚連続'},
+  {name:'スリーカード',               mult:3,   note:'同じ数字3枚'},
+  {name:'ツーペア',                   mult:2,   note:'同じ数字2組'},
+  {name:'ワンペア',                   mult:1,   note:'同じ数字2枚（掛け金戻り）'},
+  {name:'ハイカード',                 mult:0,   note:'役なし（負け）'}
+];
+function cgDeck(){
+  const d=[];
+  for(const [sym,key] of CG_SUITS) for(let i=0;i<13;i++) d.push({r:CG_RANKS[i],s:sym,k:key});
+  for(let i=d.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=d[i]; d[i]=d[j]; d[j]=t; }
+  return d;
+}
+function cgCardHtml(c,opt={}){
+  if(!c) return `<div class="cg-card cg-down"><span class="cg-card-back">${opt.hold?'🂠':'❔'}</span></div>`;
+  const red=(c.k==='h'||c.k==='d');
+  return `<div class="cg-card${red?' cg-red':''}"><span class="cg-card-r">${c.r}</span><span class="cg-card-s">${c.s}</span></div>`;
+}
+function cgEvalPoker(cards){
+  const idx=cards.map(c=>CG_RANKS.indexOf(c.r)).sort((a,b)=>a-b);
+  const cnt={}; cards.forEach(c=>cnt[c.r]=(cnt[c.r]||0)+1);
+  const groups=Object.values(cnt).sort((a,b)=>b-a);
+  const flush=cards.every(c=>c.k===cards[0].k);
+  const uniq=[...new Set(idx)];
+  let straight=false, high=0;
+  if(uniq.length===5){
+    if(uniq[4]-uniq[0]===4){ straight=true; high=uniq[4]; }
+    else if(uniq.join(',')==='0,1,2,3,12'){ straight=true; high=3; }
+  }
+  const isRoyal = flush && straight && high===CG_RANKS.indexOf('A');
+  let i;
+  if(isRoyal) i=0;
+  else if(flush&&straight) i=1;
+  else if(groups[0]===4) i=2;
+  else if(groups[0]===3&&groups[1]===2) i=3;
+  else if(flush) i=4;
+  else if(straight) i=5;
+  else if(groups[0]===3) i=6;
+  else if(groups[0]===2&&groups[1]===2) i=7;
+  else if(groups[0]===2) i=8;
+  else i=9;
+  return CG_POKER_PAY[i];
+}
+function cgPokerHtml(){
+  cgBetEnsure('cgBetPk');
+  const st=CG_STATE.pk, coins=cgCoins();
+  const phase=st.phase||'bet';
+  let hand='';
+  if(phase==='bet'){
+    hand=Array.from({length:5}).map(()=>`<div class="cg-slot"><span class="cg-holdtag"></span><div class="cg-cardwrap"><div class="cg-card cg-down"><span class="cg-card-back">🂠</span></div></div></div>`).join('');
+  }else{
+    hand=(st.hand||[]).map((c,i)=>{
+      const held=!!(st.holds&&st.holds[i]);
+      const dim=(st.res&&st.res.mult>0);
+      return `<button type="button" class="cg-slot${held?' cg-holding':''}" onclick="cgPkToggle(${i})" ${phase!=='draw'?'disabled':''}>
+        <span class="cg-holdtag">${phase==='draw'?(held?'HOLD':'　'):''}</span>
+        <div class="cg-cardwrap" style="animation-delay:${i*70}ms">${cgCardHtml(c)}</div></button>`;
+    }).join('');
+  }
+  const res=st.res;
+  const banner=res?`<div class="cg-banner ${res.mult>0?'win':'lose'}">${res.mult>0?`🎉 ${esc(res.name)}！ 🪙${cgFmt(res.payout)} 獲得`:`😢 ${esc(res.name)} … 今回は負け`}</div>`:'';
+  const acts = phase==='bet'
+    ? `<div class="cg-act"><button type="button" class="cg-primary" onclick="cgPkDeal()">BETして配る 🪙${cgFmt(CG_STATE.bet['cgBetPk']||0)}</button></div>`
+    : phase==='draw'
+    ? `<div class="cg-act"><button type="button" class="cg-gold" onclick="cgPkDraw()">交換して勝負</button></div>`
+    : `<div class="cg-act"><button type="button" class="cg-primary" onclick="cgPkReset()">もう一度BETする</button></div>`;
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>🃏 ポーカー</h2><button class="sm" type="button" onclick="go('cgGamble')">← ギャンブル</button><div class="cg-bal"><small>所持コイン</small>🪙 ${cgFmt(coins)}</div></div>
+  <p class="cg-sub">5枚配られ、1回だけ好きなカードを交換できます。役が強いほど配当が増えます。</p>
+  ${cgMsgHtml(st.msg,st.err)}
+  ${cgBetHtml('cgBetPk','BET額')}
+  ${banner}
+  <div class="cg-table"><div class="cg-hand">${hand}</div>${acts}</div>
+  <div class="cg-panel cg-rules"><h3>📖 ポーカーの説明</h3>
+    <p><b>遊び方</b>：掛け金を決めて「BETして配る」を押すと5枚配られます。残したいカードをタップして<b>HOLD</b>にし、「交換して勝負」で残りを引き直します。役が成立すれば<b>掛け金×倍率</b>が戻ってきます（外れは0）。</p>
+    <table class="cg-rate"><tr><th>役</th><th>配当</th><th>成立条件</th></tr>
+    ${CG_POKER_PAY.map(p=>`<tr><td>${esc(p.name)}</td><td class="cg-hit">×${p.mult}</td><td style="text-align:left">${esc(p.note)}</td></tr>`).join('')}
+    </table>
+    <p class="cg-note">※ 掛け金はBET時に引かれ、当たったときに配当が戻ります。</p>
+  </div></div>`;
+}
+function cgPkDeal(){
+  const r=cgReadBet('cgBetPk'); if(r.err) return cgErr('pk','cgPoker',r.err);
+  const deck=cgDeck();
+  const hand=deck.splice(0,5);
+  CG_STATE.pk={ phase:'draw', bet:r.v, deck, hand, holds:[false,false,false,false,false], msg:`🪙${cgFmt(r.v)} をBET。交換するカードを選んでね。`, err:false };
+  cgAdd(-r.v); cgLog(`ポーカーBET 🪙${cgFmt(r.v)}`); go('cgPoker');
+}
+function cgPkToggle(i){
+  const st=CG_STATE.pk; if(st.phase!=='draw') return;
+  st.holds[i]=!st.holds[i]; render();
+}
+function cgPkDraw(){
+  const st=CG_STATE.pk; if(st.phase!=='draw') return;
+  for(let i=0;i<5;i++) if(!st.holds[i]) st.hand[i]=st.deck.pop();
+  const res=cgEvalPoker(st.hand);
+  const payout=Math.floor(st.bet*res.mult);
+  st.res={...res,payout}; st.phase='done';
+  if(payout>0){ cgAdd(payout); cgLog(`ポーカー ${res.name} ×${res.mult} → +🪙${cgFmt(payout)}`); }
+  else cgLog(`ポーカー ${res.name} → -🪙${cgFmt(st.bet)}`);
+  st.msg = payout>0 ? `${res.name}（×${res.mult}）で 🪙${cgFmt(payout)} 獲得！` : `${res.name}… 残念、🪙${cgFmt(st.bet)} を失いました。`;
+  st.err = payout<=0;
+  render();
+}
+function cgPkReset(){
+  CG_STATE.pk={ phase:'bet', msg:'', err:false };
+  go('cgPoker');
+}
+
+/* ============================ ブラックジャック ============================ */
+function cgBJValue(cards){
+  let t=0,a=0;
+  (cards||[]).forEach(c=>{
+    if(c.r==='A'){ a++; t+=11; }
+    else if(c.r==='J'||c.r==='Q'||c.r==='K') t+=10;
+    else t+=Number(c.r);
+  });
+  while(t>21&&a>0){ t-=10; a--; }
+  return {total:t, soft:a>0&&t<=21};
+}
+function cgBJHtml(){
+  cgBetEnsure('cgBetBj');
+  const st=CG_STATE.bj, coins=cgCoins();
+  const phase=st.phase||'bet';
+  const pv=st.player?cgBJValue(st.player):{total:0};
+  const dv=st.dealer?cgBJValue(st.dealer):{total:0};
+  const dCards=(st.dealer||[]).map((c,i)=>{
+    const hide=st.hideHole&&i===1;
+    return `<div class="cg-cardwrap" style="animation-delay:${i*80}ms">${cgCardHtml(hide?null:c,{hold:true})}</div>`;
+  }).join('')||`<div class="cg-cardwrap"><div class="cg-card cg-down"><span class="cg-card-back">🂠</span></div></div>`;
+  const pCards=(st.player||[]).map((c,i)=>`<div class="cg-cardwrap" style="animation-delay:${i*80}ms">${cgCardHtml(c)}</div>`).join('')
+    ||`<div class="cg-cardwrap"><div class="cg-card cg-down"><span class="cg-card-back">🂠</span></div></div>`;
+  const dealerScore = st.hideHole ? `${dv.total-((st.dealer&&st.dealer[1])?cgBJValue([st.dealer[1]]).total:0)} + ?` : dv.total;
+  const bust = pv.total>21;
+  const res=st.res;
+  const banner=res?`<div class="cg-banner ${res.cls}">${res.text}</div>`:'';
+  let acts='';
+  if(phase==='player'){
+    acts=`<div class="cg-act">
+      <button type="button" class="cg-primary" onclick="cgBJHit()">ヒット</button>
+      <button type="button" class="cg-gold" onclick="cgBJStand()">スタンド</button>
+      <button type="button" class="cg-danger" onclick="cgBJDouble()" ${(st.player||[]).length!==2||cgCoins()<st.bet?'disabled':''}>ダブル</button>
+    </div>`;
+  }else if(phase==='done'){
+    acts=`<div class="cg-act"><button type="button" class="cg-primary" onclick="cgBJReset()">もう一度BETする</button></div>`;
+  }else{
+    acts=`<div class="cg-act"><button type="button" class="cg-primary" onclick="cgBJDeal()">BETして配る 🪙${cgFmt(CG_STATE.bet['cgBetBj']||0)}</button></div>`;
+  }
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>♠️ ブラックジャック</h2><button class="sm" type="button" onclick="go('cgGamble')">← ギャンブル</button><div class="cg-bal"><small>所持コイン</small>🪙 ${cgFmt(coins)}</div></div>
+  <p class="cg-sub">手札の合計を21に近づけてディーラーと勝負。21を超えると即負け（バスト）です。</p>
+  ${cgMsgHtml(st.msg,st.err)}
+  ${cgBetHtml('cgBetBj','BET額')}
+  ${banner}
+  <div class="cg-table">
+    <div class="cg-dealer"><h4>ディーラー</h4><div class="cg-hand">${dCards}</div><div class="cg-score">${dealerScore}</div></div>
+    <div class="cg-dealer" style="margin-top:10px;border-color:${bust?'#ff8a8a':'#3f9e6a'}"><h4>あなた ${st.bet?`（BET 🪙${cgFmt(st.bet)}）`:''}</h4>
+    <div class="cg-hand">${pCards}</div><div class="cg-score ${bust?'bust':''}">${pv.total}${bust?' バスト':(pv.soft?' (soft)':'')}</div></div>
+    ${acts}
+  </div>
+  <div class="cg-panel cg-rules"><h3>📖 ブラックジャックの説明</h3>
+    <p><b>遊び方</b>：掛け金を決めて配られたら、21を超えない範囲でカードを追加（ヒット）するか、止める（スタンド）かを選びます。ディーラーは<b>17以上で必ず止まる</b>ので、それを利用して勝負します。</p>
+    <ul>
+      <li><b>ヒット</b>：カードを1枚追加します。</li>
+      <li><b>スタンド</b>：そこで確定し、ディーラーの手札が公開されます。</li>
+      <li><b>ダブル</b>：最初の2枚のときだけ、掛け金を2倍にして1枚だけ引いて確定します。</li>
+      <li><b>配当</b>：勝ち＝掛け金×2（賭け金+同額の利益）、引き分け＝掛け金戻り、負け＝0。最初の2枚で21（ブラックジャック）なら×2.5。</li>
+      <li>Aは1または11として都合よく数えられます（ソフトハンド）。</li>
+    </ul>
+    <p class="cg-note">※ 16以下なら引く、17以上なら止めるのが基本の立ち回りです。</p>
+  </div></div>`;
+}
+function cgBJStart(){
+  const deck=cgDeck();
+  const player=[deck.pop(),deck.pop()], dealer=[deck.pop(),deck.pop()];
+  return {deck,player,dealer};
+}
+function cgBJDeal(){
+  const r=cgReadBet('cgBetBj'); if(r.err) return cgErr('bj','cgBJ',r.err);
+  cgAdd(-r.v);
+  const s=cgBJStart();
+  CG_STATE.bj={ ...s, bet:r.v, hideHole:true, phase:'player', res:null, msg:`🪙${cgFmt(r.v)} をBET。ヒットかスタンドを選んでください。`, err:false };
+  cgLog(`ブラックジャックBET 🪙${cgFmt(r.v)}`);
+  go('cgBJ');
+  /* ナチュラル21の即時判定 */
+  const pv=cgBJValue(CG_STATE.bj.player), dv=cgBJValue(CG_STATE.bj.dealer);
+  if(pv.total===21||dv.total===21) setTimeout(()=>{ if(CG_STATE.bj.phase==='player') cgBJStand(); },700);
+}
+function cgBJHit(){
+  const st=CG_STATE.bj; if(st.phase!=='player') return;
+  st.player.push(st.deck.pop());
+  const pv=cgBJValue(st.player);
+  st.msg=`ヒット → 合計 ${pv.total}`; st.err=false;
+  if(pv.total>21){ st.msg=`バスト！合計 ${pv.total} で負け`; st.err=true; cgBJFinish('lose'); return; }
+  render();
+}
+function cgBJDouble(){
+  const st=CG_STATE.bj;
+  if(st.phase!=='player'||st.player.length!==2) return;
+  if(cgCoins()<st.bet) return cgErr('bj','cgBJ','ダブルに必要なコインが足りません');
+  cgAdd(-st.bet); st.bet*=2;
+  st.player.push(st.deck.pop());
+  st.msg=`ダブル！掛け金 🪙${cgFmt(st.bet)} で勝負`;
+  const pv=cgBJValue(st.player);
+  if(pv.total>21){ st.err=true; cgBJFinish('lose'); return; }
+  cgBJStand();
+}
+function cgBJStand(){
+  const st=CG_STATE.bj; if(st.phase!=='player') return;
+  st.phase='dealer'; st.hideHole=false; st.msg='ディーラーの手札を公開…';
+  const step=()=>{
+    const s=CG_STATE.bj;
+    if(s.phase!=='dealer') return;
+    const dv=cgBJValue(s.dealer), pv=cgBJValue(s.player);
+    if(dv.total<17){
+      s.dealer.push(s.deck.pop());
+      render();
+      setTimeout(step,480);
+      return;
+    }
+    /* 判定 */
+    if(pv.total>21) return cgBJFinish('lose');
+    if(dv.total>21) return cgBJFinish('win', pv.total===21&&s.player.length===2);
+    if(pv.total>dv.total) return cgBJFinish('win', pv.total===21&&s.player.length===2);
+    if(pv.total<dv.total) return cgBJFinish('lose');
+    return cgBJFinish('push');
+  };
+  render();
+  setTimeout(step,520);
+}
+function cgBJFinish(kind, natural){
+  const st=CG_STATE.bj;
+  st.phase='done';
+  const bet=st.bet||0;
+  if(kind==='win'){
+    const pay = natural ? Math.floor(bet*2.5) : bet*2;
+    cgAdd(pay);
+    st.res={cls:'win', text:`🎉 勝ち！ 🪙${cgFmt(pay)} 獲得（BET 🪙${cgFmt(bet)}）`};
+    st.msg=`勝ち！ +🪙${cgFmt(pay-bet)}`; st.err=false;
+    cgLog(`ブラックジャック勝ち +🪙${cgFmt(pay-bet)}`);
+  }else if(kind==='push'){
+    cgAdd(bet);
+    st.res={cls:'push', text:`🤝 引き分け。掛け金 🪙${cgFmt(bet)} を戻しました`};
+    st.msg='引き分け（プッシュ）'; st.err=false;
+    cgLog(`ブラックジャック引き分け ±0`);
+  }else{
+    st.res={cls:'lose', text:`😢 負け… 🪙${cgFmt(bet)} を失いました`};
+    st.msg='負け…'; st.err=true;
+    cgLog(`ブラックジャック負け -🪙${cgFmt(bet)}`);
+  }
+  if(screen==='cgBJ') render();
+}
+function cgBJReset(){
+  CG_STATE.bj={ phase:'bet', msg:'', err:false };
+  go('cgBJ');
+}
+
+/* ============================ 競馬 ============================ */
+const CGK_HORSES=[
+  {no:1, name:'アカツキ',    e:'🐎', color:'#e24a4a', w:24},
+  {no:2, name:'ブラックナイト', e:'🐴', color:'#59697a', w:17},
+  {no:3, name:'アオバ',      e:'🐎', color:'#3d86e8', w:20},
+  {no:4, name:'ミドリマル',  e:'🐎', color:'#3fb86a', w:13},
+  {no:5, name:'キンタロー',  e:'🐴', color:'#f2d130', w:15},
+  {no:6, name:'モモノスケ',  e:'🐎', color:'#f58ad8', w:11}
+];
+const CGK_TAKEOUT=0.20;
+const CGK_TYPES={
+  win:   {label:'単勝',   need:1, order:false, desc:'1着になる馬を当てる。もっともシンプルで、人気馬なら低配当・穴馬なら高配当。'},
+  place: {label:'複勝',   need:1, order:false, desc:'選んだ馬が3着以内（6頭立てなので2着以内）に入れば的中。当たりやすいぶん配当は低め。'},
+  ren:   {label:'馬連',   need:2, order:false, desc:'1着と2着の2頭を、順番関係なく当てる。'},
+  wide:  {label:'ワイド', need:2, order:false, desc:'選んだ2頭がどちらも3着以内に入れば的中。3つの組み合わせのどれかで当たるので的中しやすい。'},
+  tanna: {label:'馬単',   need:2, order:true,  desc:'1着と2着を、着順どおりに当てる。馬連より難しいぶん高配当。'},
+  trio:  {label:'三連複', need:3, order:false, desc:'1〜3着の3頭を、順番関係なく当てる。'},
+  trif:  {label:'三連単', need:3, order:true,  desc:'1〜3着の3頭を、着順どおりに当てる。競馬で最も難しい券種＝最高配当。'}
+};
+let CGK_ODDS=null;
+function cgkInitOdds(){
+  if(CGK_ODDS) return CGK_ODDS;
+  const n=6, tot=CGK_HORSES.reduce((s,h)=>s+h.w,0);
+  const p=CGK_HORSES.map(h=>h.w/tot);
+  const acc={win:Array(n).fill(0),place:Array(n).fill(0),ren:{},wide:{},tanna:{},trio:{},trif:{}};
+  const perm=[], used=Array(n).fill(false);
+  const rec=(depth,prob,rem)=>{
+    if(depth===n){
+      const o=perm.slice();
+      acc.win[o[0]]+=prob;
+      acc.place[o[0]]+=prob; acc.place[o[1]]+=prob;
+      const k12=[o[0],o[1]].sort((a,b)=>a-b).join('-');
+      acc.ren[k12]=(acc.ren[k12]||0)+prob;
+      acc.tanna[o[0]+'-'+o[1]]=(acc.tanna[o[0]+'-'+o[1]]||0)+prob;
+      const top3=[o[0],o[1],o[2]];
+      for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){
+        const k=[top3[i],top3[j]].sort((a,b)=>a-b).join('-');
+        acc.wide[k]=(acc.wide[k]||0)+prob;
+      }
+      acc.trio[top3.slice().sort((a,b)=>a-b).join('-')]=(acc.trio[top3.slice().sort((a,b)=>a-b).join('-')]||0)+prob;
+      acc.trif[top3.join('-')]=(acc.trif[top3.join('-')]||0)+prob;
+      return;
+    }
+    for(let i=0;i<n;i++){
+      if(used[i]) continue;
+      used[i]=true; perm.push(i);
+      rec(depth+1, prob*p[i]/rem, rem-p[i]);
+      perm.pop(); used[i]=false;
+    }
+  };
+  rec(0,1,1);
+  const odds=(pr)=>Math.max(1.1, Math.floor(((1-CGK_TAKEOUT)/Math.max(pr,1e-9))*10)/10);
+  CGK_ODDS={win:acc.win.map(odds), place:acc.place.map(odds), ren:{},wide:{},tanna:{},trio:{},trif:{}};
+  for(const k in acc.ren) CGK_ODDS.ren[k]=odds(acc.ren[k]);
+  for(const k in acc.wide) CGK_ODDS.wide[k]=odds(acc.wide[k]);
+  for(const k in acc.tanna) CGK_ODDS.tanna[k]=odds(acc.tanna[k]);
+  for(const k in acc.trio) CGK_ODDS.trio[k]=odds(acc.trio[k]);
+  for(const k in acc.trif) CGK_ODDS.trif[k]=odds(acc.trif[k]);
+  return CGK_ODDS;
+}
+function cgkNosToHorses(nos){ return nos.map(n=>CGK_HORSES.find(h=>h.no===n)).filter(Boolean); }
+function cgkKey(type,sel){
+  const T=CGK_TYPES[type];
+  return T.order ? sel.join('-') : sel.slice().sort((a,b)=>a-b).join('-');
+}
+function cgkOddsOf(type,sel){
+  const O=cgkInitOdds();
+  if(!sel||sel.length!==CGK_TYPES[type].need) return 0;
+  if(type==='win') return O.win[sel[0]-1];
+  if(type==='place') return O.place[sel[0]-1];
+  return O[type][cgkKey(type,sel)]||0;
+}
+function cgkSample(){
+  const tot=CGK_HORSES.reduce((s,h)=>s+h.w,0);
+  let pool=CGK_HORSES.map(h=>({h, p:h.w/tot, k:h.w}));
+  const order=[];
+  while(pool.length){
+    let r=Math.random()*pool.reduce((s,x)=>s+x.k,0);
+    let idx=0;
+    for(let i=0;i<pool.length;i++){ if((r-=pool[i].k)<0){ idx=i; break; } }
+    order.push(pool.splice(idx,1)[0].h);
+  }
+  return order;
+}
+function cgkTicketHtml(t,idx){
+  const hs=cgkNosToHorses(t.sel);
+  const label=CGK_TYPES[t.type].label;
+  const arrow=CGK_TYPES[t.type].order?' → ':' ＆ ';
+  return `<tr><td>${esc(label)}</td><td>${hs.map(h=>`<span style="color:${h.color};font-weight:900">${h.no}</span>`).join(arrow)}</td>
+  <td class="cgk-num">×${t.odds.toFixed(1)}</td><td class="cgk-num">🪙${cgFmt(t.bet)}</td>
+  <td class="cgk-num">🪙${cgFmt(Math.floor(t.bet*t.odds))}</td>
+  <td><button type="button" class="cgk-del" onclick="cgkRemove(${idx})">削除</button></td></tr>`;
+}
+function cgKeibaHtml(){
+  cgBetEnsure('cgBetK');
+  const st=CG_STATE.k;
+  if(!st.type) st.type='win';
+  if(!Array.isArray(st.sel)) st.sel=[];
+  if(!Array.isArray(st.slip)) st.slip=[];
+  const O=cgkInitOdds();
+  const T=CGK_TYPES[st.type];
+  const racing=!!st.racing;
+  const total=st.slip.reduce((s,t)=>s+t.bet,0);
+  const maxPayout=st.slip.reduce((s,t)=>s+Math.floor(t.bet*t.odds),0);
+  const need=T.need;
+  const ready=st.sel.length===need;
+  const odds=ready?cgkOddsOf(st.type,st.sel):0;
+  const horses=CGK_HORSES.map(h=>{
+    const sel=st.sel.includes(h.no);
+    const disabled=racing;
+    return `<button type="button" class="cgk-hbtn${sel?' sel':''}" onclick="cgkPick(${h.no})" ${disabled?'disabled':''}>
+      <span class="cgk-no" style="background:${h.color}">${h.no}</span>
+      <span class="cgk-name">${h.e} ${esc(h.name)}</span>
+      <span class="cgk-odds">単勝 ${O.win[h.no-1].toFixed(1)}</span></button>`;
+  }).join('');
+  const lanes=CGK_HORSES.map(h=>`<div class="cgk-lane"><span class="cgk-lane-no">${h.no}</span>
+    <div class="cgk-runner" id="cgkRunner${h.no}" style="color:${h.color}"><span class="cgk-e">${h.e}</span></div>
+    <div class="cgk-finish"></div><span class="cgk-goal">🏁</span></div>`).join('');
+  const slipRows=st.slip.length?st.slip.map((t,i)=>cgkTicketHtml(t,i)).join(''):'<tr><td colspan="6" style="opacity:.6">まだ馬券がありません。券種を選んで馬を選び、掛け金を入れて「馬券を追加」。</td></tr>';
+  const result=st.result;
+  let resultHtml='';
+  if(result){
+    const pod=result.order.slice(0,3).map((h,i)=>`<div class="cgk-pod${i===0?' first':''}"><span class="cgk-pmedal">${['🥇','🥈','🥉'][i]}</span><span style="color:${h.color};font-weight:900">${h.no} ${esc(h.name)}</span><small>${i+1}着</small></div>`).join('');
+    const rows=result.tickets.map(t=>{
+      const hit=t.hit, pay=hit?Math.floor(t.bet*t.odds):0;
+      const hs=cgkNosToHorses(t.sel);
+      return `<tr class="${hit?'pay':'miss'}"><td>${esc(CGK_TYPES[t.type].label)}</td><td>${hs.map(h=>h.no).join('-')}</td><td>${hit?'✅ 的中':'―'}</td><td>🪙${cgFmt(t.bet)}</td><td>🪙${cgFmt(pay)}</td></tr>`;
+    }).join('');
+    resultHtml=`<div class="cg-panel"><h3>🏁 レース結果</h3>
+      <div class="cgk-podium">${pod}</div>
+      <table class="cgk-result"><tr><th>券種</th><th>買い目</th><th>判定</th><th>掛け金</th><th>払戻</th></tr>${rows}</table>
+      <p style="font-weight:900;font-size:15px;margin-top:8px" class="${result.payout-result.stake>=0?'':'err'}">合計：BET 🪙${cgFmt(result.stake)} → 払戻 🪙${cgFmt(result.payout)}（収支 ${result.payout-result.stake>=0?'+':''}${cgFmt(result.payout-result.stake)}）</p></div>`;
+  }
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>🐎 競馬</h2><button class="sm" type="button" onclick="go('cgGamble')">← ギャンブル</button><div class="cg-bal"><small>所持コイン</small>🪙 ${cgFmt(cgCoins())}</div></div>
+  <p class="cg-sub">6頭立てのレース。券種と買い目を選び、自分で掛け金を決めてBETできます。1レースに何枚でも馬券を買えます。</p>
+  ${cgMsgHtml(st.msg,st.err)}
+  <div class="cgk-track" id="cgkTrack">
+    <div class="cgk-status" style="padding:0 8px"><span>${racing?'🏇 レース中…':'🏁 6頭立て / 1周'}</span><span style="margin-left:auto;color:#bfe0ff">${racing?'ゴールをお待ちください':''}</span></div>
+    ${lanes}
+  </div>
+  <div class="cgk-types">${Object.entries(CGK_TYPES).map(([k,v])=>`<button type="button" class="${st.type===k?'on':''}" onclick="cgkType('${k}')">${v.label}</button>`).join('')}</div>
+  <div class="cgk-explain"><b>${T.label}</b>：${T.desc}<br><span class="cg-note">選ぶ頭数：${need}頭${T.order?'（着順どおり）':'（順番自由）'}${ready?` ／ 現在のオッズ <b style="color:#ffd54a">×${odds.toFixed(1)}</b>`:''}</span></div>
+  <div class="cgk-horses">${horses}</div>
+  ${cgBetHtml('cgBetK','1枚あたりの掛け金')}
+  <div class="cg-act" style="justify-content:flex-start">
+    <button type="button" class="cg-gold" onclick="cgkAdd()" ${ready&&!racing?'':'disabled'}>＋ 馬券を追加（${T.label}）</button>
+  </div>
+  <table class="cgk-slip"><tr><th>券種</th><th>買い目</th><th>オッズ</th><th>掛け金</th><th>払戻見込</th><th></th></tr>${slipRows}</table>
+  <div class="cg-act" style="justify-content:space-between">
+    <span style="font-weight:900;font-size:13px">合計 BET 🪙${cgFmt(total)} ／ 最大払戻 🪙${cgFmt(maxPayout)}</span>
+    <span style="display:flex;gap:8px">
+      <button type="button" onclick="cgkClear()" ${racing||!st.slip.length?'disabled':''}>全取消</button>
+      <button type="button" class="cg-primary" onclick="cgkRace()" ${racing||!st.slip.length?'disabled':''}>🏇 レース開始</button>
+    </span>
+  </div>
+  ${resultHtml}
+  <div class="cg-panel cg-rules"><h3>📖 競馬の説明（6頭立て）</h3>
+    <p><b>買い方</b>：券種を選ぶ → 馬をタップで選ぶ → 掛け金を入れて「馬券を追加」。何枚でも追加でき、最後に「レース開始」で一斉に走ります。</p>
+    <ul>
+      ${Object.entries(CGK_TYPES).map(([k,v])=>`<li><b>${v.label}</b>（${v.need}頭・${v.order?'着順指定':'順番自由'}）：${v.desc}</li>`).join('')}
+    </ul>
+    <p><b>配当</b>：オッズ×掛け金（1コイン未満切り捨て）。オッズは各馬の強さから計算した的中確率をもとに、控除率20%で算出しています。</p>
+    <p class="cg-note">※ 複勝は出走6頭（7頭以下）なので<b>2着まで</b>が的中対象です。ワイドは3着までのうち2頭が入れば的中。</p>
+    <table class="cgk-result" style="margin-top:8px"><tr><th>枠</th><th>馬名</th><th>単勝</th><th>複勝</th></tr>
+    ${CGK_HORSES.map(h=>`<tr><td style="color:${h.color};font-weight:900">${h.no}</td><td>${h.e} ${esc(h.name)}</td><td>×${O.win[h.no-1].toFixed(1)}</td><td>×${O.place[h.no-1].toFixed(1)}</td></tr>`).join('')}
+    </table>
+  </div></div>`;
+}
+function cgkType(t){ const st=CG_STATE.k; st.type=t; st.sel=[]; st.msg=''; st.err=false; render(); }
+function cgkPick(no){
+  const st=CG_STATE.k; if(st.racing) return;
+  const need=CGK_TYPES[st.type].need;
+  const i=st.sel.indexOf(no);
+  if(i>=0) st.sel.splice(i,1);
+  else{
+    if(st.sel.length>=need) st.sel.shift();
+    st.sel.push(no);
+  }
+  st.msg=''; st.err=false;
+  render();
+}
+function cgkAdd(){
+  const st=CG_STATE.k; const T=CGK_TYPES[st.type];
+  if(st.racing) return;
+  if(st.sel.length!==T.need) return cgErr('k','cgKeiba',`${T.label}は${T.need}頭選んでください`);
+  const r=cgReadBet('cgBetK'); if(r.err) return cgErr('k','cgKeiba',r.err);
+  if(st.slip.length>=12) return cgErr('k','cgKeiba','馬券は12枚までです');
+  const odds=cgkOddsOf(st.type,st.sel);
+  st.slip.push({ type:st.type, sel:st.sel.slice(), bet:r.v, odds });
+  const buy=st.sel.slice(); st.sel=[]; st.msg=`${T.label}［${buy.join('-')}］を追加（オッズ ×${odds.toFixed(1)}）`; st.err=false;
+  render();
+}
+function cgkRemove(i){ const st=CG_STATE.k; if(st.racing) return; st.slip.splice(i,1); render(); }
+function cgkClear(){ const st=CG_STATE.k; if(st.racing) return; st.slip=[]; st.result=null; st.msg='馬券を全部取り消しました'; st.err=false; render(); }
+function cgkRace(){
+  const st=CG_STATE.k;
+  if(st.racing) return;
+  if(!st.slip.length) return cgErr('k','cgKeiba','馬券を追加してください');
+  const stake=st.slip.reduce((s,t)=>s+t.bet,0);
+  const coins=cgCoins();
+  if(stake>coins) return cgErr('k','cgKeiba',`コインが足りません（合計 🪙${cgFmt(stake)} / 所持 🪙${cgFmt(coins)}）`);
+  cgAdd(-stake);
+  const order=cgkSample();
+  st.racing=true; st.result=null; st.msg='🏇 レース中…'; st.err=false;
+  st.raceOrder=order.map(h=>h.no);
+  cgLog(`競馬 BET 🪙${cgFmt(stake)}（${st.slip.length}枚）`);
+  render();
+  setTimeout(()=>cgkAnimate(order,stake),260);
+}
+function cgkAnimate(order,stake){
+  const track=document.getElementById('cgkTrack');
+  if(!track){ CG_STATE.k.racing=false; render(); return; }
+  const width=Math.max(180, track.clientWidth-70);
+  const dur={};
+  order.forEach((h,i)=>{ dur[h.no]=2400+i*420+Math.random()*260; });
+  const t0=performance.now();
+  const maxDur=dur[order[order.length-1].no]+400;
+  const frame=(now)=>{
+    const el=now-t0;
+    order.forEach((h,i)=>{
+      const node=document.getElementById('cgkRunner'+h.no);
+      if(!node) return;
+      const d=dur[h.no];
+      const pr=Math.min(1, el/d);
+      const eased=1-Math.pow(1-pr,1.7);
+      const wob=pr<1?Math.sin(el/85+h.no*1.7)*7*(1-pr):0;
+      node.style.transform=`translateX(${(eased*width + wob).toFixed(1)}px)`;
+      node.classList.toggle('gallop', pr<1);
+      node.classList.toggle('win', pr>=1);
+      node.classList.toggle('dust', pr<0.94);
+    });
+    if(el<maxDur) requestAnimationFrame(frame);
+    else cgkFinish(order,stake);
+  };
+  requestAnimationFrame(frame);
+}
+function cgkFinish(order,stake){
+  const st=CG_STATE.k;
+  const pos=order.map(h=>h.no);
+  const top2=pos.slice(0,2), top3=pos.slice(0,3);
+  let payout=0;
+  const tickets=st.slip.map(t=>{
+    let hit=false;
+    if(t.type==='win') hit=top2[0]===t.sel[0];
+    else if(t.type==='place') hit=top2.includes(t.sel[0]);
+    else if(t.type==='ren') hit=[...t.sel].sort((a,b)=>a-b).join('-')===top2.slice().sort((a,b)=>a-b).join('-');
+    else if(t.type==='wide') hit=t.sel.every(n=>top3.includes(n));
+    else if(t.type==='tanna') hit=pos[0]===t.sel[0]&&pos[1]===t.sel[1];
+    else if(t.type==='trio') hit=[...t.sel].sort((a,b)=>a-b).join('-')===top3.slice().sort((a,b)=>a-b).join('-');
+    else if(t.type==='trif') hit=pos[0]===t.sel[0]&&pos[1]===t.sel[1]&&pos[2]===t.sel[2];
+    if(hit) payout+=Math.floor(t.bet*t.odds);
+    return {...t,hit};
+  });
+  if(payout>0) cgAdd(payout);
+  st.racing=false;
+  st.result={ order, tickets, stake, payout };
+  st.slip=[];
+  st.msg = payout>0 ? `🎉 的中！ 払戻 🪙${cgFmt(payout)}（収支 ${payout-stake>=0?'+':''}${cgFmt(payout-stake)}）` : `😢 はずれ… 🪙${cgFmt(stake)} を失いました`;
+  st.err = payout<=0;
+  cgLog(`競馬 結果 ${order.slice(0,3).map(h=>h.no).join('→')} / ${payout>0?`+🪙${cgFmt(payout-stake)}`:`-🪙${cgFmt(stake)}`}`);
+  render();
+}
+
+/* ---------- 遊び方（コイン系まとめ） ---------- */
+function cgGuideHtml(){
+  return `<div class="panel cg-wrap">
+  <div class="cg-head"><h2>📖 コイン系の遊び方</h2><button class="sm" type="button" onclick="go('coinMenu')">← コイン系</button></div>
+  <div class="cg-panel cg-rules"><h3>🎰 ガチャ</h3>
+    <p>1回 🪙100 / 10連 🪙900。景品は<b>コイン</b>で戻ってきます。はずれでも少し戻るので、気軽に回せます。</p></div>
+  <div class="cg-panel cg-rules"><h3>🃏 ポーカー</h3>
+    <p>5枚配られ、1回だけ交換。役に応じて<b>掛け金×倍率</b>が払い戻されます（ワンペア×1 〜 ロイヤル×250）。</p></div>
+  <div class="cg-panel cg-rules"><h3>♠️ ブラックジャック</h3>
+    <p>21に近いほうが勝ち。ディーラーは17以上で止まります。勝ち＝×2、引き分け＝戻り、ブラックジャック＝×2.5。</p></div>
+  <div class="cg-panel cg-rules"><h3>🐎 競馬（6頭立て）</h3>
+    <p>単勝・複勝・馬連・ワイド・馬単・三連複・三連単の7券種。1レースに複数枚買えて、オッズは的中確率から算出しています。複勝は6頭立てのため<b>2着まで</b>が的中です。</p></div>
+  <div class="cg-panel"><h3>🪙 掛け金のルール</h3>
+    <p>各ゲームの画面で掛け金を自由に設定できます（1コイン以上・所持コインまで）。0やマイナス、所持コインを超える額、数字以外は受け付けません。MAXボタンで全額、½ボタンで半分をセットできます。</p></div></div>`;
+}
+
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body></html>
