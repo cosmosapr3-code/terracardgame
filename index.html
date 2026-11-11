@@ -874,11 +874,31 @@ const DEF_S={hp:10,ap:5,hand:3,maxHand:7,drawCost:1,apInc:1,sovietBossHp:50};
 const BASE_ENABLED=BASE_KEYS.filter(k=>!['sovres','ally'].includes(k));
 // カード追加順（古い→新しい）。チュートリアルでは末尾2枚を自動紹介する。
 const TC_CARD_ADDITION_ORDER=['kuya','equal','lastgyoza','shimagari','hapiene','dozuru_company','bonj55','dozle','qnlyqdm','oramaincraf','oohara_men','tnt','shield','terra_card','nyn_sister','denjiro_sensei','zenin_maki','zenin_naoya_cursed','zenin_naoya','diamond_sword','duolingo','beppan','uso_tsukanai','kabikiller','freeza','troll_face','fune_oriro','book','book_off','study_hate','study_please','doraemon_battledome','doraemon'];
+// ストーリー章タイトル（第6章以降は従来どおり番号表示）
+const TC_STORY_CHAPTER_TITLES={1:'赤い思想国家',2:'アンダーな物語',3:'カビ取り最強',4:'平和な時間',5:'ドブなカスの野望'};
+function storyChapterName(ch){return TC_STORY_CHAPTER_TITLES[Math.max(1,Math.floor(Number(ch)||1))]||'';}
+function storyChapterTitleHtml(ch){const n=storyChapterName(ch);return n?'「'+esc(n)+'」':'';}
+// 運営が変更できるストーリーカードの章別解放設定。旧設定がない場合のみ既定値を使う。
+const TC_DEFAULT_STORY_CHAPTER_UNLOCKS={
+  1:['umbrella','missile','sovres','sovet','cola'],
+  2:['rewind','sans'],
+  3:['planY','planB','planR','planG','kabikiller'],
+  4:['rifle','mystery','gobou'],
+  5:['zenin_naoya','zenin_naoya_cursed','zenin_maki']
+};
+function tcNormalizeStoryChapterUnlocks(raw){
+ const src=raw&&typeof raw==='object'?raw:TC_DEFAULT_STORY_CHAPTER_UNLOCKS,out={};
+ for(let ch=1;ch<=5;ch++){
+  const values=Array.isArray(src[ch])?src[ch]:(Array.isArray(TC_DEFAULT_STORY_CHAPTER_UNLOCKS[ch])?TC_DEFAULT_STORY_CHAPTER_UNLOCKS[ch]:[]);
+  out[ch]=[...new Set(values.map(v=>String(v)).filter(v=>v.length>0&&v.length<=100))];
+ }
+ return out;
+}
 // admin-editable data
 const DEFAULT_GACHA_PRICES={character:1,charm:1};
 const DEFAULT_CHARM_RATES={N:60,R:25,SR:10,SSR:4,UR:1};
 const DEFAULT_YOUTUBE_KEYS=Object.keys(CARDS).filter(k=>CARDS[k].youtubeAttr);
-let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;
+let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);
 let POOL=[];
 const saveCfg=()=>{
  localStorage.cgc_cfg=JSON.stringify(CFG);
@@ -904,7 +924,7 @@ const save=()=>localStorage.cgc_db=JSON.stringify(db);
 const TERRACARD_API='https://terracard-api.cosmos-apr-3.workers.dev';
 let TERRACARD_TOKEN=localStorage.cgc_token||'';
 async function apiCall(path,body=null){const r=await fetch(TERRACARD_API+path,{method:body===null?'GET':'POST',headers:{'Content-Type':'application/json',...(TERRACARD_TOKEN?{Authorization:'Bearer '+TERRACARD_TOKEN}:{})},...(body===null?{}:{body:JSON.stringify(body)})});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'サーバーに接続できません');return d;}
-async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config');if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1;if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.warn('運営ゲーム設定を取得できませんでした',e)}return false;}
+async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config');if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1;if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.warn('運営ゲーム設定を取得できませんでした',e)}return false;}
 async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0,charms:Array.isArray(u.charms)?u.charms:[],equippedCharmId:u.equippedCharmId||null,achievements:Array.isArray(u.achievements)?u.achievements:[],equippedAchievement:u.equippedAchievement||null,medals:Array.isArray(u.medals)?u.medals:[],equippedMedals:Array.isArray(u.equippedMedals)?u.equippedMedals:[],gachaPulls:Number(u.gachaPulls)||0});u.profileInitialized=true;return d;}
 async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Math.max(0,Math.floor(Number(d.player.coins)||0)+Math.floor(Number(u.cgDelta)||0));u.cgDelta=0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number(d.player.char)||0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';u.story=Number(d.player.story)||0;u.charms=Array.isArray(d.player.charms)?d.player.charms:[];u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.achievements=Array.isArray(d.player.achievements)?d.player.achievements:(Array.isArray(u.achievements)?u.achievements:[]);u.equippedAchievement=d.player.equipped_achievement||d.player.equippedAchievement||u.equippedAchievement||null;u.medals=Array.isArray(d.player.medals)?d.player.medals:(Array.isArray(u.medals)?u.medals:[]);u.equippedMedals=Array.isArray(d.player.equipped_medals)?d.player.equipped_medals:(Array.isArray(d.player.equippedMedals)?d.player.equippedMedals:(Array.isArray(u.equippedMedals)?u.equippedMedals:[]));u.gachaPulls=Math.max(Number(u.gachaPulls)||0,Number(d.player.gacha_pulls||d.player.gachaPulls)||0);u.profileInitialized=true;}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
 setInterval(()=>{if(me&&!isAdmin&&screen==='home')refreshCloudChat()},5000);
@@ -1318,7 +1338,7 @@ function wishPick(i){
  d.className='resov';
  d.id='wishov';
  const picks=Object.keys(CARDS)
-  .filter(k=>!CARDS[k].fixed&&!['wish','cheat','cheat_limit'].includes(k))
+  .filter(k=>!CARDS[k].fixed&&!['wish','cheat','cheat_limit'].includes(k)&&tcIsStoryCardUnlocked(k))
   .map(k=>`<button class="sm" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;white-space:normal;min-width:190px;max-width:320px;gap:4px" onclick="wishTake('${k}')"><b>${esc(CARDS[k].i)} ${esc(CARDS[k].n)}</b><small>コスト：${esc(String((k==='cheat'||k==='cheat_limit')?'∞':CARDS[k].c))}</small></button>`)
   .join('');
  d.innerHTML=`<div class="resbox" style="max-width:760px;max-height:80vh;overflow:auto"><h2>🌟 好きなカードを選ぼう</h2><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px">${picks}</div></div>`;
@@ -1332,7 +1352,7 @@ function terraPick(playerIndex){
  TC_TERRA_PICK={playerIndex,selected:[]};
  const old=document.getElementById('terrapickov');if(old)old.remove();
  const d=document.createElement('div');d.className='resov';d.id='terrapickov';
- const eligible=Object.keys(CARDS).filter(key=>!CARDS[key].fixed&&!['terra_card','draw','end'].includes(key));
+ const eligible=Object.keys(CARDS).filter(key=>!CARDS[key].fixed&&!['terra_card','draw','end'].includes(key)&&tcIsStoryCardUnlocked(key,p));
  const buttons=eligible.map(key=>`<button class="sm" style="display:flex;flex-direction:column;align-items:flex-start;text-align:left;white-space:normal;min-width:170px;max-width:300px;gap:4px" onclick="terraTake('${key}')"><b>${esc(CARDS[key].i||'🃏')} ${esc(CARDS[key].n)}</b><small>コスト：${esc(String(CARDS[key].c))}</small></button>`).join('');
  d.innerHTML=`<div class="resbox" style="max-width:820px;max-height:82vh;overflow:auto"><h2>🌈 TERRA CARD：好きなカードを3枚選ぼう</h2><p>あと <b id="terra-pick-left">3</b> 枚選べます。コストなしで手札に加わります。</p><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px">${buttons}</div></div>`;
  document.body.appendChild(d);
@@ -1402,10 +1422,10 @@ function storyHomeHtml(u){
  const page=STORY_CHAPTER_PAGE,firstChapter=page*STORY_CHAPTERS_PER_PAGE+1,lastChapter=Math.min(STORY_CHAPTERS,firstChapter+STORY_CHAPTERS_PER_PAGE-1);
  const selected=STORY_SELECTED_CHAPTER&&STORY_SELECTED_CHAPTER<=unlocked?STORY_SELECTED_CHAPTER:0;
  const shownChapter=selected||pos.chapter;
- const chapterButtons=Array.from({length:lastChapter-firstChapter+1},(_,i)=>{const ch=firstChapter+i,done=cleared>=ch*STORY_SECTIONS_PER_CHAPTER,current=!done&&ch===pos.chapter;return `<button class="sm" style="${selected===ch?'outline:2px solid #ffe28a;':''}background:linear-gradient(135deg,hsla(${(ch*47+95)%360},55%,34%,.95),#17364f)" ${ch>unlocked?'disabled':''} onclick="selectStoryChapter(${ch})">${ch}章${done?' ✓':current?'（進行中）':''}</button>`}).join('');
+ const chapterButtons=Array.from({length:lastChapter-firstChapter+1},(_,i)=>{const ch=firstChapter+i,done=cleared>=ch*STORY_SECTIONS_PER_CHAPTER,current=!done&&ch===pos.chapter;return `<button class="sm" style="${selected===ch?'outline:2px solid #ffe28a;':''}background:linear-gradient(135deg,hsla(${(ch*47+95)%360},55%,34%,.95),#17364f)" ${ch>unlocked?'disabled':''} onclick="selectStoryChapter(${ch})">${ch}章${storyChapterTitleHtml(ch)}${done?' ✓':current?'（進行中）':''}</button>`}).join('');
  const chapterPager=!selected?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:10px 0"><button class="sm" onclick="setStoryChapterPage(${page-1})" ${page===0?'disabled':''}>← 前の10章</button><b>ページ ${page+1} / ${pageCount}（第${firstChapter}〜${lastChapter}章）</b><button class="sm" onclick="setStoryChapterPage(${page+1})" ${page===pageCount-1?'disabled':''}>次の10章 →</button></div>`:'';
- const sectionButtons=selected?`<div class="panel" style="background:${storyChapterBackground(selected)};border:1px solid #8bb9dd"><div class="row"><b>${selected===2?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:25px;height:30px;object-fit:contain;vertical-align:middle;image-rendering:pixelated"> `:``}第${selected}章：節を選択（全20節）</b><span style="flex:1"></span><button class="sm" onclick="STORY_SELECTED_CHAPTER=0;render()">章一覧へ戻る</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px">${Array.from({length:STORY_SECTIONS_PER_CHAPTER},(_,i)=>{const sec=i+1,stage=(selected-1)*STORY_SECTIONS_PER_CHAPTER+sec,done=stage<=cleared,available=isAdmin||stage<=cleared+1;return `<button class="sm" ${available?'':'disabled'} style="min-height:42px;background:${done?'#23634b':available?'#1f5e99':'#34495e'}" onclick="startChapterSection(${selected},${sec})">${selected===2&&(sec===10||sec===20)?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:22px;height:27px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:``}${sec}節${done?' ✓':available?' ▶':' 🔒'}</button>`}).join('')}</div><p class="sm">${isAdmin?'運営モード：全100章・全20節を自由に選択してテストできます。クリア進行度は変更されません。':'クリア済みの節は再挑戦できます。次の節まで選択できます。'}</p></div>`:'';
- return `<div class="panel" style="width:100%;background:${storyChapterBackground(shownChapter)};border:1px solid #79a9cf"><b>ストーリー：${cleared>=STORY_TOTAL?'全100章クリア！':`現在 第${pos.chapter}章 第${pos.section}節`}</b><p>クリア済み：${cleared}/${STORY_TOTAL}節（各章20節・全100章）</p><button onclick="continueStory()" ${cleared>=STORY_TOTAL?'disabled':''}>▶ 続きから</button><p>${isAdmin?'運営モード：全100章を自由に選択できます。':'章一覧は一度に10章ずつ表示されます。章を選ぶと、その章の20節が表示されます。'}</p>${chapterPager}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px">${chapterButtons}</div>${sectionButtons}</div>`;
+ const sectionButtons=selected?`<div class="panel" style="background:${storyChapterBackground(selected)};border:1px solid #8bb9dd"><div class="row"><b>${selected===2?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:25px;height:30px;object-fit:contain;vertical-align:middle;image-rendering:pixelated"> `:``}第${selected}章${storyChapterTitleHtml(selected)}：節を選択（全20節）</b><span style="flex:1"></span><button class="sm" onclick="STORY_SELECTED_CHAPTER=0;render()">章一覧へ戻る</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px">${Array.from({length:STORY_SECTIONS_PER_CHAPTER},(_,i)=>{const sec=i+1,stage=(selected-1)*STORY_SECTIONS_PER_CHAPTER+sec,done=stage<=cleared,available=isAdmin||stage<=cleared+1;return `<button class="sm" ${available?'':'disabled'} style="min-height:42px;background:${done?'#23634b':available?'#1f5e99':'#34495e'}" onclick="startChapterSection(${selected},${sec})">${selected===2&&(sec===10||sec===20)?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:22px;height:27px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:``}${sec}節${done?' ✓':available?' ▶':' 🔒'}</button>`}).join('')}</div><p class="sm">${isAdmin?'運営モード：全100章・全20節を自由に選択してテストできます。クリア進行度は変更されません。':'クリア済みの節は再挑戦できます。次の節まで選択できます。'}</p></div>`:'';
+ return `<div class="panel" style="width:100%;background:${storyChapterBackground(shownChapter)};border:1px solid #79a9cf"><b>ストーリー：${cleared>=STORY_TOTAL?'全100章クリア！':`現在 第${pos.chapter}章${storyChapterTitleHtml(pos.chapter)} 第${pos.section}節`}</b><p>クリア済み：${cleared}/${STORY_TOTAL}節（各章20節・全100章）</p><button onclick="continueStory()" ${cleared>=STORY_TOTAL?'disabled':''}>▶ 続きから</button><p>${isAdmin?'運営モード：全100章を自由に選択できます。':'章一覧は一度に10章ずつ表示されます。章を選ぶと、その章の20節が表示されます。'}</p>${chapterPager}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px">${chapterButtons}</div>${sectionButtons}</div>`;
 }
 // ---------- screens ----------
 // ---------- TERRACARD original audio system ----------
@@ -1994,10 +2014,24 @@ function setOnline(f){CFG.online={enabled:f.en.checked,priv:f.pr.checked};saveCf
 function adminCfg(){const S0=CFG.s,GP=CFG.gachaPrices||DEFAULT_GACHA_PRICES;
  const keys=Object.keys(CARDS).filter(k=>!CARDS[k].fixed);
  return `<h3>ゲーム設定</h3><form class="row" onsubmit="event.preventDefault();setCfg(this)">${[['hp','最大HP'],['ap','コスト最大値'],['apInc','ターンごとのコスト増加量'],['hand','初期手札'],['maxHand','手札上限(ドロー)'],['drawCost','2回目以降ドローのコスト'],['sovietBossHp','第1章20節・ソ連ボスHP']].map(([k,l])=>`<label>${l} <input name="${k}" type="number" min="${k==='sovietBossHp'?1:0}" max="${k==='sovietBossHp'?999999:99}" value="${S0[k]}" style="width:90px"></label>`).join('')}<button>保存</button></form>
+ ${adminStoryUnlocksHtml()}
  <h3>ガチャ価格設定</h3><p><small>1回の価格を設定します。10連は設定価格×10枚分です。0にすると無料になります。全プレイヤーに共有されます。</small></p><form class="row" onsubmit="event.preventDefault();setGachaPrices(this)"><label>キャラクターガチャ1回 🪙 <input name="character" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.character)||0)}" style="width:90px"></label><label>お守りガチャ1回 🪙 <input name="charm" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.charm)||0)}" style="width:90px"></label><button>ガチャ価格を保存</button></form>
  <h3>🧿 お守りガチャのレアリティ排出率</h3><p><small>合計が100%になるように設定してください。保存すると全プレイヤーのガチャに反映されます。</small></p><form class="row" onsubmit="event.preventDefault();setCharmRates(this)">${['N','R','SR','SSR','UR'].map(k=>`<label>${k} <input name="${k}" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.charmRates?.[k]??DEFAULT_CHARM_RATES[k])))}" style="width:64px">%</label>`).join('')}<button>排出率を保存</button></form>
  <h3>カード管理(コスト・出現率 0=出ない)</h3><p><small>著作権侵害属性・YOUTUBE属性・音属性・ゲームFPS属性はカードごとに付け外しでき、全プレイヤーに共有されます。YOUTUBE属性のカードは「Youtube」カードの抽選対象になります。音属性は今後の音関連機能に使えるよう、カードごとに保存されます。</small></p><div id="admin-card-list-scroll" style="max-height:420px;overflow:auto"><table style="width:100%"><thead><tr><th>カード</th><th>コスト</th><th>出現率</th><th>ダメージ対象</th><th>著作権侵害属性</th><th>YOUTUBE属性</th><th>音属性</th><th>ゲームFPS属性</th><th></th></tr></thead><tbody>${keys.map(k=>{const c=CARDS[k],o=CFG.over[k]||{},w=POOL.filter(x=>x===k).length,marked=(CFG.copyrightCards||[]).includes(k),yt=(CFG.youtubeCards||DEFAULT_YOUTUBE_KEYS).includes(k),sound=(CFG.soundCards||[]).includes(k),gamefps=(CFG.gameFpsCards||[]).includes(k);return `<tr><td>${c.i} ${esc(c.n)}${CFG.cards[k]?' ★':''}</td><td><input type="number" min="0" max="30" value="${c.c}" style="width:56px" onchange="cardOver('${k}','c',this.value)"></td><td><input type="number" min="0" max="9" value="${w}" style="width:56px" onchange="cardOver('${k}','w',this.value)"></td><td>${CFG.cards[k]&&CFG.cards[k].gen&&CFG.cards[k].gen.dmg?`<select aria-label="${esc(c.n)}のダメージ対象" onchange="cardTargetMode('${k}',this.value)"><option value="random" ${(c.targetMode||'random')==='random'?'selected':''}>ランダムな相手</option><option value="all" ${c.targetMode==='all'?'selected':''}>全員（自分を含む）</option></select>`:'—'}</td><td><label><input type="checkbox" ${marked?'checked':''} onchange="setCopyrightFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${yt?'checked':''} onchange="setYoutubeFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${sound?'checked':''} onchange="setSoundFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${gamefps?'checked':''} onchange="setGameFpsFlag('${k}',this.checked)"> 付ける</label></td><td>${CFG.cards[k]?`<button class="sm" onclick="delCard('${k}')">削除</button>`:''}</td></tr>`}).join('')}</tbody></table></div>
  <h3>カードを追加</h3><form class="row" onsubmit="event.preventDefault();addCard(this)"><input name="n" placeholder="カード名" required><input name="desc" placeholder="カードの説明" style="width:220px"><input name="i" placeholder="絵文字" maxlength="4" style="width:70px" value="⭐"><label>コスト <input name="c" type="number" min="0" max="30" value="1" style="width:56px"></label><label>ダメージ <input name="dmg" type="number" min="0" value="0" style="width:56px"></label><label>回復 <input name="heal" type="number" min="0" value="0" style="width:56px"></label><label>シールド <input name="shield" type="number" min="0" value="0" style="width:56px"></label><label>攻撃力+ <input name="atk" type="number" min="0" value="0" style="width:56px"></label><label>ドロー <input name="draw" type="number" min="0" value="0" style="width:56px"></label><label>発動確率(%) <input name="chance" type="number" min="0" max="100" value="100" style="width:70px"></label><label>ダメージ対象 <select name="targetMode"><option value="random">ランダムな相手</option><option value="all">全員（自分を含む）</option></select></label><label><input type="checkbox" name="youtubeAttr"> YOUTUBE属性</label><label><input type="checkbox" name="soundAttr"> 音属性</label><label><input type="checkbox" name="gameFpsAttr"> ゲームFPS属性</label><button>追加</button></form>`}
+function adminStoryUnlocksHtml(){
+ const unlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);
+ const selectable=Object.keys(CARDS).filter(k=>!CARDS[k].fixed&&!TC_STORY_START_CARD_KEYS.has(k)).sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));
+ return `<form onsubmit="event.preventDefault();saveStoryUnlockSettings(this)"><section class="panel" style="border:2px solid #8cc8ff"><h3>📖 ストーリーカード解放設定（運営専用）</h3><p><small>各章をクリアしたときに、新しく解放するカードを選べます。チェックを付けたカードは、その章をクリアした全プレイヤーのストーリー対戦で使用可能になります。通常・オンライン対戦には影響しません。最初から使える初期カードはこの設定の対象外です。</small></p>${[1,2,3,4,5].map(ch=>`<details style="margin:8px 0;padding:8px;background:#0b2943;border:1px solid #477da5;border-radius:8px"><summary style="cursor:pointer;font-weight:900">第${ch}章 ${storyChapterTitleHtml(ch)}：解放カード ${unlocks[ch].length}枚</summary><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-top:10px">${selectable.map(k=>{const c=CARDS[k];return `<label style="display:flex;align-items:center;gap:6px;padding:5px;background:#173a59;border-radius:6px;font-size:12px"><input type="checkbox" data-story-chapter="${ch}" value="${esc(k)}" ${unlocks[ch].includes(k)?'checked':''}>${esc(c.i||'🃏')} ${esc(c.n||k)}</label>`}).join('')}</div></details>`).join('')}<button type="submit">章ごとのカード解放設定を保存</button></section></form>`;
+}
+function saveStoryUnlockSettings(form){
+ if(!isAdmin)return;
+ const next={};
+ for(let ch=1;ch<=5;ch++)next[ch]=Array.from(form.querySelectorAll(`input[data-story-chapter="${ch}"]:checked`)).map(el=>String(el.value));
+ CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(next);
+ saveCfg();
+ goAdminRebuildKeepScroll('章ごとのカード解放設定を全プレイヤー向けに保存しました');
+}
 function setCfg(f){for(const k of ['hp','ap','apInc','hand','maxHand','drawCost','sovietBossHp']){const min=(k==='hp'||k==='ap'||k==='sovietBossHp')?1:0,max=k==='sovietBossHp'?999999:99;CFG.s[k]=Math.max(min,Math.min(max,Math.floor(Number(f[k].value)||0)));}saveCfg();goAdminKeepScroll('設定を保存しました(ソ連ボスHPを含め、次の対戦から有効)')}
 function setGachaPrices(f){CFG.gachaPrices={character:Math.max(0,Math.min(100000,Math.floor(Number(f.character.value)||0))),charm:Math.max(0,Math.min(100000,Math.floor(Number(f.charm.value)||0)))};saveCfg();goAdminKeepScroll('ガチャ価格を全プレイヤー向けに保存しました')}
 function setCharmRates(f){const next={};for(const k of ['N','R','SR','SSR','UR']){const el=f.elements.namedItem(k);next[k]=Math.max(0,Math.min(100,Math.floor(Number(el?.value)||0)));}const total=Object.values(next).reduce((a,b)=>a+b,0);if(total!==100)return goAdminKeepScroll('排出率の合計は100%にしてください（現在 '+total+'%）');CFG.charmRates=next;saveCfg();goAdminKeepScroll('お守りガチャの排出率を全プレイヤー向けに保存しました')}
@@ -2017,7 +2051,48 @@ let G=null;
 const POS=['左上','右上','右下','左下'];
 function mkField(){return Array.from({length:25},()=>{const r=Math.random();return{c:r<.55?'w':'rbg'[Math.floor(Math.random()*3)],d:3}})}
 const S=()=>CFG.s;
-const rc=(player=null)=>{if(!POOL.length)return 'fire';if(player&&player.isBoss&&player.sovietDeckBias&&Math.random()<0.65){const soviet=['sovet','missile','sovres'].filter(k=>!!CARDS[k]);if(soviet.length)return soviet[rnd(soviet.length)]}const charm=player&&player.charm;const counts={};POOL.forEach(k=>counts[k]=(counts[k]||0)+1);const weights=POOL.map(k=>{let w=1;if(player&&player.isBoss&&player.kabiColorBias&&CARDS[k]&&CARDS[k].paint)w*=12;if(player&&player.isBoss&&player.zeninNaoyaDeckBias&&k==='zenin_naoya')w*=12;if(player&&player.isBoss&&player.zeninNaoyaCursedDeckBias&&k==='zenin_naoya_cursed')w*=12;if(player&&player.isBoss&&player.sovietDeckBias&&['sovet','missile','sovres'].includes(k))w*=28;if(charm&&charm.type==='cardLuck'&&(counts[k]||0)<=1)w+=0.45*charmPower(charm);if((CFG.gameFpsCards||[]).includes(k))w*=1+Math.max(0,Number(player&&player.gameFpsBonus)||0)/100;return w});const total=weights.reduce((a,b)=>a+b,0);let r=Math.random()*total;for(let i=0;i<POOL.length;i++){r-=weights[i];if(r<=0)return POOL[i]}return POOL[POOL.length-1]};
+// ストーリー対戦専用：章クリア状況に応じてカードプールを段階解放する。
+// 最初の12枠（固定のドロー・ターン終了を含む）と色好きぬっこ4種は最初から使用可能。
+const TC_STORY_START_CARD_KEYS=new Set(['fire','heal','guard','crush','color','draw','end','destroy','repair','luck','beam','snow','red','blue','yellow','green']);
+const TC_STORY_CHAPTER_UNLOCKS=TC_DEFAULT_STORY_CHAPTER_UNLOCKS;
+function tcIsStoryCardUnlocked(key,player=null){
+  if(!STORY||ONL)return true;
+  if(TC_STORY_START_CARD_KEYS.has(key))return true;
+  const clearedChapters=Math.floor(storyProgress(U())/STORY_SECTIONS_PER_CHAPTER);
+  const chapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);
+  for(let chapter=1;chapter<=5;chapter++){
+    if(chapter<=clearedChapters&&chapterUnlocks[chapter].includes(key))return true;
+  }
+  return false;
+}
+function tcBattleCardPool(player=null){
+  if(!STORY||ONL)return POOL;
+  const pool=POOL.filter(key=>tcIsStoryCardUnlocked(key,player));
+  return pool.length?pool:['fire'];
+}
+const rc=(player=null)=>{
+ const activePool=tcBattleCardPool(player);
+ if(!activePool.length)return 'fire';
+ if(player&&player.isBoss&&player.sovietDeckBias&&Math.random()<0.65){
+  const soviet=['sovet','missile','sovres'].filter(k=>activePool.includes(k));
+  if(soviet.length)return soviet[rnd(soviet.length)];
+ }
+ const charm=player&&player.charm;
+ const counts={};activePool.forEach(k=>counts[k]=(counts[k]||0)+1);
+ const weights=activePool.map(k=>{
+  let w=1;
+  if(player&&player.isBoss&&player.kabiColorBias&&CARDS[k]&&CARDS[k].paint)w*=12;
+  if(player&&player.isBoss&&player.zeninNaoyaDeckBias&&k==='zenin_naoya')w*=12;
+  if(player&&player.isBoss&&player.zeninNaoyaCursedDeckBias&&k==='zenin_naoya_cursed')w*=12;
+  if(player&&player.isBoss&&player.sovietDeckBias&&['sovet','missile','sovres'].includes(k))w*=28;
+  if(charm&&charm.type==='cardLuck'&&(counts[k]||0)<=1)w+=0.45*charmPower(charm);
+  if((CFG.gameFpsCards||[]).includes(k))w*=1+Math.max(0,Number(player&&player.gameFpsBonus)||0)/100;
+  return w;
+ });
+ const total=weights.reduce((a,b)=>a+b,0);let r=Math.random()*total;
+ for(let i=0;i<activePool.length;i++){r-=weights[i];if(r<=0)return activePool[i];}
+ return activePool[activePool.length-1];
+};
 let tcMatchIntroTimer=0;
 function matchIntroAvatar(p){
  if(p&&p.icon==='☭')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji tc-soviet-avatar">☭</span>';
@@ -3131,7 +3206,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
    terraPick(i);
    G.log='TERRA CARD：好きなカードを3枚選んで手札に加えよう！';
   }else{
-   const choices=Object.keys(CARDS).filter(key=>!CARDS[key].fixed&&!['terra_card','draw','end'].includes(key));
+   const choices=Object.keys(CARDS).filter(key=>!CARDS[key].fixed&&!['terra_card','draw','end'].includes(key)&&tcIsStoryCardUnlocked(key,p));
    for(let n=0;n<3&&choices.length;n++)add(p,choices[rnd(choices.length)]);
    G.log='TERRA CARD：ランダムに好きなカードを3枚、無料で手札に加えた！';
   }
@@ -3234,7 +3309,7 @@ function paintBattle(){
  const result=el.querySelector('.battle-result');
  let statusPanel=status.querySelector('.tc-battle-current-status');
  if(!statusPanel){statusPanel=document.createElement('div');statusPanel.className='panel tc-battle-current-status';status.insertBefore(statusPanel,status.firstChild);}
- statusPanel.innerHTML=`${STORY>0?`<div style="font-weight:900;padding:6px 10px;margin-bottom:6px;border-radius:8px;background:rgba(0,0,0,.24)">📖 第${storyPosition(STORY).chapter}章 第${storyPosition(STORY).section}節</div>`:''}<div class="row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax??S().ap}${G.snow.lvl?' ❄️':''}</span><span>⚔攻撃力 ${Number(you.atk)||0}</span><span>🛡防御力 ${Number(you.sh)||0}</span><span>❤️HP ${Number(you.hp)||0}/${Number(you.mhp)||0}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>${playerBuffBadges(you)}<div style="margin-top:5px">${esc(G.log)}</div>`;
+ statusPanel.innerHTML=`${STORY>0?`<div style="font-weight:900;padding:6px 10px;margin-bottom:6px;border-radius:8px;background:rgba(0,0,0,.24)">📖 第${storyPosition(STORY).chapter}章${storyChapterTitleHtml(storyPosition(STORY).chapter)} 第${storyPosition(STORY).section}節</div>`:''}<div class="row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax??S().ap}${G.snow.lvl?' ❄️':''}</span><span>⚔攻撃力 ${Number(you.atk)||0}</span><span>🛡防御力 ${Number(you.sh)||0}</span><span>❤️HP ${Number(you.hp)||0}/${Number(you.mhp)||0}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>${playerBuffBadges(you)}<div style="margin-top:5px">${esc(G.log)}</div>`;
  // .tc-battle-log と .tc-battle-log-list はCPU更新中も同じDOM要素を維持する。
  syncBattleLogDom(status);
  boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> <small>(${POS[i]})</small></div>${playerBuffBadges(p)}<div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
