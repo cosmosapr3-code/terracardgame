@@ -273,32 +273,42 @@ button{background:linear-gradient(#2f7fd0,#1c5aa6);border:1px solid #8cc8ff}
 .tc-card-confirm.tc-card-confirm-floating{position:fixed;z-index:100001;width:min(290px,calc(100vw - 16px));max-width:calc(100vw - 16px);margin:0;box-shadow:0 10px 34px #00101dcc;border:2px solid #ffd65c;animation:tcCardPromptIn .16s ease-out}
 @keyframes tcCardPromptIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 
+/* インポスター専用演出：全画面の赤い点滅だけ。重い影・走査線・盤面/タイル/バナーアニメは使わない。 */
 .tc-impostor-alert::after{
- content:"";position:fixed;inset:0;z-index:99990;pointer-events:none;
- background:rgba(255,0,0,.12);border:8px solid rgba(255,0,0,.65);
- animation:tcImpostorRedFlash .72s steps(1,end) infinite;
+ content:"";
+ position:fixed;
+ inset:0;
+ z-index:99990;
+ pointer-events:none;
+ border:7px solid rgba(255,0,0,.68);
+ background:rgba(255,0,0,.025);
+ opacity:.12;
+ animation:tcImpostorRedFlash .85s steps(1,end) infinite;
 }
 @keyframes tcImpostorRedFlash{
- 0%,49%{opacity:.95;box-shadow:inset 0 0 55px rgba(255,0,0,.42)}
- 50%,100%{opacity:.12;box-shadow:inset 0 0 10px rgba(255,0,0,.1)}
+ 0%,49%{opacity:.72}
+ 50%,100%{opacity:.12}
 }
-body.tc-impostor-alert::before{
- content:"";position:fixed;inset:0;z-index:99989;pointer-events:none;opacity:.18;
- background:repeating-linear-gradient(0deg,transparent 0 5px,rgba(255,0,0,.45) 6px 7px);
- animation:tcImpostorScan 2.4s linear infinite;
+#bboard.tc-impostor-battle{
+ position:relative;
+ border-radius:16px;
 }
-@keyframes tcImpostorScan{from{transform:translateY(-18px)}to{transform:translateY(18px)}}
-#bboard.tc-impostor-battle{position:relative;animation:tcImpostorBoardPulse 1.4s ease-in-out infinite;border-radius:16px}
-@keyframes tcImpostorBoardPulse{0%,100%{box-shadow:0 0 0 2px #ff2020,0 0 12px #f002}50%{box-shadow:0 0 0 5px #ff2020,0 0 28px #f008}}
-#bboard.tc-impostor-battle .pf:nth-child(2){animation:tcImpostorBossFloat 2.2s ease-in-out infinite}
-@keyframes tcImpostorBossFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-#bboard.tc-impostor-battle .pf:nth-child(2) .t.r{animation:tcImpostorTilePulse 1.15s ease-in-out infinite;}
-@keyframes tcImpostorTilePulse{0%,100%{filter:brightness(.9) saturate(1)}50%{filter:brightness(1.45) saturate(1.5);box-shadow:inset 0 0 10px #fff5}}
-.tc-impostor-boss-banner{display:flex;align-items:center;justify-content:center;gap:10px;margin:5px 0 9px;padding:10px;border:2px solid #ff3b3b;border-radius:10px;background:linear-gradient(90deg,#420000dd,#920000dd,#420000dd);font-weight:1000;letter-spacing:.08em;text-align:center;animation:tcImpostorBannerPulse .85s ease-in-out infinite alternate}
-.tc-impostor-boss-banner strong{font-size:18px;text-shadow:0 0 9px #ff4444}
-.tc-impostor-boss-banner span{animation:tcImpostorWarning 1s steps(2,end) infinite}
-@keyframes tcImpostorBannerPulse{from{filter:brightness(.8);transform:scale(.995)}to{filter:brightness(1.35);transform:scale(1)}}
-@keyframes tcImpostorWarning{from{opacity:.4;transform:scale(.9)}to{opacity:1;transform:scale(1.12)}}
+.tc-impostor-boss-banner{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:10px;
+ margin:5px 0 9px;
+ padding:10px;
+ border:2px solid #ff3b3b;
+ border-radius:10px;
+ background:#640000;
+ font-weight:1000;
+ letter-spacing:.08em;
+ text-align:center;
+}
+.tc-impostor-boss-banner strong{font-size:18px}
+
 </style>
 <style id="tc-home-chat-improvement">
 /* Home: keep the chat out of the page flow until the player asks to open it. */
@@ -1497,6 +1507,32 @@ function storyChapterBackground(ch){const n=Math.max(1,Math.min(STORY_CHAPTERS,M
 function setStoryChapterPage(page){const maxPage=Math.ceil(STORY_CHAPTERS/STORY_CHAPTERS_PER_PAGE)-1;STORY_CHAPTER_PAGE=Math.max(0,Math.min(maxPage,Math.floor(Number(page)||0)));STORY_SELECTED_CHAPTER=0;render();}
 function selectStoryChapter(ch){const chapter=Math.max(1,Math.min(STORY_CHAPTERS,Math.floor(Number(ch)||1)));const access=storyChapterAccess(U());const unlocked=isAdmin?STORY_CHAPTERS:access.max;if(chapter>unlocked)return;STORY_CHAPTER_PAGE=Math.floor((chapter-1)/STORY_CHAPTERS_PER_PAGE);STORY_SELECTED_CHAPTER=chapter;render();}
 function startChapterSection(ch,section){const chapter=Math.max(1,Math.min(STORY_CHAPTERS,Math.floor(Number(ch)||1)));const sec=Math.max(1,Math.min(STORY_SECTIONS_PER_CHAPTER,Math.floor(Number(section)||1)));const stage=(chapter-1)*STORY_SECTIONS_PER_CHAPTER+sec;const access=storyChapterAccess(U());const unlocked=isAdmin?STORY_CHAPTERS:access.max;if(chapter>unlocked||(!isAdmin&&!access.override&&stage>storyProgress(U())+1))return;STORY_CHAPTER_PAGE=Math.floor((chapter-1)/STORY_CHAPTERS_PER_PAGE);STORY_SELECTED_CHAPTER=chapter;startStory(stage);}
+// ストーリー章選択画面から、現在使えるカードを確認できる表示。
+// 使用条件 tcIsStoryCardUnlocked と同じく、クリア済み章の報酬を累積する。
+function tcStoryCardChipsHtml(keys){
+ const unique=[...new Set(keys)].filter(k=>CARDS[k]&&!CARDS[k].fixed);
+ if(!unique.length)return '<p style="font-size:12px;opacity:.85">該当カードはありません。</p>';
+ return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:5px;margin-top:8px">${unique.map(k=>{const c=CARDS[k]||{};const cost=c.c==null?'?':String(c.c);return `<div style="min-width:0;padding:6px;border:1px solid #80acd0;border-radius:7px;background:#0b2945;font-size:11px;line-height:1.35"><b>${esc(c.i||'🃏')} ${esc(c.n||k)}</b><div style="opacity:.8">コスト：${esc(cost)}</div></div>`}).join('')}</div>`;
+}
+function tcStoryAvailableCardKeys(player){
+ const unlocked=new Set(TC_STORY_START_CARD_KEYS);
+ const clearedChapters=Math.floor(storyProgress(player)/STORY_SECTIONS_PER_CHAPTER);
+ const chapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);
+ for(let ch=1;ch<=clearedChapters;ch++){
+  for(const key of chapterUnlocks[ch]||[])unlocked.add(key);
+ }
+ // ボス専用デッキ補正カードはプレイヤーの通常使用可能カードには含めない。
+ return [...new Set(POOL)].filter(key=>unlocked.has(key)&&CARDS[key]&&!CARDS[key].fixed)
+  .sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));
+}
+function tcChapterCardAccessPanelHtml(ch,player){
+ const available=tcStoryAvailableCardKeys(player);
+ const clearedChapters=Math.floor(storyProgress(player)/STORY_SECTIONS_PER_CHAPTER);
+ const currentUnlocks=(tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks)[ch]||[])
+  .filter(k=>CARDS[k]&&!CARDS[k].fixed);
+ const currentReward=tcStoryCardChipsHtml(currentUnlocks);
+ return `<details style="margin-top:12px;padding:9px;border:1px solid #9cc9ed;border-radius:10px;background:#071f35cc"><summary style="cursor:pointer;font-weight:900">🎴 現在使用できるカードを確認（${available.length}枚）</summary><p style="font-size:11px;margin:7px 0 2px;opacity:.85">初期カードと、クリア済みの全章で解放されたカードを合算しています。別の章を選んでも、クリア済み章の解放カードは引き継がれます。現在は第${clearedChapters}章までの解放報酬が反映されています。</p>${tcStoryCardChipsHtml(available)}<details style="margin-top:9px;padding:7px;border-top:1px solid #6385a3"><summary style="cursor:pointer;font-size:12px;font-weight:800">第${ch}章クリア時の追加カード（${currentUnlocks.length}枚）</summary>${currentReward}</details></details>`;
+}
 function storyHomeHtml(u){
  const cleared=storyProgress(u),next=Math.min(STORY_TOTAL,cleared+1),pos=storyPosition(next),access=storyChapterAccess(u),unlocked=isAdmin?STORY_CHAPTERS:access.max;
  const pageCount=Math.ceil(STORY_CHAPTERS/STORY_CHAPTERS_PER_PAGE);
@@ -1507,7 +1543,7 @@ function storyHomeHtml(u){
  const shownChapter=selected||pos.chapter;
  const chapterButtons=Array.from({length:lastChapter-firstChapter+1},(_,i)=>{const ch=firstChapter+i,done=cleared>=ch*STORY_SECTIONS_PER_CHAPTER,current=!done&&ch===pos.chapter;return `<button class="sm" style="${selected===ch?'outline:2px solid #ffe28a;':''}background:linear-gradient(135deg,hsla(${(ch*47+95)%360},55%,34%,.95),#17364f)" ${ch>unlocked?'disabled':''} onclick="selectStoryChapter(${ch})">${ch}章${storyChapterTitleHtml(ch)}${done?' ✓':current?'（進行中）':''}</button>`}).join('');
  const chapterPager=!selected?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:10px 0"><button class="sm" onclick="setStoryChapterPage(${page-1})" ${page===0?'disabled':''}>← 前の10章</button><b>ページ ${page+1} / ${pageCount}（第${firstChapter}〜${lastChapter}章）</b><button class="sm" onclick="setStoryChapterPage(${page+1})" ${page===pageCount-1?'disabled':''}>次の10章 →</button></div>`:'';
- const sectionButtons=selected?`<div class="panel" style="background:${storyChapterBackground(selected)};border:1px solid #8bb9dd"><div class="row"><b>${selected===2?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:25px;height:30px;object-fit:contain;vertical-align:middle;image-rendering:pixelated"> `:``}第${selected}章${storyChapterTitleHtml(selected)}：節を選択（全20節）</b><span style="flex:1"></span><button class="sm" onclick="STORY_SELECTED_CHAPTER=0;render()">章一覧へ戻る</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px">${Array.from({length:STORY_SECTIONS_PER_CHAPTER},(_,i)=>{const sec=i+1,stage=(selected-1)*STORY_SECTIONS_PER_CHAPTER+sec,done=stage<=cleared,available=isAdmin||access.override||stage<=cleared+1;return `<button class="sm" ${available?'':'disabled'} style="min-height:42px;background:${done?'#23634b':available?'#1f5e99':'#34495e'}" onclick="startChapterSection(${selected},${sec})">${selected===2&&(sec===10||sec===20)?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:22px;height:27px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:``}${sec}節${done?' ✓':available?' ▶':' 🔒'}</button>`}).join('')}</div><p class="sm">${isAdmin?'運営モード：全100章・全20節を自由に選択してテストできます。クリア進行度は変更されません。':access.override?`運営設定：第${access.max}章までプレイできます。設定された章は全20節を選択できます。`:'クリア済みの節は再挑戦できます。次の節まで選択できます。'}</p></div>`:'';
+ const sectionButtons=selected?`<div class="panel" style="background:${storyChapterBackground(selected)};border:1px solid #8bb9dd"><div class="row"><b>${selected===2?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:25px;height:30px;object-fit:contain;vertical-align:middle;image-rendering:pixelated"> `:``}第${selected}章${storyChapterTitleHtml(selected)}：節を選択（全20節）</b><span style="flex:1"></span><button class="sm" onclick="STORY_SELECTED_CHAPTER=0;render()">章一覧へ戻る</button></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:10px">${Array.from({length:STORY_SECTIONS_PER_CHAPTER},(_,i)=>{const sec=i+1,stage=(selected-1)*STORY_SECTIONS_PER_CHAPTER+sec,done=stage<=cleared,available=isAdmin||access.override||stage<=cleared+1;return `<button class="sm" ${available?'':'disabled'} style="min-height:42px;background:${done?'#23634b':available?'#1f5e99':'#34495e'}" onclick="startChapterSection(${selected},${sec})">${selected===2&&(sec===10||sec===20)?`<img src="${TC_SANS_IMAGE}" alt="サンズ" style="width:22px;height:27px;object-fit:contain;image-rendering:pixelated;vertical-align:middle">`:``}${sec}節${done?' ✓':available?' ▶':' 🔒'}</button>`}).join('')}</div><p class="sm">${isAdmin?'運営モード：全100章・全20節を自由に選択してテストできます。クリア進行度は変更されません。':access.override?`運営設定：第${access.max}章までプレイできます。設定された章は全20節を選択できます。`:'クリア済みの節は再挑戦できます。次の節まで選択できます。'}</p>${tcChapterCardAccessPanelHtml(selected,u)}</div>`:'';
  return `<div class="panel" style="width:100%;background:${storyChapterBackground(shownChapter)};border:1px solid #79a9cf"><b>ストーリー：${cleared>=STORY_TOTAL?'全100章クリア！':`現在 第${pos.chapter}章${storyChapterTitleHtml(pos.chapter)} 第${pos.section}節`}</b><p>クリア済み：${cleared}/${STORY_TOTAL}節（各章20節・全100章）</p><button onclick="continueStory()" ${cleared>=STORY_TOTAL?'disabled':''}>▶ 続きから</button><p>${isAdmin?'運営モード：全100章を自由に選択できます。':'章一覧は一度に10章ずつ表示されます。章を選ぶと、その章の20節が表示されます。'}</p>${chapterPager}<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px">${chapterButtons}</div>${sectionButtons}</div>`;
 }
 // ---------- screens ----------
