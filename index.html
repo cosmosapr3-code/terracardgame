@@ -575,6 +575,12 @@ try {
   }
 }
 "use strict";
+// 管理画面の章設定・プレイヤー解放範囲で共通使用する整数クランプ関数
+function clampInt(value, min, max) {
+  const number = Math.floor(Number(value));
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, number));
+}
 const $=s=>document.querySelector(s),app=$('#app');
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const RANKS=['ウッド','ストーン','アイアン','シルバー','ゴールド','ルビー','プラチナ','ゴッド'],RANK_AT=[0,2,4,7,10,15,20,30];
