@@ -3556,7 +3556,13 @@ function tcCpuSelectTarget(i){
 function tcCpuMove(i){
  const p=G.ps[i];
  if(!p||!p.alive)return false;
- if(Number(p.freezeTurns)>0||Number(p.sleep)>0)return false;
+ if(Number(p.freezeTurns)>0||Number(p.sleep)>0){
+  // 凍結・睡眠中は移動を試みたものとして記録する。
+  // 移動だけできない状態で cpuMovedTurnSeq が更新されないと、
+  // cpuAct が毎回移動処理から抜けてターンを終了できなくなる。
+  p.cpuMovedTurnSeq=Number(G.turnSeq)||0;
+  return false;
+ }
  if(Number(p.cpuMovedTurnSeq)===Number(G.turnSeq))return false;
  const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
  const hereIndex=p.y*5+p.x;
