@@ -1014,6 +1014,11 @@ function tcNormalizeLimitedCardDropChapters(raw){
  for(const key of TC_LIMITED_CARD_KEYS){const n=Math.floor(Number(src[key])||0);out[key]=n>=1&&n<=100?n:0;}
  return out;
 }
+function tcNormalizeLimitedCardDropRates(raw){
+ const src=raw&&typeof raw==='object'?raw:{};const out={};
+ for(const key of TC_LIMITED_CARD_KEYS){const value=src[key];out[key]=value===undefined||value===null||value===''?null:Math.max(0,Math.min(100,Number(value)||0));}
+ return out;
+}
 function tcOwnedLimitedCardKeys(user){
  const charms=Array.isArray(user&&user.charms)?user.charms:[];
  return [...new Set(charms.filter(x=>x&&x.type==='limitedCard'&&TC_LIMITED_CARD_KEYS.includes(x.cardKey)).map(x=>x.cardKey))];
@@ -1037,13 +1042,20 @@ function tcGiveLimitedCharm(user){
 }
 function tcRollChapterLimitedDrop(user,chapter){
  const drops=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);
- const candidates=TC_LIMITED_CARD_KEYS.filter(key=>drops[key]===chapter&&!tcOwnedLimitedCardKeys(user).includes(key));
- const rate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
- if(!candidates.length||Math.random()*100>=rate)return null;
- const key=candidates[Math.floor(Math.random()*candidates.length)];
- return tcGiveLimitedCard(user,key)?key:null;
+ const owned=new Set(tcOwnedLimitedCardKeys(user));
+ const baseRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
+ const candidates=TC_LIMITED_CARD_KEYS.filter(key=>drops[key]===chapter&&!owned.has(key)).map(key=>({key,rate:CFG.limitedCardDropRates&&CFG.limitedCardDropRates[key]!=null?Math.max(0,Math.min(100,Number(CFG.limitedCardDropRates[key])||0)):baseRate})).filter(x=>x.rate>0);
+ if(!candidates.length)return null;
+ // 複数カードが同じ章に設定されていても、1回のクリアで落ちるのは最大1枚。
+ const missProbability=candidates.reduce((v,x)=>v*(1-x.rate/100),1);
+ const totalProbability=1-missProbability;
+ if(Math.random()>=totalProbability)return null;
+ let pick=Math.random()*candidates.reduce((sum,x)=>sum+x.rate,0);
+ let selected=candidates[candidates.length-1];
+ for(const candidate of candidates){pick-=candidate.rate;if(pick<=0){selected=candidate;break;}}
+ return tcGiveLimitedCard(user,selected.key)?selected.key:null;
 }
-CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
+CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));CFG.limitedCardDropRates=tcNormalizeLimitedCardDropRates(CFG.limitedCardDropRates);
 let POOL=[];
 const saveCfg=()=>{
  localStorage.cgc_cfg=JSON.stringify(CFG);
@@ -1415,6 +1427,10 @@ const TUT=[
  ['💡 運営へのカード案','カード追加リクエストは、送った本人と運営だけの個別連絡です。運営から返信が来ると通知が表示されます。'],
  ['📢 運営からのお知らせ','運営が「更新した」ボタンで公開した説明は、全プレイヤーに届きます。ログイン中なら画面に通知され、次回ログイン時にも確認できます。'],
  ['🎁 運営からの配布と通知','運営はプレイヤーを指定してお守りやポストのプレゼントを配布できます。配布されたお守り・コイン・XP・ミッションには本人だけに通知が届きます。画面のベル、またはホームの「通知」から内容を何度でも確認できます。配布されたお守りは自動装備されず、お守り画面で自分で装備します。'],
+ ['🎴 現在使用できるカード','ストーリーの章選択画面にある「現在使用できるカードを確認」から、初期カード・クリア済み章の解放カード・自分が獲得した限定カードを確認できます。限定カードは獲得したものだけが一覧に表示されます。'],
+ ['✨ 限定カードと限定お守り','限定カードは運営が指定した章の第20節クリア時に、設定された確率で未所持のものが1枚ドロップします。ストーリーモードでは限定お守りなしで使えます。オンライン対戦では伝説ランクの「限定お守り」を持っている必要があります。限定カードは通常ドロー・シャッフル・「？」・TERRA CARDの抽選には入りません。'],
+ ['🏆 章のクリアと再挑戦','節に勝つと、次の節へ進む・同じ節をもう一度やる・章の節一覧へ戻る、を選べます。章の最後をクリアすると章クリア報酬や限定カードの抽選が行われます。'],
+ ['⚙️ 運営の限定カード設定','運営は各限定カードについて、ドロップする章とカードごとの出現率を設定できます。カードごとの率が未設定の場合は共通ドロップ率が使われます。'],
  ['🏁 それでは対戦へ！','ホームから対戦・カード一覧・ガチャ・お守り・ミッション・ポストへ進めます。カードのコストと効果を確認しながら楽しもう！']
 ];
 
@@ -1570,7 +1586,7 @@ function startChapterSection(ch,section){const chapter=Math.max(1,Math.min(STORY
 // ストーリー章選択画面から、現在使えるカードを確認できる表示。
 // 使用条件 tcIsStoryCardUnlocked と同じく、クリア済み章の報酬を累積する。
 function tcStoryCardChipsHtml(keys){
- const unique=[...new Set(keys)].filter(k=>CARDS[k]&&!CARDS[k].fixed);
+ const unique=[...new Set(keys)].filter(k=>CARDS[k]&&(!CARDS[k].fixed||CARDS[k].limited===true));
  if(!unique.length)return '<p style="font-size:12px;opacity:.85">該当カードはありません。</p>';
  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:5px;margin-top:8px">${unique.map(k=>{const c=CARDS[k]||{};const cost=c.c==null?'?':String(c.c);return `<div style="min-width:0;padding:6px;border:1px solid #80acd0;border-radius:7px;background:#0b2945;font-size:11px;line-height:1.35"><b>${esc(c.i||'🃏')} ${esc(c.n||k)}</b><div style="opacity:.8">コスト：${esc(cost)}</div></div>`}).join('')}</div>`;
 }
@@ -2263,16 +2279,22 @@ function adminStoryUnlockPickerHtml(ch){
 
 function adminLimitedCardDropsHtml(){
  const chapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);
- return `<section class="panel" style="border:2px solid #e5b94c"><h3>🎴 限定カードの章別ドロップ設定</h3><p><small>設定した章の第20節をクリアしたとき、設定確率で未所持の限定カードが1枚ドロップします。0章はドロップなし。複数カードを同じ章に設定した場合は、その中から抽選します。</small></p><form onsubmit="event.preventDefault();saveLimitedCardDrops(this)"><label>ドロップ率 <input name="rate" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0))}" style="width:70px"> %</label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px;margin:10px 0">${TC_LIMITED_CARD_KEYS.map(key=>{const c=CARDS[key];return `<label style="display:flex;align-items:center;gap:6px"><span style="flex:1">${esc(c.n)}</span><select name="chapter_${key}"><option value="0" ${chapters[key]===0?'selected':''}>設定なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${chapters[key]===ch?'selected':''}>第${ch}章</option>`).join('')}</select></label>`}).join('')}</div><button>限定カードのドロップ設定を保存</button></form></section>`;
+ const rates=tcNormalizeLimitedCardDropRates(CFG.limitedCardDropRates);
+ const fallback=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
+ return `<section class="panel" style="border:2px solid #e5b94c"><h3>🎴 限定カードの章別ドロップ設定</h3><p><small>設定した章の第20節をクリアしたとき、未所持のカードが低確率で1枚ドロップします。0章はドロップなし。カードごとに章と確率を設定できます。同じ章に複数設定した場合も、1回のクリアで獲得できるのは最大1枚です。</small></p><form onsubmit="event.preventDefault();saveLimitedCardDrops(this)"><label>共通ドロップ率（カード別確率が未設定の場合） <input name="rate" type="number" min="0" max="100" step="1" value="${fallback}" style="width:70px"> %</label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin:10px 0">${TC_LIMITED_CARD_KEYS.map(key=>{const c=CARDS[key];const rate=rates[key]==null?fallback:rates[key];return `<div style="display:flex;align-items:center;gap:6px;padding:7px;border:1px solid #8e7440;border-radius:8px"><span style="flex:1;min-width:100px;font-size:12px">${esc(c.n)}</span><label style="font-size:11px">章 <select name="chapter_${key}" style="max-width:90px"><option value="0" ${chapters[key]===0?'selected':''}>なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${chapters[key]===ch?'selected':''}>${ch}章</option>`).join('')}</select></label><label style="font-size:11px">率 <input name="rate_${key}" type="number" min="0" max="100" step="1" value="${rate}" style="width:58px">%</label></div>`}).join('')}</div><button>限定カードのドロップ設定を保存</button></form></section>`;
 }
 async function saveLimitedCardDrops(form){
  if(!isAdmin)return;
- const next={};
- for(const key of TC_LIMITED_CARD_KEYS)next[key]=clampInt(form.elements.namedItem('chapter_'+key)?.value||0,0,100);
+ const next={},rates={};
+ for(const key of TC_LIMITED_CARD_KEYS){
+  next[key]=clampInt(form.elements.namedItem('chapter_'+key)?.value||0,0,100);
+  rates[key]=Math.max(0,Math.min(100,Number(form.elements.namedItem('rate_'+key)?.value)||0));
+ }
  CFG.limitedCardDropChapters=next;
+ CFG.limitedCardDropRates=rates;
  CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(form.elements.namedItem('rate')?.value)||0));
  const ok=await saveCfg();
- goAdminKeepScroll(ok?'限定カードのドロップ章・確率を全プレイヤー向けに保存しました':'設定の保存に失敗しました。接続を確認してもう一度保存してください');
+ goAdminKeepScroll(ok?'限定カードごとのドロップ章・確率を全プレイヤー向けに保存しました':'設定の保存に失敗しました。接続を確認してもう一度保存してください');
 }
 
 function adminStoryUnlocksHtml(){
@@ -3648,6 +3670,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
  if(!used)return false;
  p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;const ix=p.hand.indexOf(handKey);if(ix>=0)p.hand.splice(ix,1);checkEnd();return true}
 async function tcStartNextStorySection(){const next=STORY+1;try{await tcStorySyncPromise;}catch(e){}startStory(next)}
+function tcReturnToStoryChapter(){if(!STORY){go('story');return;}const pos=storyPosition(STORY);STORY_CHAPTER_PAGE=Math.floor((pos.chapter-1)/STORY_CHAPTERS_PER_PAGE);STORY_SELECTED_CHAPTER=pos.chapter;go('story');}
 function checkEnd(){
  G.ps.forEach(p=>{if(p.alive&&p.f[p.y*5+p.x].d<=0){p.alive=false;p.hp=0;G.log=p.name+'は足場が壊れて落下!'}});
  G.ps.forEach((p,i)=>{if(!p.alive&&Array.isArray(p.hand)&&p.hand.includes('rewind')&&G.hist.length){const __liveHand=p.hand.slice();const s=G.hist[Math.max(0,G.hist.length-1-(1+rnd(2)))];const d=JSON.parse(s);Object.assign(p,d.ps[i]);p.hand=__liveHand;const __rewindIndex=p.hand.indexOf('rewind');if(__rewindIndex>=0)p.hand.splice(__rewindIndex,1);p.alive=true;if(p.hp<=0)p.hp=p.mhp;p.reviveFxAt=Date.now();G.log=p.name+'は逆戻りで復活！（逆戻り1枚消費）'}});const alive=G.ps.filter(p=>p.alive);if(ONL?alive.length<=1:(!G.ps[0].alive||alive.length===1))G.over=true}
@@ -3865,7 +3888,7 @@ function paintBattle(){
   confirmBox.style.left='';confirmBox.style.top='';
   confirmBox.innerHTML='';
  }
- result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.charmDrop?`<br>🎁 お守りドロップ：${esc(charmText(G.res.charmDrop))}`:''}${G.res.limitedCardDrop?`<br>✨ 限定カードドロップ：${esc(CARDS[G.res.limitedCardDrop]?.n||G.res.limitedCardDrop)}`:''}${G.res.limitedCharmEarned?'<br>🏆 ストーリー全クリア！伝説のお守り「限定お守り」を獲得！':''}${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY&&G.res.win&&STORY<STORY_TOTAL?` <button onclick="tcStartNextStorySection()">次の節へ</button>`:` <button onclick="STORY?startStory(${STORY}):startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
+ result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.charmDrop?`<br>🎁 お守りドロップ：${esc(charmText(G.res.charmDrop))}`:''}${G.res.limitedCardDrop?`<br>✨ 限定カードドロップ：${esc(CARDS[G.res.limitedCardDrop]?.n||G.res.limitedCardDrop)}`:''}${G.res.limitedCharmEarned?'<br>🏆 ストーリー全クリア！伝説のお守り「限定お守り」を獲得！':''}${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY?`${G.res.win&&STORY<STORY_TOTAL?` <button onclick="tcStartNextStorySection()">次の節へ</button>`:''} <button onclick="startStory(${STORY})">もう一度やる</button> <button onclick="tcReturnToStoryChapter()">章へ戻る</button>`:` <button onclick="startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
  const notice=G.turnNoticeUntil&&Date.now()<G.turnNoticeUntil&&G.turn===SEAT;
  let noticeEl=el.querySelector('.tc-turn-notice');
  if(notice&&!noticeEl){noticeEl=document.createElement('div');noticeEl.className='tc-turn-notice';noticeEl.textContent='あなたのターン！';noticeEl.setAttribute('role','status');noticeEl.setAttribute('aria-live','polite');el.appendChild(noticeEl);}
