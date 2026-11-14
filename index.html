@@ -1472,7 +1472,7 @@ function confirmBattleAbort(){
  go('battleMenu','試合を中断しました。この節は次回最初からになります。');
 }
 
-function startStory(n){const stage=Math.max(1,Math.min(STORY_TOTAL,Math.floor(Number(n)||1)));const access=storyChapterAccess(U());const cleared=storyProgress(U());const requested=storyPosition(stage);if(!isAdmin&&(requested.chapter>access.max||(!access.override&&stage>cleared+1))){go('story','運営が設定した解放範囲、またはクリア進行度を確認してください');return;}const pos=storyPosition(stage);const lv=pos.section<=6?1:pos.section<=15?2:pos.section<=18?3:4;CPULV=lv;STORY=stage;const isSovietBoss=(pos.chapter===1&&pos.section===20);const isSansStage=(pos.chapter===2&&pos.section===10);const isSansBoss=(pos.chapter===2&&pos.section===20);const isKabiBoss=(pos.chapter===3&&pos.section===20);const isChapter4Boss=(pos.chapter===4&&pos.section===20);const isNaoyaBoss=(pos.chapter===5&&pos.section===10);const isNaoyaCursedBoss=(pos.chapter===5&&pos.section===20);const isDuolingoBoss=(pos.chapter===6&&pos.section===20);const isCrewBoss=(pos.chapter===7&&pos.section===20)||(pos.chapter===8&&pos.section===20);const isImpostorBoss=(pos.chapter===9&&pos.section===20);const cpus=(isSovietBoss||isSansStage||isSansBoss||isKabiBoss||isChapter4Boss||isNaoyaBoss||isNaoyaCursedBoss||isDuolingoBoss||isCrewBoss||isImpostorBoss)?1:1+Math.floor((pos.section-1)/7);tcStopMusic();if(isSovietBoss)tcStartSovietChapterMusic();else if(isSansStage)tcStartSansChapterMusic();else if(isSansBoss)tcStartSansChapter20Music();else if(isKabiBoss)tcStartKabiChapterMusic();else if(isChapter4Boss)tcStartChapter4BossMusic();startBattle(cpus)}
+function startStory(n){if(ONL||room){try{leaveNet()}catch(e){ONL=false;room=null;HOST=false;roster=null;SEAT=0;}}ONL=false;const stage=Math.max(1,Math.min(STORY_TOTAL,Math.floor(Number(n)||1)));const access=storyChapterAccess(U());const cleared=storyProgress(U());const requested=storyPosition(stage);if(!isAdmin&&(requested.chapter>access.max||(!access.override&&stage>cleared+1))){go('story','運営が設定した解放範囲、またはクリア進行度を確認してください');return;}const pos=storyPosition(stage);const lv=pos.section<=6?1:pos.section<=15?2:pos.section<=18?3:4;CPULV=lv;STORY=stage;const isSovietBoss=(pos.chapter===1&&pos.section===20);const isSansStage=(pos.chapter===2&&pos.section===10);const isSansBoss=(pos.chapter===2&&pos.section===20);const isKabiBoss=(pos.chapter===3&&pos.section===20);const isChapter4Boss=(pos.chapter===4&&pos.section===20);const isNaoyaBoss=(pos.chapter===5&&pos.section===10);const isNaoyaCursedBoss=(pos.chapter===5&&pos.section===20);const isDuolingoBoss=(pos.chapter===6&&pos.section===20);const isCrewBoss=(pos.chapter===7&&pos.section===20)||(pos.chapter===8&&pos.section===20);const isImpostorBoss=(pos.chapter===9&&pos.section===20);const cpus=(isSovietBoss||isSansStage||isSansBoss||isKabiBoss||isChapter4Boss||isNaoyaBoss||isNaoyaCursedBoss||isDuolingoBoss||isCrewBoss||isImpostorBoss)?1:1+Math.floor((pos.section-1)/7);tcStopMusic();if(isSovietBoss)tcStartSovietChapterMusic();else if(isSansStage)tcStartSansChapterMusic();else if(isSansBoss)tcStartSansChapter20Music();else if(isKabiBoss)tcStartKabiChapterMusic();else if(isChapter4Boss)tcStartChapter4BossMusic();startBattle(cpus)}
 function continueStory(){const cleared=storyProgress(U());if(cleared>=STORY_TOTAL){alert('全100章をクリア済みです！');return}startStory(cleared+1)}
 function startChapter(ch){selectStoryChapter(ch)}
 function startPractice(){STORY=0;CPULV=HLV;startBattle(HCPUS)}
@@ -2331,10 +2331,14 @@ function tcIsStoryCardUnlocked(key,player=null){
   }
   return false;
 }
+function tcLimitedCardsAllowedForPlayer(player=null){
+  // 限定お守りはオンライン対戦だけで必要。ストーリー・練習では不要。
+  return !ONL || !!(player && player.hasLimitedCharm);
+}
 function tcBattleCardPool(player=null,excludeLimited=false){
   let pool=(!STORY||ONL)?POOL.slice():POOL.filter(key=>tcIsStoryCardUnlocked(key,player)||
     (player&&player.duolingoDeckBias&&['book','study_please'].includes(key)));
-  const allowLimited=!excludeLimited&&player&&Array.isArray(player.limitedCards)&&(!ONL||player.hasLimitedCharm);
+  const allowLimited=!excludeLimited&&player&&Array.isArray(player.limitedCards)&&tcLimitedCardsAllowedForPlayer(player);
   if(allowLimited){for(const key of player.limitedCards){if(TC_LIMITED_CARD_KEYS.includes(key)&&CARDS[key]&&!pool.includes(key))pool.push(key);}}
   return pool.length?pool:['fire'];
 }
@@ -2644,7 +2648,7 @@ function playCard(i,k,tile){ // i player, k card key, tile {pi,ti}
  if(k==='cheat_limit'||k==='cheat'){if(!cheatLimitReady(p)){G.log='チートカードは、願い星・デンチャ・島雪・体臭・馬・逆戻りの6枚をすべて手札にそろえると使えます';return false}if(k==='cheat_limit')k='cheat'}
  const c=CARDS[k];if(!c)return false;
  if(c.limited&&(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(k))){G.log='この限定カードを所持していません';return false;}
- if(c.limited&&ONL&&!p.hasLimitedCharm){G.log='オンラインで限定カードを使うには「限定お守り」（伝説）が必要です';return false;}
+ if(c.limited&&!tcLimitedCardsAllowedForPlayer(p)){G.log='オンラインで限定カードを使うには「限定お守り」（伝説）が必要です';return false;}
  if(k==='draw'&&p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}
  let cost=c.c,costReduced=false;if(k==='draw')cost=p.draws>0?S().drawCost:0;if(k==='hikakin'&&!p.hikakinFreeUsed&&hasYoutubeAttributeCard(p))cost=0;if(p.cheatActive&&k!=='cheat')cost=0;if(Number(p.scratchBoost)>0&&(SCRATCH_KEYS.includes(k)||SCRATCH_KEYS.includes(originalK)))cost=Math.max(1,Math.ceil(cost/2));const costCharm=p.charm;if(cost>0&&costCharm&&costCharm.type==='costLuck'&&Math.random()*100<charmChance(costCharm)){cost=Math.max(0,cost-1);costReduced=true;}const hapiTax=k==='end'?0:Math.max(0,Number(p.hapiEneCostSurcharge)||0);const studyTax=k==='end'?0:Math.max(0,Number(p.studyCardCostPenalty)||0);if(hapiTax>0)cost+=hapiTax;if(studyTax>0)cost+=studyTax;if(Number(G.limitedSovietTurns)>0&&(k==='sovet'||k==='missile'))cost=0;if(k==='rewind'&&G.over)return false;if(cost>(Number(p.ap)||0))return false;if(k==='youtube'&&(Number(p.ap)||0)<10){G.log='Youtubeの効果にはコスト10以上が必要です';return false}
  if(k==='anzai'){
@@ -3918,7 +3922,7 @@ function tcCardUseCheck(i,k){
  const c=CARDS[shown]||CARDS[k];
  if(!c)return {ok:false,message:'カード情報が見つかりません'};
  if(c.limited&&(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(k)))return {ok:false,message:'この限定カードを所持していません'};
- if(c.limited&&ONL&&!p.hasLimitedCharm)return {ok:false,message:'オンラインで限定カードを使うには「限定お守り」（伝説）が必要です'};
+ if(c.limited&&!tcLimitedCardsAllowedForPlayer(p))return {ok:false,message:'オンラインで限定カードを使うには「限定お守り」（伝説）が必要です'};
  if(c.passive)return {ok:false,message:'このカードは自動発動カードです'};
  if(k==='trashcan'&&p.hand.filter(x=>x!=='trashcan').length<2)return {ok:false,message:'捨てるカードが2枚ありません'};
  if(k==='yagami'&&!p.hand.includes('deathnote'))return {ok:false,message:'手札にデスノートがありません'};
@@ -4158,7 +4162,7 @@ async function netJoin(mode,pw='',id=''){
   netJoining=false;
  }
 }
-function attach(r){room=r;ONL=true;G=null;
+function attach(r){room=r;ONL=true;STORY=0;G=null;
  r.onMessage('roster',m=>{roster=m;if(!m.started||!G){SEAT=m.seat;HOST=m.seat===0}if(screen!=='battle')go('room')});
  r.onMessage('started',m=>{if(HOST)startBattle(0,roster.names,roster.charms,roster.profiles)});
  r.onMessage('chat',m=>{if(!(m&&m.name===U().display&&m.room==='battle'&&0))addChat('battle',m)});r.onMessage('state',applyState);r.onMessage('act',m=>onAct(m.seat,m.a));
