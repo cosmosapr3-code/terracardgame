@@ -1014,11 +1014,6 @@ function tcNormalizeLimitedCardDropChapters(raw){
  for(const key of TC_LIMITED_CARD_KEYS){const n=Math.floor(Number(src[key])||0);out[key]=n>=1&&n<=100?n:0;}
  return out;
 }
-function tcNormalizeLimitedCardDropRates(raw){
- const src=raw&&typeof raw==='object'?raw:{};const out={};
- for(const key of TC_LIMITED_CARD_KEYS){const value=src[key];out[key]=value===undefined||value===null||value===''?null:Math.max(0,Math.min(100,Number(value)||0));}
- return out;
-}
 function tcOwnedLimitedCardKeys(user){
  const charms=Array.isArray(user&&user.charms)?user.charms:[];
  return [...new Set(charms.filter(x=>x&&x.type==='limitedCard'&&TC_LIMITED_CARD_KEYS.includes(x.cardKey)).map(x=>x.cardKey))];
@@ -1042,20 +1037,13 @@ function tcGiveLimitedCharm(user){
 }
 function tcRollChapterLimitedDrop(user,chapter){
  const drops=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);
- const owned=new Set(tcOwnedLimitedCardKeys(user));
- const baseRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
- const candidates=TC_LIMITED_CARD_KEYS.filter(key=>drops[key]===chapter&&!owned.has(key)).map(key=>({key,rate:CFG.limitedCardDropRates&&CFG.limitedCardDropRates[key]!=null?Math.max(0,Math.min(100,Number(CFG.limitedCardDropRates[key])||0)):baseRate})).filter(x=>x.rate>0);
- if(!candidates.length)return null;
- // 複数カードが同じ章に設定されていても、1回のクリアで落ちるのは最大1枚。
- const missProbability=candidates.reduce((v,x)=>v*(1-x.rate/100),1);
- const totalProbability=1-missProbability;
- if(Math.random()>=totalProbability)return null;
- let pick=Math.random()*candidates.reduce((sum,x)=>sum+x.rate,0);
- let selected=candidates[candidates.length-1];
- for(const candidate of candidates){pick-=candidate.rate;if(pick<=0){selected=candidate;break;}}
- return tcGiveLimitedCard(user,selected.key)?selected.key:null;
+ const candidates=TC_LIMITED_CARD_KEYS.filter(key=>drops[key]===chapter&&!tcOwnedLimitedCardKeys(user).includes(key));
+ const rate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
+ if(!candidates.length||Math.random()*100>=rate)return null;
+ const key=candidates[Math.floor(Math.random()*candidates.length)];
+ return tcGiveLimitedCard(user,key)?key:null;
 }
-CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));CFG.limitedCardDropRates=tcNormalizeLimitedCardDropRates(CFG.limitedCardDropRates);
+CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
 let POOL=[];
 const saveCfg=()=>{
  localStorage.cgc_cfg=JSON.stringify(CFG);
@@ -1424,13 +1412,10 @@ const TUT=[
  ['🆕 最新カード（追加順）','追加された順に、最新の2枚を紹介します。'],
  ['💡 カードのコスト表示','カード一覧・手札・カード選択画面でコストを確認できます。ドローは初回0、2回目以降はゲーム設定のドローコスト、ターン終了は0です。'],
  ['🎯 ミッションとポスト','ミッションやポストに受け取れる報酬が複数あるときは「一括受け取り」を使えます。受取済みの報酬は二重にもらえません。ポストでは宛先のアカウント名を入れて手紙を送れます。届いた手紙は本人の受信箱だけに表示され、新着通知も届きます。運営からのプレゼントもここに届きます。'],
- ['💡 運営へのカード案','カード追加リクエストは、送った本人と運営だけの個別連絡です。運営から返信が来ると通知が表示されます。'],
+ ['🎴 限定カード','限定カードは指定された章の第20節クリア時に、運営が設定した獲得率で入手できます。獲得したカードだけが「現在使用できるカード」に表示され、試合中の出現率は運営のカード管理欄でカードごとに設定されます。ストーリー・練習では限定お守りなしで使用できます。オンラインでは伝説ランクの「限定お守り」が必要です。未所持の限定カードはドロー候補にならず、通常ドロー・？・TERRA CARD・シャッフルには入りません。'],
+  ['💡 運営へのカード案','カード追加リクエストは、送った本人と運営だけの個別連絡です。運営から返信が来ると通知が表示されます。'],
  ['📢 運営からのお知らせ','運営が「更新した」ボタンで公開した説明は、全プレイヤーに届きます。ログイン中なら画面に通知され、次回ログイン時にも確認できます。'],
  ['🎁 運営からの配布と通知','運営はプレイヤーを指定してお守りやポストのプレゼントを配布できます。配布されたお守り・コイン・XP・ミッションには本人だけに通知が届きます。画面のベル、またはホームの「通知」から内容を何度でも確認できます。配布されたお守りは自動装備されず、お守り画面で自分で装備します。'],
- ['🎴 現在使用できるカード','ストーリーの章選択画面にある「現在使用できるカードを確認」から、初期カード・クリア済み章の解放カード・自分が獲得した限定カードを確認できます。限定カードは獲得したものだけが一覧に表示されます。'],
- ['✨ 限定カードと限定お守り','限定カードは運営が指定した章の第20節クリア時に、設定された確率で未所持のものが1枚ドロップします。ストーリーモードでは限定お守りなしで使えます。オンライン対戦では伝説ランクの「限定お守り」を持っている必要があります。限定カードは通常ドロー・シャッフル・「？」・TERRA CARDの抽選には入りません。'],
- ['🏆 章のクリアと再挑戦','節に勝つと、次の節へ進む・同じ節をもう一度やる・章の節一覧へ戻る、を選べます。章の最後をクリアすると章クリア報酬や限定カードの抽選が行われます。'],
- ['⚙️ 運営の限定カード設定','運営は各限定カードについて、ドロップする章とカードごとの出現率を設定できます。カードごとの率が未設定の場合は共通ドロップ率が使われます。'],
  ['🏁 それでは対戦へ！','ホームから対戦・カード一覧・ガチャ・お守り・ミッション・ポストへ進めます。カードのコストと効果を確認しながら楽しもう！']
 ];
 
@@ -1586,7 +1571,7 @@ function startChapterSection(ch,section){const chapter=Math.max(1,Math.min(STORY
 // ストーリー章選択画面から、現在使えるカードを確認できる表示。
 // 使用条件 tcIsStoryCardUnlocked と同じく、クリア済み章の報酬を累積する。
 function tcStoryCardChipsHtml(keys){
- const unique=[...new Set(keys)].filter(k=>CARDS[k]&&(!CARDS[k].fixed||CARDS[k].limited===true));
+ const unique=[...new Set(keys)].filter(k=>CARDS[k]&&(!CARDS[k].fixed||CARDS[k].limited));
  if(!unique.length)return '<p style="font-size:12px;opacity:.85">該当カードはありません。</p>';
  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:5px;margin-top:8px">${unique.map(k=>{const c=CARDS[k]||{};const cost=c.c==null?'?':String(c.c);return `<div style="min-width:0;padding:6px;border:1px solid #80acd0;border-radius:7px;background:#0b2945;font-size:11px;line-height:1.35"><b>${esc(c.i||'🃏')} ${esc(c.n||k)}</b><div style="opacity:.8">コスト：${esc(cost)}</div></div>`}).join('')}</div>`;
 }
@@ -2262,14 +2247,14 @@ function goAdminRebuildKeepScroll(message=''){
 function onlineCfg(){const o=CFG.online||{};return `<h3>オンライン接続設定</h3><form class="row" onsubmit="event.preventDefault();setOnline(this)"><label><input type="checkbox" name="en" ${o.enabled===false?'':'checked'}> オンライン対戦を有効</label><label><input type="checkbox" name="pr" ${o.priv===false?'':'checked'}> プライベート対戦を有効</label><button>保存</button></form>`}
 function setOnline(f){CFG.online={enabled:f.en.checked,priv:f.pr.checked};saveCfg();goAdminKeepScroll('オンライン設定を保存しました')}
 function adminCfg(){const S0=CFG.s,GP=CFG.gachaPrices||DEFAULT_GACHA_PRICES;
- const keys=Object.keys(CARDS).filter(k=>!CARDS[k].fixed);
+ const keys=Object.keys(CARDS).filter(k=>!CARDS[k].fixed||CARDS[k].limited);
  return `<h3>ゲーム設定</h3><form class="row" onsubmit="event.preventDefault();setCfg(this)">${[['hp','最大HP'],['ap','コスト最大値'],['apInc','ターンごとのコスト増加量'],['hand','初期手札'],['maxHand','手札上限(ドロー)'],['drawCost','2回目以降ドローのコスト'],['sovietBossHp','第1章20節・ソ連ボスHP']].map(([k,l])=>`<label>${l} <input name="${k}" type="number" min="${k==='sovietBossHp'?1:0}" max="${k==='sovietBossHp'?999999:99}" value="${S0[k]}" style="width:90px"></label>`).join('')}<button>保存</button></form>
  <h3>📖 ストーリー章名の変更</h3><p><small>章番号と章名を設定すると、全プレイヤーのストーリー画面に反映されます。空欄にすると初期の章名（設定がない章は番号表示）に戻ります。</small></p><form class="row" onsubmit="event.preventDefault();setStoryChapterTitle(this)"><label>章 <select name="chapter" onchange="adminChapterNamePick(this)">${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${ch===7?'selected':''}>第${ch}章</option>`).join('')}</select></label><label>章名 <input id="admin-story-chapter-title" name="title" maxlength="40" value="${esc(storyChapterName(7))}" placeholder="章名"></label><button>章名を全員に保存</button></form>
  ${adminStoryUnlocksHtml()}
  ${adminLimitedCardDropsHtml()}
  <h3>ガチャ価格設定</h3><p><small>1回の価格を設定します。10連は設定価格×10枚分です。0にすると無料になります。全プレイヤーに共有されます。</small></p><form class="row" onsubmit="event.preventDefault();setGachaPrices(this)"><label>キャラクターガチャ1回 🪙 <input name="character" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.character)||0)}" style="width:90px"></label><label>お守りガチャ1回 🪙 <input name="charm" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.charm)||0)}" style="width:90px"></label><button>ガチャ価格を保存</button></form>
  <h3>🧿 お守りガチャのレアリティ排出率</h3><p><small>合計が100%になるように設定してください。保存すると全プレイヤーのガチャに反映されます。</small></p><form class="row" onsubmit="event.preventDefault();setCharmRates(this)">${['N','R','SR','SSR','UR'].map(k=>`<label>${k} <input name="${k}" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.charmRates?.[k]??DEFAULT_CHARM_RATES[k])))}" style="width:64px">%</label>`).join('')}<button>排出率を保存</button></form>
- <h3>カード管理(コスト・出現率 0=出ない)</h3><p><small>著作権侵害属性・YOUTUBE属性・音属性・ゲームFPS属性はカードごとに付け外しでき、全プレイヤーに共有されます。YOUTUBE属性のカードは「Youtube」カードの抽選対象になります。音属性は今後の音関連機能に使えるよう、カードごとに保存されます。</small></p><div id="admin-card-list-scroll" style="max-height:420px;overflow:auto"><table style="width:100%"><thead><tr><th>カード</th><th>コスト</th><th>出現率</th><th>ダメージ対象</th><th>著作権侵害属性</th><th>YOUTUBE属性</th><th>音属性</th><th>ゲームFPS属性</th><th></th></tr></thead><tbody>${keys.map(k=>{const c=CARDS[k],o=CFG.over[k]||{},w=POOL.filter(x=>x===k).length,marked=(CFG.copyrightCards||[]).includes(k),yt=(CFG.youtubeCards||DEFAULT_YOUTUBE_KEYS).includes(k),sound=(CFG.soundCards||[]).includes(k),gamefps=(CFG.gameFpsCards||[]).includes(k);return `<tr><td>${c.i} ${esc(c.n)}${CFG.cards[k]?' ★':''}</td><td><input type="number" min="0" max="30" value="${c.c}" style="width:56px" onchange="cardOver('${k}','c',this.value)"></td><td><input type="number" min="0" max="9" value="${w}" style="width:56px" onchange="cardOver('${k}','w',this.value)"></td><td>${CFG.cards[k]&&CFG.cards[k].gen&&CFG.cards[k].gen.dmg?`<select aria-label="${esc(c.n)}のダメージ対象" onchange="cardTargetMode('${k}',this.value)"><option value="random" ${(c.targetMode||'random')==='random'?'selected':''}>ランダムな相手</option><option value="all" ${c.targetMode==='all'?'selected':''}>全員（自分を含む）</option></select>`:'—'}</td><td><label><input type="checkbox" ${marked?'checked':''} onchange="setCopyrightFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${yt?'checked':''} onchange="setYoutubeFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${sound?'checked':''} onchange="setSoundFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${gamefps?'checked':''} onchange="setGameFpsFlag('${k}',this.checked)"> 付ける</label></td><td>${CFG.cards[k]?`<button class="sm" onclick="delCard('${k}')">削除</button>`:''}</td></tr>`}).join('')}</tbody></table></div>
+ <h3>カード管理（コスト・試合中の出現率 0=出ない）</h3><p><small>ここで設定する出現率は、試合中にドローして手札へ来る確率の重みです。限定カードは所持しているプレイヤーだけが抽選対象になり、未所持のプレイヤーには出ません。限定カードの章クリア時の獲得率は、下の「限定カード獲得設定」で別々に設定します。著作権侵害属性・YOUTUBE属性・音属性・ゲームFPS属性はカードごとに付け外しでき、全プレイヤーに共有されます。</small></p><div id="admin-card-list-scroll" style="max-height:420px;overflow:auto"><table style="width:100%"><thead><tr><th>カード</th><th>コスト</th><th>出現率</th><th>ダメージ対象</th><th>著作権侵害属性</th><th>YOUTUBE属性</th><th>音属性</th><th>ゲームFPS属性</th><th></th></tr></thead><tbody>${keys.map(k=>{const c=CARDS[k],o=CFG.over[k]||{},w=c.limited?Math.max(0,Math.min(9,Math.floor(Number(o.w??1)||0))):POOL.filter(x=>x===k).length,marked=(CFG.copyrightCards||[]).includes(k),yt=(CFG.youtubeCards||DEFAULT_YOUTUBE_KEYS).includes(k),sound=(CFG.soundCards||[]).includes(k),gamefps=(CFG.gameFpsCards||[]).includes(k);return `<tr><td>${c.i} ${esc(c.n)}${CFG.cards[k]?' ★':''}</td><td><input type="number" min="0" max="30" value="${c.c}" style="width:56px" onchange="cardOver('${k}','c',this.value)"></td><td><input type="number" min="0" max="9" value="${w}" style="width:56px" onchange="cardOver('${k}','w',this.value)"></td><td>${CFG.cards[k]&&CFG.cards[k].gen&&CFG.cards[k].gen.dmg?`<select aria-label="${esc(c.n)}のダメージ対象" onchange="cardTargetMode('${k}',this.value)"><option value="random" ${(c.targetMode||'random')==='random'?'selected':''}>ランダムな相手</option><option value="all" ${c.targetMode==='all'?'selected':''}>全員（自分を含む）</option></select>`:'—'}</td><td><label><input type="checkbox" ${marked?'checked':''} onchange="setCopyrightFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${yt?'checked':''} onchange="setYoutubeFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${sound?'checked':''} onchange="setSoundFlag('${k}',this.checked)"> 付ける</label></td><td><label><input type="checkbox" ${gamefps?'checked':''} onchange="setGameFpsFlag('${k}',this.checked)"> 付ける</label></td><td>${CFG.cards[k]?`<button class="sm" onclick="delCard('${k}')">削除</button>`:''}</td></tr>`}).join('')}</tbody></table></div>
  <h3>カードを追加</h3><form class="row" onsubmit="event.preventDefault();addCard(this)"><input name="n" placeholder="カード名" required><input name="desc" placeholder="カードの説明" style="width:220px"><input name="i" placeholder="絵文字" maxlength="4" style="width:70px" value="⭐"><label>コスト <input name="c" type="number" min="0" max="30" value="1" style="width:56px"></label><label>ダメージ <input name="dmg" type="number" min="0" value="0" style="width:56px"></label><label>回復 <input name="heal" type="number" min="0" value="0" style="width:56px"></label><label>シールド <input name="shield" type="number" min="0" value="0" style="width:56px"></label><label>攻撃力+ <input name="atk" type="number" min="0" value="0" style="width:56px"></label><label>ドロー <input name="draw" type="number" min="0" value="0" style="width:56px"></label><label>発動確率(%) <input name="chance" type="number" min="0" max="100" value="100" style="width:70px"></label><label>ダメージ対象 <select name="targetMode"><option value="random">ランダムな相手</option><option value="all">全員（自分を含む）</option></select></label><label><input type="checkbox" name="youtubeAttr"> YOUTUBE属性</label><label><input type="checkbox" name="soundAttr"> 音属性</label><label><input type="checkbox" name="gameFpsAttr"> ゲームFPS属性</label><button>追加</button></form>`}
 function adminStoryUnlockPickerHtml(ch){
  const unlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);
@@ -2279,22 +2264,16 @@ function adminStoryUnlockPickerHtml(ch){
 
 function adminLimitedCardDropsHtml(){
  const chapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);
- const rates=tcNormalizeLimitedCardDropRates(CFG.limitedCardDropRates);
- const fallback=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
- return `<section class="panel" style="border:2px solid #e5b94c"><h3>🎴 限定カードの章別ドロップ設定</h3><p><small>設定した章の第20節をクリアしたとき、未所持のカードが低確率で1枚ドロップします。0章はドロップなし。カードごとに章と確率を設定できます。同じ章に複数設定した場合も、1回のクリアで獲得できるのは最大1枚です。</small></p><form onsubmit="event.preventDefault();saveLimitedCardDrops(this)"><label>共通ドロップ率（カード別確率が未設定の場合） <input name="rate" type="number" min="0" max="100" step="1" value="${fallback}" style="width:70px"> %</label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin:10px 0">${TC_LIMITED_CARD_KEYS.map(key=>{const c=CARDS[key];const rate=rates[key]==null?fallback:rates[key];return `<div style="display:flex;align-items:center;gap:6px;padding:7px;border:1px solid #8e7440;border-radius:8px"><span style="flex:1;min-width:100px;font-size:12px">${esc(c.n)}</span><label style="font-size:11px">章 <select name="chapter_${key}" style="max-width:90px"><option value="0" ${chapters[key]===0?'selected':''}>なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${chapters[key]===ch?'selected':''}>${ch}章</option>`).join('')}</select></label><label style="font-size:11px">率 <input name="rate_${key}" type="number" min="0" max="100" step="1" value="${rate}" style="width:58px">%</label></div>`}).join('')}</div><button>限定カードのドロップ設定を保存</button></form></section>`;
+ return `<section class="panel" style="border:2px solid #e5b94c"><h3>🎁 限定カードの獲得設定（章クリア報酬）</h3><p><small>設定した章の第20節をクリアしたとき、ここで設定する獲得率で未所持の限定カードが1枚ドロップします。これは試合中に手札へ出る確率とは別設定です。0章はドロップなし。複数カードを同じ章に設定した場合は、その中から抽選します。</small></p><form onsubmit="event.preventDefault();saveLimitedCardDrops(this)"><label>ドロップ率 <input name="rate" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0))}" style="width:70px"> %</label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px;margin:10px 0">${TC_LIMITED_CARD_KEYS.map(key=>{const c=CARDS[key];return `<label style="display:flex;align-items:center;gap:6px"><span style="flex:1">${esc(c.n)}</span><select name="chapter_${key}"><option value="0" ${chapters[key]===0?'selected':''}>設定なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${chapters[key]===ch?'selected':''}>第${ch}章</option>`).join('')}</select></label>`}).join('')}</div><button>限定カードのドロップ設定を保存</button></form></section>`;
 }
 async function saveLimitedCardDrops(form){
  if(!isAdmin)return;
- const next={},rates={};
- for(const key of TC_LIMITED_CARD_KEYS){
-  next[key]=clampInt(form.elements.namedItem('chapter_'+key)?.value||0,0,100);
-  rates[key]=Math.max(0,Math.min(100,Number(form.elements.namedItem('rate_'+key)?.value)||0));
- }
+ const next={};
+ for(const key of TC_LIMITED_CARD_KEYS)next[key]=clampInt(form.elements.namedItem('chapter_'+key)?.value||0,0,100);
  CFG.limitedCardDropChapters=next;
- CFG.limitedCardDropRates=rates;
  CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(form.elements.namedItem('rate')?.value)||0));
  const ok=await saveCfg();
- goAdminKeepScroll(ok?'限定カードごとのドロップ章・確率を全プレイヤー向けに保存しました':'設定の保存に失敗しました。接続を確認してもう一度保存してください');
+ goAdminKeepScroll(ok?'限定カードのドロップ章・確率を全プレイヤー向けに保存しました':'設定の保存に失敗しました。接続を確認してもう一度保存してください');
 }
 
 function adminStoryUnlocksHtml(){
@@ -2361,7 +2340,17 @@ function tcBattleCardPool(player=null,excludeLimited=false){
   let pool=(!STORY||ONL)?POOL.slice():POOL.filter(key=>tcIsStoryCardUnlocked(key,player)||
     (player&&player.duolingoDeckBias&&['book','study_please'].includes(key)));
   const allowLimited=!excludeLimited&&player&&Array.isArray(player.limitedCards)&&tcLimitedCardsAllowedForPlayer(player);
-  if(allowLimited){for(const key of player.limitedCards){if(TC_LIMITED_CARD_KEYS.includes(key)&&CARDS[key]&&!pool.includes(key))pool.push(key);}}
+  if(allowLimited){
+   // 限定カードは所持済みカードだけを、運営が設定した試合中の出現率（重み）で追加。
+   for(const key of [...new Set(player.limitedCards)]){
+    if(!TC_LIMITED_CARD_KEYS.includes(key)||!CARDS[key]||!CARDS[key].limited)continue;
+    const configured=CFG.over&&CFG.over[key]&&CFG.over[key].w!=null
+      ? Number(CFG.over[key].w)
+      : 1;
+    const weight=Math.max(0,Math.min(9,Math.floor(Number.isFinite(configured)?configured:1)));
+    for(let n=0;n<weight;n++)pool.push(key);
+   }
+  }
   return pool.length?pool:['fire'];
 }
 const rc=(player=null,excludeLimited=false)=>{
@@ -3670,7 +3659,6 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
  if(!used)return false;
  p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;const ix=p.hand.indexOf(handKey);if(ix>=0)p.hand.splice(ix,1);checkEnd();return true}
 async function tcStartNextStorySection(){const next=STORY+1;try{await tcStorySyncPromise;}catch(e){}startStory(next)}
-function tcReturnToStoryChapter(){if(!STORY){go('story');return;}const pos=storyPosition(STORY);STORY_CHAPTER_PAGE=Math.floor((pos.chapter-1)/STORY_CHAPTERS_PER_PAGE);STORY_SELECTED_CHAPTER=pos.chapter;go('story');}
 function checkEnd(){
  G.ps.forEach(p=>{if(p.alive&&p.f[p.y*5+p.x].d<=0){p.alive=false;p.hp=0;G.log=p.name+'は足場が壊れて落下!'}});
  G.ps.forEach((p,i)=>{if(!p.alive&&Array.isArray(p.hand)&&p.hand.includes('rewind')&&G.hist.length){const __liveHand=p.hand.slice();const s=G.hist[Math.max(0,G.hist.length-1-(1+rnd(2)))];const d=JSON.parse(s);Object.assign(p,d.ps[i]);p.hand=__liveHand;const __rewindIndex=p.hand.indexOf('rewind');if(__rewindIndex>=0)p.hand.splice(__rewindIndex,1);p.alive=true;if(p.hp<=0)p.hp=p.mhp;p.reviveFxAt=Date.now();G.log=p.name+'は逆戻りで復活！（逆戻り1枚消費）'}});const alive=G.ps.filter(p=>p.alive);if(ONL?alive.length<=1:(!G.ps[0].alive||alive.length===1))G.over=true}
@@ -3888,7 +3876,7 @@ function paintBattle(){
   confirmBox.style.left='';confirmBox.style.top='';
   confirmBox.innerHTML='';
  }
- result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.charmDrop?`<br>🎁 お守りドロップ：${esc(charmText(G.res.charmDrop))}`:''}${G.res.limitedCardDrop?`<br>✨ 限定カードドロップ：${esc(CARDS[G.res.limitedCardDrop]?.n||G.res.limitedCardDrop)}`:''}${G.res.limitedCharmEarned?'<br>🏆 ストーリー全クリア！伝説のお守り「限定お守り」を獲得！':''}${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY?`${G.res.win&&STORY<STORY_TOTAL?` <button onclick="tcStartNextStorySection()">次の節へ</button>`:''} <button onclick="startStory(${STORY})">もう一度やる</button> <button onclick="tcReturnToStoryChapter()">章へ戻る</button>`:` <button onclick="startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
+ result.innerHTML=G.over&&G.res?`<div class="resov"><div class="resbox ${G.res.win?'win':'lose'}"><h1>${G.res.win?'🎉 勝利!':'💀 敗北…'}</h1><p class="xpl">獲得XP <b>+${G.res.xp}</b>${G.res.charmDrop?`<br>🎁 お守りドロップ：${esc(charmText(G.res.charmDrop))}`:''}${G.res.limitedCardDrop?`<br>✨ 限定カードドロップ：${esc(CARDS[G.res.limitedCardDrop]?.n||G.res.limitedCardDrop)}`:''}${G.res.limitedCharmEarned?'<br>🏆 ストーリー全クリア！伝説のお守り「限定お守り」を獲得！':''}${G.res.up?` ・ レベルアップ! Lv.${G.res.lv}`:''}</p>${G.res.win?`<p>連勝 ${G.res.st}</p>`:''}<button onclick="leaveNet();go('home')">ホームへ</button>${ONL?'':(STORY&&G.res.win&&STORY<STORY_TOTAL?` <button onclick="tcStartNextStorySection()">次の節へ</button>`:` <button onclick="STORY?startStory(${STORY}):startBattle(${G.ps.length-1})">もう一度</button>`)}</div></div>`:'';
  const notice=G.turnNoticeUntil&&Date.now()<G.turnNoticeUntil&&G.turn===SEAT;
  let noticeEl=el.querySelector('.tc-turn-notice');
  if(notice&&!noticeEl){noticeEl=document.createElement('div');noticeEl.className='tc-turn-notice';noticeEl.textContent='あなたのターン！';noticeEl.setAttribute('role','status');noticeEl.setAttribute('aria-live','polite');el.appendChild(noticeEl);}
