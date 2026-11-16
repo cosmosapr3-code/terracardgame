@@ -1053,10 +1053,36 @@ function tcNormalizeStoryBosses(raw){
  }
  return out;
 }
+function tcNativeStoryBossDefaults(stage){
+ const builtins={
+  20:{name:'ソ連',icon:'☭',cpuCount:1,cpuLevel:4,hp:50,atk:0,sh:0,bgm:'ソ連専用BGM（内蔵）',feature:'ソ連系カードが来やすい。初期HPは50。'},
+  30:{name:'Sans',icon:'💀',cpuCount:1,cpuLevel:2,hp:0,atk:0,sh:0,bgm:'Sans戦BGM（内蔵）',feature:'Sansカードが来やすい。'},
+  40:{name:'Sans',icon:'💀',cpuCount:1,cpuLevel:4,hp:1,atk:0,sh:0,bgm:'Time Paradox（既定BGM）',feature:'HP1、回避率90%、逆戻りを初期手札に3枚。'},
+  60:{name:'カビキラー',icon:'🧴',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'カビキラー専用BGM',feature:'フィールドを白色に戻す特性。'},
+  80:{name:'ボス',icon:'👑',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'第4章ボスBGM',feature:'基本攻撃力+10。'},
+  90:{name:'禪院直哉',icon:'🌀',cpuCount:1,cpuLevel:2,hp:0,atk:0,sh:0,bgm:'ドブカスカーニバル!!.mp3',feature:'禪院直哉カードが来やすい。'},
+  100:{name:'禪院直哉（呪霊）',icon:'👹',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'呪霊ボス専用BGM',feature:'攻撃力・防御力・HPなどに+24の既存補正。'},
+  120:{name:'デュオリンゴ',icon:'📗',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'通常BGM',feature:'毎ターン英語クイズ。専用カードが来やすい。'},
+  140:{name:'クルー',icon:'🚀',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'通常BGM',feature:'追加特性なし。'},
+  160:{name:'クルー',icon:'🚀',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'通常BGM',feature:'第7章20節と同じボス。追加特性なし。'},
+  180:{name:'インポスター',icon:'🔴',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'Among Us.mp3',feature:'赤い盤面。初期カード各3枚。20ターン以内に倒せないと敗北。'},
+  200:{name:'田所浩二',icon:'🧔',cpuCount:1,cpuLevel:4,hp:0,atk:0,sh:0,bgm:'YAJU＆U.mp3',feature:'810先輩・コスト増強810が来やすい。10ターンごとに50%で1ターン睡眠。'}
+ };
+ const value=builtins[clampInt(stage,1,2000)];
+ if(!value)return null;
+ const pos=storyPosition(stage);
+ return {...value,stage,chapter:pos.chapter,section:pos.section,enabled:true,cardWeights:{}};
+}
 function tcGetStoryBossConfig(stage){
+ const n=clampInt(stage,1,2000);
+ const native=tcNativeStoryBossDefaults(n);
  const all=CFG&&CFG.storyBosses&&typeof CFG.storyBosses==='object'?CFG.storyBosses:{};
- const value=all[String(clampInt(stage,1,2000))];
- return value&&value.enabled?value:null;
+ const custom=all[String(n)];
+ if(native){
+  if(!custom)return native;
+  return {...native,...custom,enabled:true,cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
+ }
+ return custom&&custom.enabled?custom:null;
 }
 function tcOwnedLimitedCardKeys(user){
  // 所持情報は旧形式のlimitedCards配列と、現在のcharms形式の両方から復元する。
@@ -2225,7 +2251,7 @@ function render(){
  if(screen==='cgKeiba')h=nav+cgKeibaHtml();
  if(screen==='cgGuide')h=nav+cgGuideHtml();
  if(screen==='battle')h=nav+`<div id="bboard"></div><div class="panel"><h3>対戦チャット</h3>${chatBox('battle')}</div>`;
- app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin'){refreshAdminChat();refreshAdminCardIdeas();tcLoadGithubMusicOptions()}if(screen==='cardIdeas')loadPlayerCardIdeas();updatePlayerNotificationUI();tcRenderAudioButton();tcSyncMusic();
+ app.innerHTML=h;paintChat();if(screen==='battle')paintBattle();if(screen==='rank')refreshCloudRankings();if(screen==='home')refreshCloudChat();if(screen==='admin'){refreshAdminChat();refreshAdminCardIdeas();Promise.resolve().then(()=>tcLoadGithubMusicOptions(true))}if(screen==='cardIdeas')loadPlayerCardIdeas();updatePlayerNotificationUI();tcRenderAudioButton();tcSyncMusic();
 }
 async function auth(f){
  const n=f.n.value.trim(),p=f.p.value;
@@ -2390,104 +2416,132 @@ function goAdminRebuildKeepScroll(message=''){
 }
 function onlineCfg(){const o=CFG.online||{};return `<h3>オンライン接続設定</h3><form class="row" onsubmit="event.preventDefault();setOnline(this)"><label><input type="checkbox" name="en" ${o.enabled===false?'':'checked'}> オンライン対戦を有効</label><label><input type="checkbox" name="pr" ${o.priv===false?'':'checked'}> プライベート対戦を有効</label><button>保存</button></form>`}
 function setOnline(f){CFG.online={enabled:f.en.checked,priv:f.pr.checked};saveCfg();goAdminKeepScroll('オンライン設定を保存しました')}
-const TC_GITHUB_MUSIC_API='https://api.github.com/repos/cosmosapr3-code/CardGame/contents';
+const TC_GITHUB_MUSIC_TREE_API='https://api.github.com/repos/cosmosapr3-code/CardGame/git/trees/main?recursive=1';
+const TC_GITHUB_RAW_BASE='https://raw.githubusercontent.com/cosmosapr3-code/CardGame/main/';
 let TC_GITHUB_MUSIC_FILES=[];
 let TC_GITHUB_MUSIC_LOADED_AT=0;
 let TC_GITHUB_MUSIC_LOADING=null;
-async function tcReadGithubMusicFolder(path=''){
- const endpoint=TC_GITHUB_MUSIC_API+(path?'/'+path.split('/').map(encodeURIComponent).join('/'):'')+'?ref=main';
- const response=await fetch(endpoint,{headers:{Accept:'application/vnd.github+json'}});
- if(!response.ok)throw new Error('GitHubの曲一覧を読み込めません（HTTP '+response.status+'）');
- const data=await response.json();
- return Array.isArray(data)?data:[];
-}
+let TC_GITHUB_MUSIC_ERROR='';
+function tcGithubRawUrl(path){return TC_GITHUB_RAW_BASE+String(path||'').split('/').map(encodeURIComponent).join('/')}
 async function tcLoadGithubMusicOptions(force=false){
  const select=document.getElementById('tc-boss-music-select');
  if(!select)return;
  const saved=select.value||select.dataset.savedUrl||'';
+ const status=document.getElementById('tc-boss-music-status');
  const setOptions=()=>{
   const current=select.value||saved;
-  const opts=['<option value="">章の標準BGMを使う</option>'];
+  const opts=['<option value="">既存の章BGMを使う</option>'];
   if(current&&!TC_GITHUB_MUSIC_FILES.some(x=>x.url===current))opts.push(`<option value="${esc(current)}">保存済みの曲</option>`);
   for(const song of TC_GITHUB_MUSIC_FILES)opts.push(`<option value="${esc(song.url)}">${esc(song.name)}</option>`);
   select.innerHTML=opts.join('');
   select.value=current;
   if(!TC_GITHUB_MUSIC_FILES.length){
-   const empty=document.createElement('option');empty.value='';empty.textContent='GitHubに音源がありません（MP3等を追加）';empty.disabled=true;
-   if(select.options.length===1)select.appendChild(empty);
+   const empty=document.createElement('option');empty.value='';empty.textContent='GitHubに音源ファイルがありません';empty.disabled=true;select.appendChild(empty);
   }
   const nameInput=select.form?.elements?.namedItem('musicName');
-  if(nameInput){const item=TC_GITHUB_MUSIC_FILES.find(x=>x.url===select.value);nameInput.value=item?.name|| (select.value?'保存済みの曲':'');}
+  if(nameInput){const item=TC_GITHUB_MUSIC_FILES.find(x=>x.url===select.value);nameInput.value=item?.name||(select.value?'保存済みの曲':'');}
+  if(status){
+   if(TC_GITHUB_MUSIC_ERROR)status.textContent='取得失敗：'+TC_GITHUB_MUSIC_ERROR;
+   else if(!TC_GITHUB_MUSIC_FILES.length)status.textContent='mainブランチ内にMP3等の音源ファイルが見つかりません。GitHubへ追加・Commit後に再読込してください。';
+   else status.textContent='GitHubから音源 '+TC_GITHUB_MUSIC_FILES.length+' 件を取得しました。';
+  }
  };
- if(!force&&TC_GITHUB_MUSIC_LOADED_AT&&Date.now()-TC_GITHUB_MUSIC_LOADED_AT<180000){setOptions();return TC_GITHUB_MUSIC_FILES;}
+ if(!force&&TC_GITHUB_MUSIC_LOADED_AT&&Date.now()-TC_GITHUB_MUSIC_LOADED_AT<60000){setOptions();return TC_GITHUB_MUSIC_FILES;}
  if(TC_GITHUB_MUSIC_LOADING){await TC_GITHUB_MUSIC_LOADING;setOptions();return TC_GITHUB_MUSIC_FILES;}
+ if(status)status.textContent='GitHubのmainブランチを確認中…';
+ TC_GITHUB_MUSIC_ERROR='';
  TC_GITHUB_MUSIC_LOADING=(async()=>{
+  const response=await fetch(TC_GITHUB_MUSIC_TREE_API,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok){
+   const message=data&&data.message?String(data.message):('HTTP '+response.status);
+   throw new Error(message);
+  }
+  if(!Array.isArray(data.tree))throw new Error('GitHubのファイル一覧形式が読み取れません');
   const audioExt=/\.(mp3|m4a|ogg|wav|aac|flac|webm)$/i;
-  const all=[];
-  const root=await tcReadGithubMusicFolder('');
-  for(const item of root){
-   if(item.type==='file'&&audioExt.test(item.name||'')&&item.download_url)all.push({name:item.name,path:item.path,url:item.download_url});
+  const rows=data.tree.filter(x=>x&&x.type==='blob'&&audioExt.test(String(x.path||'')));
+  const unique=new Map();
+  for(const item of rows){
+   const path=String(item.path||'');
+   if(!path)continue;
+   const name=path.split('/').pop();
+   const url=tcGithubRawUrl(path);
+   unique.set(url,{name,path,url});
   }
-  // /music と /bgm フォルダが作成されている場合も自動で走査する。
-  const dirs=root.filter(x=>x.type==='dir'&&['music','bgm','audio'].includes(String(x.name||'').toLowerCase()));
-  for(const dir of dirs){
-   try{
-    const rows=await tcReadGithubMusicFolder(dir.path);
-    for(const item of rows){if(item.type==='file'&&audioExt.test(item.name||'')&&item.download_url)all.push({name:item.path||item.name,path:item.path,url:item.download_url});}
-   }catch(e){console.warn('GitHub音源フォルダを読み込めません:',dir.path,e);}
-  }
-  const unique=new Map();for(const item of all)unique.set(item.url,item);
-  TC_GITHUB_MUSIC_FILES=[...unique.values()].sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  TC_GITHUB_MUSIC_FILES=[...unique.values()].sort((a,b)=>a.path.localeCompare(b.path,'ja'));
   TC_GITHUB_MUSIC_LOADED_AT=Date.now();
  })();
- try{await TC_GITHUB_MUSIC_LOADING;}catch(e){console.warn('GitHub音源一覧の取得に失敗:',e);}
+ try{await TC_GITHUB_MUSIC_LOADING;}
+ catch(e){TC_GITHUB_MUSIC_ERROR=String(e?.message||e);console.warn('GitHub音源の取得に失敗しました',e);}
  finally{TC_GITHUB_MUSIC_LOADING=null;}
  setOptions();
  return TC_GITHUB_MUSIC_FILES;
 }
 function tcStoryBossFieldsHtml(stage){
- const b=(CFG.storyBosses||{})[String(stage)]||{};
+ const native=tcNativeStoryBossDefaults(stage);
+ const saved=(CFG.storyBosses||{})[String(stage)]||{};
+ const b={...(native||{}),...saved,enabled:native?true:!!saved.enabled,cardWeights:{...(native?.cardWeights||{}),...(saved.cardWeights||{})}};
+ const pos=storyPosition(stage);
  const cardKeys=Object.keys(CARDS).filter(k=>(!CARDS[k].fixed||CARDS[k].limited)&&tcBossWeightCardAllowed(k)).sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));
  const savedUrl=String(b.musicUrl||'');
- const musicOptions=['<option value="">章の標準BGMを使う</option>'];
+ const defaultBgm=native?.bgm||'未設定';
+ const musicOptions=['<option value="">既存の章BGMを使う</option>'];
  if(savedUrl&&!TC_GITHUB_MUSIC_FILES.some(x=>x.url===savedUrl))musicOptions.push(`<option value="${esc(savedUrl)}" selected>保存済みの曲</option>`);
  for(const song of TC_GITHUB_MUSIC_FILES)musicOptions.push(`<option value="${esc(song.url)}" ${song.url===savedUrl?'selected':''}>${esc(song.name)}</option>`);
  return `<form id="tc-story-boss-form" onsubmit="event.preventDefault();tcSaveStoryBoss(this)" class="panel" style="margin-top:10px">
   <input type="hidden" name="stage" value="${stage}">
-  <div class="row"><label><input type="checkbox" name="enabled" ${b.enabled?'checked':''}> この節をボス戦にする</label></div>
+  <div style="padding:8px 10px;border-radius:8px;background:${native?'#1d503d':'#243c59'};margin-bottom:10px"><b>${native?'既存ボス設定':'新規ボス設定'}</b> ・ 第${pos.chapter}章 第${pos.section}節 ${native?'／ '+esc(native.feature):'／ この節に新しいボスを設定できます'}</div>
+  <div class="row"><label><input type="checkbox" name="enabled" ${b.enabled?'checked':''} ${native?'disabled title="既存ボスは常に有効です"':''}> ${native?'既存ボス（常に有効）':'この節をカスタムボス戦にする'}</label></div>
   <div class="row" style="flex-wrap:wrap;gap:10px">
-   <label>ボス名 <input name="name" maxlength="32" value="${esc(b.name||'') }" placeholder="例：新しいボス"></label>
-   <label>アイコン（絵文字） <input name="icon" maxlength="8" value="${esc(b.icon||'') }" placeholder="👑" style="width:90px"></label>
+   <label>ボス名 <input name="name" maxlength="32" value="${esc(b.name||'')}" placeholder="例：新しいボス"></label>
+   <label>アイコン（絵文字） <input name="icon" maxlength="8" value="${esc(b.icon||'')}" placeholder="👑" style="width:90px"></label>
    <label>CPU人数 <input name="cpuCount" type="number" min="1" max="3" value="${Number(b.cpuCount)||1}" style="width:66px"></label>
    <label>CPUの強さ <select name="cpuLevel">${[1,2,3,4].map(n=>`<option value="${n}" ${(Number(b.cpuLevel)||2)===n?'selected':''}>${n}（${['','初級','普通','強い','最強'][n]}）</option>`).join('')}</select></label>
   </div>
   <div class="row" style="flex-wrap:wrap;gap:10px">
-   <label>ボスHP（0=通常） <input name="hp" type="number" min="0" max="999999" value="${Number(b.hp)||0}" style="width:100px"></label>
-   <label>攻撃力加算 <input name="atk" type="number" min="0" max="9999" value="${Number(b.atk)||0}" style="width:90px"></label>
-   <label>防御力加算 <input name="sh" type="number" min="0" max="9999" value="${Number(b.sh)||0}" style="width:90px"></label>
+   <label>ボスHP（0=既存値） <input name="hp" type="number" min="0" max="999999" value="${Number(b.hp)||0}" style="width:100px"></label>
+   <label>追加攻撃力 <input name="atk" type="number" min="0" max="9999" value="${Number(b.atk)||0}" style="width:90px"></label>
+   <label>追加防御力 <input name="sh" type="number" min="0" max="9999" value="${Number(b.sh)||0}" style="width:90px"></label>
   </div>
-  <label style="display:block;margin:8px 0">ボス画像URL（任意） <input name="img" type="url" value="${esc(b.img||'')}" placeholder="https://..." style="width:100%;box-sizing:border-box"></label>
+  <label style="display:block;margin:8px 0">ボス画像URL（空欄=既存画像） <input name="img" type="url" value="${esc(saved.img||'')}" placeholder="https://..." style="width:100%;box-sizing:border-box"></label>
   <div class="row" style="align-items:center;flex-wrap:wrap">
-   <label style="flex:1;min-width:230px">ボス戦BGM（GitHubに追加した音源が自動表示）<select id="tc-boss-music-select" name="musicUrl" data-saved-url="${esc(savedUrl)}" onchange="tcBossMusicSelected(this)" style="width:100%">${musicOptions.join('')}</select></label>
-   <input type="hidden" name="musicName" value="${esc(b.musicName||'')}">
+   <label style="flex:1;min-width:230px">ボス戦BGM（GitHubから自動取得）<select id="tc-boss-music-select" name="musicUrl" data-saved-url="${esc(savedUrl)}" onchange="tcBossMusicSelected(this)" style="width:100%">${musicOptions.join('')}</select></label>
+   <input type="hidden" name="musicName" value="${esc(saved.musicName||'')}">
    <button type="button" class="sm" onclick="tcLoadGithubMusicOptions(true)">GitHubの曲を再読込</button>
   </div>
+  <small id="tc-boss-music-status" style="display:block;margin:4px 0 10px;color:#9db6ce">${TC_GITHUB_MUSIC_FILES.length?'取得済み '+TC_GITHUB_MUSIC_FILES.length+' 曲':'GitHubから音源一覧を取得します'}</small>
+  <small style="display:block;margin:4px 0 10px">既定BGM：${esc(defaultBgm)}。BGM欄を空欄にすると既存のボス曲をそのまま使います。</small>
   <h4>このボスのカード出現率（重み）</h4>
-  <p><small>0＝出ない、1＝通常、2〜9＝そのボスの手札に来やすい。通常カード管理の出現率に、このボス専用の倍率をかけます。ストーリー解放条件・限定カードの所持条件は維持されます。</small></p>
+  <p><small>0＝出ない、1＝通常、2〜9＝そのボスの手札に来やすい。運営の通常カード出現率に、このボス専用の重みを掛けます。既存のボス固有カード効果は維持します。</small></p>
   <div style="max-height:280px;overflow:auto;border:1px solid #526879;border-radius:8px;padding:6px">
    <table style="width:100%"><thead><tr><th>カード</th><th>重み</th></tr></thead><tbody>${cardKeys.map(k=>`<tr><td>${esc(CARDS[k].i||'🃏')} ${esc(CARDS[k].n||k)}</td><td><input type="number" min="0" max="9" step="1" data-boss-card-weight="${esc(k)}" value="${b.cardWeights&&b.cardWeights[k]!=null?clampInt(b.cardWeights[k],0,9):1}" style="width:66px"></td></tr>`).join('')}</tbody></table>
   </div>
   <button type="submit" style="margin-top:10px">この章・節のボス設定を全員に保存</button>
-  <button type="button" class="sm" onclick="tcResetStoryBoss(${stage})">この章・節のボス設定を解除</button>
+  <button type="button" class="sm" onclick="tcResetStoryBoss(${stage})">この章・節の変更をリセット</button>
  </form>`;
+}
+function tcNativeBossListHtml(){
+ const bosses=[20,30,40,60,80,90,100,120,140,160,180,200].map(stage=>tcNativeStoryBossDefaults(stage));
+ return `<div class="panel" style="margin:10px 0;background:#172a3b"><h4>📚 既存の章ボス（初期配置済み・全件）</h4><p><small>既存のボスを選ぶと、今の名前・CPU人数・強さ・HP・基本特性・既定BGMを確認して編集できます。</small></p><div style="max-height:300px;overflow:auto"><table style="width:100%"><thead><tr><th>場所</th><th>ボス名</th><th>CPU</th><th>強さ</th><th>HP</th><th>基本特性／既定BGM</th><th></th></tr></thead><tbody>${bosses.map(b=>`<tr><td>第${b.chapter}章 ${b.section}節</td><td>${esc(b.icon)} ${esc(b.name)}</td><td>${b.cpuCount}人</td><td>${['','初級','普通','強い','最強'][b.cpuLevel]}</td><td>${b.hp||'通常'}</td><td><small>${esc(b.feature)}<br>🎵 ${esc(b.bgm)}</small></td><td><button type="button" class="sm" onclick="tcBossSelectStage(${b.stage})">設定を見る</button></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 function adminStoryBossSettingsHtml(){
  const stage=clampInt(CFG.adminBossStage||200,1,2000),pos=storyPosition(stage);
  return `<section class="panel" style="border:2px solid #d5a6ff;margin-top:14px"><h3>👑 ストーリーボス詳細設定（章・節ごと）</h3>
- <p><small>第1〜100章のどの節でもボスを設定できます。ボス名・アイコン・画像・CPU人数・強さ・HP・攻撃/防御加算・カードの出やすさ・BGMを設定すると、次の対戦から全プレイヤーに適用されます。</small></p>
+ <p><small>第1〜100章の全節を設定可能。既存ボスの初期設定を確認・編集でき、新しい節にカスタムボスを置くこともできます。</small></p>
+ ${tcNativeBossListHtml()}
  <div class="row" style="flex-wrap:wrap"><label>章 <select id="tc-boss-chapter" onchange="tcBossAdminPick()">${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${ch===pos.chapter?'selected':''}>第${ch}章 ${esc(storyChapterName(ch))}</option>`).join('')}</select></label><label>節 <select id="tc-boss-section" onchange="tcBossAdminPick()">${Array.from({length:20},(_,i)=>i+1).map(sec=>`<option value="${sec}" ${sec===pos.section?'selected':''}>第${sec}節</option>`).join('')}</select></label></div>
  <div id="tc-boss-editor-fields">${tcStoryBossFieldsHtml(stage)}</div>
  </section>`;
+}
+function tcBossSelectStage(stage){
+ if(!isAdmin)return;
+ const n=clampInt(stage,1,2000),pos=storyPosition(n);
+ CFG.adminBossStage=n;
+ const ch=document.getElementById('tc-boss-chapter'),sec=document.getElementById('tc-boss-section');
+ if(ch)ch.value=String(pos.chapter);if(sec)sec.value=String(pos.section);
+ const host=document.getElementById('tc-boss-editor-fields');if(host)host.innerHTML=tcStoryBossFieldsHtml(n);
+ tcLoadGithubMusicOptions(true);
+ if(host)host.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function tcBossAdminPick(){
  if(!isAdmin)return;
@@ -2495,7 +2549,7 @@ function tcBossAdminPick(){
  const section=clampInt(document.getElementById('tc-boss-section')?.value||20,1,20);
  const stage=(chapter-1)*20+section;CFG.adminBossStage=stage;
  const host=document.getElementById('tc-boss-editor-fields');if(host)host.innerHTML=tcStoryBossFieldsHtml(stage);
- tcLoadGithubMusicOptions();
+ tcLoadGithubMusicOptions(true);
 }
 function tcBossMusicSelected(select){
  const form=select&&select.form;if(!form)return;
@@ -2513,7 +2567,7 @@ async function tcSaveStoryBoss(form){
  if(musicUrl&&!/^https:\/\\//i.test(musicUrl)){goAdminKeepScroll('BGM URLが正しくありません');return;}
  CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
  CFG.storyBosses[String(stage)]={
-  enabled:!!form.elements.namedItem('enabled')?.checked,
+  enabled:!!form.elements.namedItem('enabled')?.checked||!!tcNativeStoryBossDefaults(stage),
   name:String(form.elements.namedItem('name')?.value||'').trim().slice(0,32),
   icon:String(form.elements.namedItem('icon')?.value||'').trim().slice(0,8),
   img,
