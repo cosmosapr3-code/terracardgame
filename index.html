@@ -1041,7 +1041,7 @@ function tcNormalizeStoryBosses(raw){
   out[String(stage)]={
    enabled:value.enabled===true,
    name:String(value.name||'').trim().slice(0,32),
-   icon:String(value.icon||'').trim().slice(0,8),
+   icon:String(value.icon||'').trim().slice(0,32),
    img:safeImg,
    cpuCount:clampInt(value.cpuCount??1,1,3),
    cpuLevel:clampInt(value.cpuLevel??2,1,4),
@@ -1082,9 +1082,15 @@ function tcGetStoryBossConfig(stage){
  const custom=all[String(n)];
  if(native){
   if(!custom)return native;
-  return {...native,...custom,enabled:true,cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
+  const chosenIcon=String(custom.icon||'').trim();
+  return {...native,...custom,enabled:true,
+   iconCustom:!!chosenIcon&&chosenIcon!==String(native.icon||''),
+   cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
  }
- return custom&&custom.enabled?custom:null;
+ if(custom&&custom.enabled){
+  return {...custom,iconCustom:!!String(custom.icon||'').trim()};
+ }
+ return null;
 }
 function tcOwnedLimitedCardKeys(user){
  // 所持情報は旧形式のlimitedCards配列と、現在のcharms形式の両方から復元する。
@@ -2540,7 +2546,7 @@ function tcStoryBossFieldsHtml(stage){
   <div class="row"><label><input type="checkbox" name="enabled" ${b.enabled?'checked':''} ${native?'disabled title="既存ボスは常に有効です"':''}> ${native?'既存ボス（常に有効）':'この節をカスタムボス戦にする'}</label></div>
   <div class="row" style="flex-wrap:wrap;gap:10px">
    <label>ボス名 <input name="name" maxlength="32" value="${esc(b.name||'')}" placeholder="例：新しいボス"></label>
-   <label>アイコン（絵文字） <input name="icon" maxlength="8" value="${esc(b.icon||'')}" placeholder="👑" style="width:90px"></label>
+   <label>アイコン（絵文字） <input name="icon" maxlength="32" value="${esc(b.icon||'')}" placeholder="👑" style="width:90px"></label>
    <label>CPU人数 <input name="cpuCount" type="number" min="1" max="3" value="${Number(b.cpuCount)||1}" style="width:66px"></label>
    <label>CPUの強さ <select name="cpuLevel">${[1,2,3,4].map(n=>`<option value="${n}" ${(Number(b.cpuLevel)||2)===n?'selected':''}>${n}（${['','初級','普通','強い','最強'][n]}）</option>`).join('')}</select></label>
   </div>
@@ -2647,7 +2653,7 @@ async function tcSaveStoryBoss(form){
  const native=tcNativeStoryBossDefaults(stage);
  const enabledEl=form.elements.namedItem('enabled');
  const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32);
- const icon=String(form.elements.namedItem('icon')?.value||'').trim().slice(0,8);
+ const icon=String(form.elements.namedItem('icon')?.value||'').trim().slice(0,32);
  if(!native&&!enabledEl?.checked)throw new Error('「この節をカスタムボス戦にする」にチェックを入れてください');
  if(!native&&!name)throw new Error('新規ボスの名前を入力してください');
 
@@ -2891,12 +2897,18 @@ const rc=(player=null,excludeLimited=false)=>{
 };
 let tcMatchIntroTimer=0;
 function matchIntroAvatar(p){
- if(p&&p.icon==='☭')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji tc-soviet-avatar">☭</span>';
- if(p&&p.icon==='💀')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%">💀</span>';
- if(p&&p.icon==='🧴')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%">🧴</span>';
- if(p&&p.icon==='👑')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#fff0b8;color:#8a5a00;border:2px solid #d9a928;border-radius:50%">👑</span>'; 
+ const icon=String(p&&p.icon||'').trim();
+ // 運営が標準アイコンから変更した絵文字は、既定のボス画像より優先する。
+ if(p&&p.iconCustom&&icon){
+  return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" aria-label="ボスアイコン">'+esc(icon)+'</span>';
+ }
+ if(icon==='☭')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji tc-soviet-avatar">☭</span>';
+ if(icon==='💀')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%">💀</span>';
+ if(icon==='🧴')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%">🧴</span>';
+ if(icon==='👑')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#fff0b8;color:#8a5a00;border:2px solid #d9a928;border-radius:50%">👑</span>';
  const img=String(p&&p.img||'');
  if(img && (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)||/^https:\/\//i.test(img)))return '<img class="tc-match-intro-avatar" src="'+esc(img)+'" alt="">';
+ if(icon)return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc(icon)+'</span>';
  const ch=Number.isInteger(Number(p&&p.char))?Number(p.char):0;
  return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc((CHARS[ch]||CHARS[0])[0])+'</span>';
 }
@@ -3043,7 +3055,7 @@ function startBattle(cpus,names,charms,profiles,storyBossOverride){
   if(__storyBossCfg&&i>0){
    p.isBoss=true;
    p.name=(__storyBossCfg.name||p.name)+(i>1?' '+i:'');
-   if(__storyBossCfg.icon)p.icon=__storyBossCfg.icon;
+   if(__storyBossCfg.icon){p.icon=__storyBossCfg.icon;p.storyBossIconCustom=!!__storyBossCfg.iconCustom;}
    if(__storyBossCfg.img)p.u.img=__storyBossCfg.img;
    if(Number(__storyBossCfg.hp)>0){p.hp=Number(__storyBossCfg.hp);p.mhp=Number(__storyBossCfg.hp);}
    p.atk=Math.max(0,Number(p.atk)||0)+Math.max(0,Number(__storyBossCfg.atk)||0);
@@ -3057,7 +3069,7 @@ function startBattle(cpus,names,charms,profiles,storyBossOverride){
  ps.forEach((p,i)=>{if(!(STORY===180&&i===1&&p.impostorBoss))p.f[12]={c:'w',d:3};});
  G={ps,hist:[],impostorTurns:0,impostorBoss:(!names&&STORY===180&&cpus===1),limitedSovietTurns:0,limitedDelayedEvents:[],snow:{left:0,lvl:0},soundMuteTurns:0,soundBoostTurns:0,delayedSoundEvents:[],turn:Math.floor(Math.random()*n),turnSeq:0,ap:S().ap,sel:null,card:null,target:1,over:false,keys:{},log:'',timer:0,done:false};
  document.body.classList.toggle('tc-impostor-alert',!names&&STORY===180&&cpus===1);attachBattleLog(G);G.target=nextAlive(0,1);battleLog=[];G.log='対戦開始';startTurn(false);
- G.timer=setInterval(tick,50);screen='battle';render();if(!names)tcSyncMusic();showMatchIntro(ps.map(p=>({name:p.name,char:p.u.char,img:p.u.img,icon:p.icon||(p.u.kabi?'🧴':p.u.soviet?'☭':p.u.sans?'💀':p.u.boss?'👑':'')})),!!names);if(names)pushSoon();
+ G.timer=setInterval(tick,50);screen='battle';render();if(!names)tcSyncMusic();showMatchIntro(ps.map(p=>({name:p.name,char:p.u.char,img:p.u.img,icon:p.icon||(p.u.kabi?'🧴':p.u.soviet?'☭':p.u.sans?'💀':p.u.boss?'👑':''),iconCustom:!!p.storyBossIconCustom})),!!names);if(names)pushSoon();
 }
 function nextAlive(from,step){const n=G.ps.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(G.ps[j].alive&&j!==from)return j}return from}
 function snap(){return JSON.stringify({turn:G.turn,turnSeq:G.turnSeq||0,ps:G.ps.map(p=>({hp:p.hp,sh:p.sh,atk:p.atk,umb:p.umb,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,draws:p.draws||0,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,scratchBoost:Number(p.scratchBoost)||0,cardMul:Number(p.cardMul)||1,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1,hikakinFreeUsed:!!p.hikakinFreeUsed,aoOniBonus:Number(p.aoOniBonus)||0,matsuokaActive:!!p.matsuokaActive,deathnoteBoost:!!p.deathnoteBoost,anzaiApBonus:Number(p.anzaiApBonus)||0,akainuTurns:Number(p.akainuTurns)||0,bakidoActive:!!p.bakidoActive,deathFlagTurns:p.deathFlagTurns,pikachuPendingTarget:p.pikachuPendingTarget,gameFpsBonus:Number(p.gameFpsBonus)||0,kuyaHeldTurns:Number(p.kuyaHeldTurns)||0,equalMultiplier:Number(p.equalMultiplier)||1,hapiEneCostSurcharge:Number(p.hapiEneCostSurcharge)||0,dozuruEffectBonus:Number(p.dozuruEffectBonus)||0,freezeTurns:Number(p.freezeTurns)||0,skipTurns:Number(p.skipTurns)||0,shieldUses:Number(p.shieldUses??3),tntEnhancedCount:Number(p.tntEnhancedCount)||0,tntPowerMultiplier:Number(p.tntPowerMultiplier)||1,zeninBuffTurns:Number(p.zeninBuffTurns)||0,duolingoTurns:Number(p.duolingoTurns)||0,duolingoCorrect:Number(p.duolingoCorrect)||0,duolingoEasy:!!p.duolingoEasy,friezaActive:!!p.friezaActive,friezaPenaltyPending:!!p.friezaPenaltyPending,studyDamageBonus:Number(p.studyDamageBonus)||0,studyCostPenalty:Number(p.studyCostPenalty)||0,studyCardCostPenalty:Number(p.studyCardCostPenalty)||0,studyAtkPerTurnPenalty:Number(p.studyAtkPerTurnPenalty)||0,bossCardWeights:p.bossCardWeights||null,reviveFxAt:Number(p.reviveFxAt)||0})),soundMuteTurns:Number(G.soundMuteTurns)||0,soundBoostTurns:Number(G.soundBoostTurns)||0,delayedSoundEvents:Array.isArray(G.delayedSoundEvents)?G.delayedSoundEvents:[],limitedDelayedEvents:Array.isArray(G.limitedDelayedEvents)?G.limitedDelayedEvents:[],limitedSovietTurns:Number(G.limitedSovietTurns)||0})}
