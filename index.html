@@ -1567,46 +1567,52 @@ function confirmBattleAbort(){
 async function startStory(n){
  if(window.__tcStoryStarting)return;
  window.__tcStoryStarting=true;
- let __tcConfigReady=false;
- try{__tcConfigReady=await loadGlobalGameConfig();}
- catch(e){console.warn('ストーリー開始前の運営設定再取得に失敗しました',e)}
- finally{window.__tcStoryStarting=false;}
- if(!__tcConfigReady){go('story','運営設定をサーバーから取得できませんでした。試合を開始せず停止しました。Workerの /game/config を確認してください。');return;}
- if(ONL||room){try{leaveNet()}catch(e){ONL=false;room=null;HOST=false;roster=null;SEAT=0;}}
- ONL=false;
- const stage=Math.max(1,Math.min(STORY_TOTAL,Math.floor(Number(n)||1)));
- const access=storyChapterAccess(U());
- const cleared=storyProgress(U());
- const requested=storyPosition(stage);
- if(!isAdmin&&(requested.chapter>access.max||(!access.override&&stage>cleared+1))){go('story','運営が設定した解放範囲、またはクリア進行度を確認してください');return;}
- const pos=storyPosition(stage);
- const lv=pos.section<=6?1:pos.section<=15?2:pos.section<=18?3:4;
- const configuredBoss=tcGetStoryBossConfig(stage);
- CPULV=configuredBoss?configuredBoss.cpuLevel:lv;
- STORY=stage;
- const isSovietBoss=(pos.chapter===1&&pos.section===20);
- const isSansStage=(pos.chapter===2&&pos.section===10);
- const isSansBoss=(pos.chapter===2&&pos.section===20);
- const isKabiBoss=(pos.chapter===3&&pos.section===20);
- const isChapter4Boss=(pos.chapter===4&&pos.section===20);
- const isNaoyaBoss=(pos.chapter===5&&pos.section===10);
- const isNaoyaCursedBoss=(pos.chapter===5&&pos.section===20);
- const isDuolingoBoss=(pos.chapter===6&&pos.section===20);
- const isCrewBoss=(pos.chapter===7&&pos.section===20)||(pos.chapter===8&&pos.section===20);
- const isImpostorBoss=(pos.chapter===9&&pos.section===20);
- const isTadokoroBoss=(pos.chapter===10&&pos.section===20);
- const defaultBoss=(isSovietBoss||isSansStage||isSansBoss||isKabiBoss||isChapter4Boss||isNaoyaBoss||isNaoyaCursedBoss||isDuolingoBoss||isCrewBoss||isImpostorBoss||isTadokoroBoss);
- const cpus=configuredBoss?configuredBoss.cpuCount:(defaultBoss?1:1+Math.floor((pos.section-1)/7));
- tcStopMusic();
- if(isSovietBoss)tcStartSovietChapterMusic();
- else if(isSansStage)tcStartSansChapterMusic();
- else if(isSansBoss)tcStartSansChapter20Music();
- else if(isKabiBoss)tcStartKabiChapterMusic();
- else if(isChapter4Boss)tcStartChapter4BossMusic();
- else if(isTadokoroBoss)tcStartTadokoroMusic();
- console.info('[TERRACARD] 適用中の章・節別ボス設定', {stage, boss:configuredBoss||null, cpuCount:cpus, cpuLevel:CPULV});
- startBattle(cpus,null,null,null,configuredBoss);
+ try{
+  // All clients refresh the latest shared config immediately before creating CPU players.
+  if(TERRACARD_TOKEN){
+   const ready=await loadGlobalGameConfig();
+   if(!ready){go('story','運営のボス設定をサーバーから取得できませんでした。WorkerにGET /game/configを追加してください。');return;}
+  }
+  if(ONL||room){try{leaveNet()}catch(e){ONL=false;room=null;HOST=false;roster=null;SEAT=0;}}
+  ONL=false;
+  const stage=Math.max(1,Math.min(STORY_TOTAL,Math.floor(Number(n)||1)));
+  const access=storyChapterAccess(U());
+  const cleared=storyProgress(U());
+  const requested=storyPosition(stage);
+  if(!isAdmin&&(requested.chapter>access.max||(!access.override&&stage>cleared+1))){go('story','運営が設定した解放範囲、またはクリア進行度を確認してください');return;}
+  const pos=storyPosition(stage);
+  const lv=pos.section<=6?1:pos.section<=15?2:pos.section<=18?3:4;
+  const configuredBoss=tcGetStoryBossConfig(stage);
+  CPULV=configuredBoss?configuredBoss.cpuLevel:lv;
+  STORY=stage;
+  const isSovietBoss=(pos.chapter===1&&pos.section===20);
+  const isSansStage=(pos.chapter===2&&pos.section===10);
+  const isSansBoss=(pos.chapter===2&&pos.section===20);
+  const isKabiBoss=(pos.chapter===3&&pos.section===20);
+  const isChapter4Boss=(pos.chapter===4&&pos.section===20);
+  const isTadokoroBoss=(pos.chapter===10&&pos.section===20);
+  const defaultBoss=(isSovietBoss||isSansStage||isSansBoss||isKabiBoss||isChapter4Boss||
+    (pos.chapter===5&&(pos.section===10||pos.section===20))||isTadokoroBoss||
+    (pos.chapter===6&&pos.section===20)||((pos.chapter===7||pos.chapter===8)&&pos.section===20)||
+    (pos.chapter===9&&pos.section===20));
+  const cpus=configuredBoss?configuredBoss.cpuCount:(defaultBoss?1:1+Math.floor((pos.section-1)/7));
+  tcStopMusic();
+  if(isSovietBoss)tcStartSovietChapterMusic();
+  else if(isSansStage)tcStartSansChapterMusic();
+  else if(isSansBoss)tcStartSansChapter20Music();
+  else if(isKabiBoss)tcStartKabiChapterMusic();
+  else if(isChapter4Boss)tcStartChapter4BossMusic();
+  else if(isTadokoroBoss)tcStartTadokoroMusic();
+  console.info('[TERRACARD] 章・節ボス設定をD1から読み込みました',{stage,boss:configuredBoss||null,cpuCount:cpus,cpuLevel:CPULV});
+  startBattle(cpus,null,null,null,configuredBoss);
+ }catch(e){
+  console.error('[TERRACARD] ストーリー開始時のボス設定適用エラー',e);
+  go('story','ストーリー開始に失敗しました：'+String(e&&e.message||e));
+ }finally{
+  window.__tcStoryStarting=false;
+ }
 }
+
 function continueStory(){const cleared=storyProgress(U());if(cleared>=STORY_TOTAL){alert('全100章をクリア済みです！');return}startStory(cleared+1)}
 function startChapter(ch){selectStoryChapter(ch)}
 function startPractice(){STORY=0;CPULV=HLV;startBattle(HCPUS)}
@@ -2520,7 +2526,7 @@ async function tcLoadGithubMusicOptions(force=false){
 function tcStoryBossFieldsHtml(stage){
  const native=tcNativeStoryBossDefaults(stage);
  const saved=(CFG.storyBosses||{})[String(stage)]||{};
- const b={...(native||{}),...saved,enabled:native?true:!!saved.enabled,cardWeights:{...(native?.cardWeights||{}),...(saved.cardWeights||{})}};
+ const b={...(native||{}),...saved,enabled:native?true:(saved.enabled!==false),cardWeights:{...(native?.cardWeights||{}),...(saved.cardWeights||{})}};
  const pos=storyPosition(stage);
  const cardKeys=Object.keys(CARDS).filter(k=>(!CARDS[k].fixed||CARDS[k].limited)&&tcBossWeightCardAllowed(k)).sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));
  const savedUrl=String(b.musicUrl||'');
@@ -2528,7 +2534,7 @@ function tcStoryBossFieldsHtml(stage){
  const musicOptions=['<option value="">既存の章BGMを使う</option>'];
  if(savedUrl&&!TC_GITHUB_MUSIC_FILES.some(x=>x.url===savedUrl))musicOptions.push(`<option value="${esc(savedUrl)}" selected>保存済みの曲</option>`);
  for(const song of TC_GITHUB_MUSIC_FILES)musicOptions.push(`<option value="${esc(song.url)}" ${song.url===savedUrl?'selected':''}>${esc(song.path||song.name)}</option>`);
- return `<form id="tc-story-boss-form" onsubmit="event.preventDefault();tcSaveStoryBoss(this)" class="panel" style="margin-top:10px">
+ return `<form id="tc-story-boss-form" onsubmit="return tcSaveStoryBossSubmit(this)" class="panel" style="margin-top:10px">
   <input type="hidden" name="stage" value="${stage}">
   <div style="padding:8px 10px;border-radius:8px;background:${native?'#1d503d':'#243c59'};margin-bottom:10px"><b>${native?'既存ボス設定':'新規ボス設定'}</b> ・ 第${pos.chapter}章 第${pos.section}節 ${native?'／ '+esc(native.feature):'／ この節に新しいボスを設定できます'}</div>
   <div class="row"><label><input type="checkbox" name="enabled" ${b.enabled?'checked':''} ${native?'disabled title="既存ボスは常に有効です"':''}> ${native?'既存ボス（常に有効）':'この節をカスタムボス戦にする'}</label></div>
@@ -2556,7 +2562,7 @@ function tcStoryBossFieldsHtml(stage){
   <div style="max-height:280px;overflow:auto;border:1px solid #526879;border-radius:8px;padding:6px">
    <table style="width:100%"><thead><tr><th>カード</th><th>重み</th></tr></thead><tbody>${cardKeys.map(k=>`<tr><td>${esc(CARDS[k].i||'🃏')} ${esc(CARDS[k].n||k)}</td><td><input type="number" min="0" max="9" step="1" data-boss-card-weight="${esc(k)}" value="${b.cardWeights&&b.cardWeights[k]!=null?clampInt(b.cardWeights[k],0,9):1}" style="width:66px"></td></tr>`).join('')}</tbody></table>
   </div>
-  <button type="submit" style="margin-top:10px">この章・節のボス設定を全員に保存</button>
+  <button type="button" data-save-story-boss onclick="tcSaveStoryBossSubmit(this)" style="margin-top:10px">この章・節のボス設定を全員に保存</button><p data-boss-save-status role="status" aria-live="polite" style="min-height:1.4em;margin:6px 0;color:#ffd37a"></p>
   <button type="button" class="sm" onclick="tcResetStoryBoss(${stage})">この章・節の変更をリセット</button>
  </form>`;
 }
@@ -2596,20 +2602,82 @@ function tcBossMusicSelected(select){
  const name=form.elements.namedItem('musicName');
  if(name)name.value=TC_GITHUB_MUSIC_FILES.find(x=>x.url===select.value)?.name||(select.value?'保存済みの曲':'');
 }
+function tcSaveStoryBossSubmit(target){
+ const form=target&&target.tagName==='FORM'?target:(target&&target.closest?target.closest('form'):null);
+ const button=target&&target.tagName==='BUTTON'?target:(form?form.querySelector('[data-save-story-boss]'):null);
+ const status=form?form.querySelector('[data-boss-save-status]'):null;
+ if(!form){
+  const message='ボス設定フォームを取得できません。運営画面を開き直してください。';
+  goAdminKeepScroll(message);
+  try{alert(message);}catch(e){}
+  return false;
+ }
+ if(form.dataset.saving==='1')return false;
+ form.dataset.saving='1';
+ if(button){
+  button.disabled=true;
+  button.dataset.originalText=button.textContent;
+  button.textContent='サーバーに保存中…';
+ }
+ if(status)status.textContent='保存処理を開始しました。Cloudflareに送信しています…';
+ goAdminKeepScroll('ボス設定をサーバーに保存しています…');
+ Promise.resolve().then(()=>tcSaveStoryBoss(form)).then(()=>{
+  if(status)status.textContent='保存成功：選択したBGMを含む設定をサーバーから読み返して確認しました。';
+ }).catch(e=>{
+  console.error('[TERRACARD] ボス設定保存エラー',e);
+  const message='保存失敗：'+String(e&&e.message||e);
+  if(status)status.textContent=message;
+  goAdminKeepScroll(message);
+  try{alert(message);}catch(ignore){}
+ }).finally(()=>{
+  delete form.dataset.saving;
+  if(button){
+   button.disabled=false;
+   button.textContent=button.dataset.originalText||'この章・節のボス設定を全員に保存';
+  }
+ });
+ return false;
+}
+
 async function tcSaveStoryBoss(form){
- if(!isAdmin)return;
+ if(!form)throw new Error('保存フォームがありません');
+ if(!isAdmin)throw new Error('運営ログイン状態ではありません。運営アカウントで再ログインしてください');
+ if(!TERRACARD_TOKEN)throw new Error('運営APIトークンがありません。いったんログアウトして運営ログインしてください');
  const stage=clampInt(form.elements.namedItem('stage')?.value||1,1,2000);
+ const native=tcNativeStoryBossDefaults(stage);
+ const enabledEl=form.elements.namedItem('enabled');
+ const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32);
+ const icon=String(form.elements.namedItem('icon')?.value||'').trim().slice(0,8);
+ if(!native&&!enabledEl?.checked)throw new Error('「この節をカスタムボス戦にする」にチェックを入れてください');
+ if(!native&&!name)throw new Error('新規ボスの名前を入力してください');
+
  const cardWeights={};
- form.querySelectorAll('[data-boss-card-weight]').forEach(el=>{cardWeights[String(el.dataset.bossCardWeight)]=clampInt(el.value,0,9)});
- const musicUrl=String(form.elements.namedItem('musicUrl')?.value||'').trim();
+ form.querySelectorAll('[data-boss-card-weight]').forEach(el=>{
+  cardWeights[String(el.dataset.bossCardWeight)]=clampInt(el.value,0,9);
+ });
+
+ let musicUrl=String(form.elements.namedItem('musicUrl')?.value||'').trim();
  const img=String(form.elements.namedItem('img')?.value||'').trim();
- if(img&&!/^https:\/\\//i.test(img)){goAdminKeepScroll('ボス画像はhttps://から始まるURLを指定してください');return;}
- if(musicUrl&&!/^https:\/\\//i.test(musicUrl)){goAdminKeepScroll('BGM URLが正しくありません');return;}
- CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
- CFG.storyBosses[String(stage)]={
-  enabled:!!form.elements.namedItem('enabled')?.checked||!!tcNativeStoryBossDefaults(stage),
-  name:String(form.elements.namedItem('name')?.value||'').trim().slice(0,32),
-  icon:String(form.elements.namedItem('icon')?.value||'').trim().slice(0,8),
+ if(img){
+  let imageUrl;
+  try{imageUrl=new URL(img);}catch(e){throw new Error('ボス画像URLの形式が正しくありません');}
+  if(imageUrl.protocol!=='https:')throw new Error('ボス画像はhttps://から始まるURLを指定してください');
+ }
+ if(musicUrl){
+  let audioUrl;
+  try{audioUrl=new URL(musicUrl);}catch(e){throw new Error('選択したBGMのURLを読み取れません。GitHubの曲一覧を再読込して選び直してください');}
+  if(audioUrl.protocol!=='https:')throw new Error('BGMはhttps://のURLを指定してください');
+  musicUrl=audioUrl.href;
+ }
+ const musicSelect=form.elements.namedItem('musicUrl');
+ const chosenMusicLabel=musicSelect&&musicSelect.selectedOptions&&musicSelect.selectedOptions[0]
+  ?String(musicSelect.selectedOptions[0].textContent||'').trim():'';
+ const musicName=String(form.elements.namedItem('musicName')?.value||chosenMusicLabel||'').trim().slice(0,120);
+
+ const boss={
+  enabled:native?true:!!enabledEl?.checked,
+  name,
+  icon,
   img,
   cpuCount:clampInt(form.elements.namedItem('cpuCount')?.value||1,1,3),
   cpuLevel:clampInt(form.elements.namedItem('cpuLevel')?.value||2,1,4),
@@ -2618,15 +2686,50 @@ async function tcSaveStoryBoss(form){
   sh:clampInt(form.elements.namedItem('sh')?.value||0,0,9999),
   cardWeights,
   musicUrl,
-  musicName:String(form.elements.namedItem('musicName')?.value||'').slice(0,120)
+  musicName:musicUrl?musicName:''
  };
- const ok=await saveCfg();
- if(!ok){goAdminKeepScroll('ボス設定をサーバーに保存・再取得できませんでした。運営ログイン状態とWorkerの /admin/game/config・/game/config を確認してください。');return;}
- const saved=CFG.storyBosses[String(stage)];
- if(!saved||saved.name!==String(form.elements.namedItem('name')?.value||'').trim().slice(0,32)||Number(saved.cpuCount)!==clampInt(form.elements.namedItem('cpuCount')?.value||1,1,3)){
-  goAdminKeepScroll('保存後の確認に失敗しました。サーバー側の設定が一致していません。');return;
+
+ const next={
+  ...CFG,
+  storyBosses:{
+   ...tcNormalizeStoryBosses(CFG.storyBosses),
+   [String(stage)]:boss
+  }
+ };
+
+ // 音源URLを含む設定も、まずWorkerに送信してD1に保存する。
+ const savedResponse=await apiCall('/admin/game/config',{config:next});
+ if(savedResponse&&savedResponse.ok===false){
+  throw new Error(savedResponse.error||'Workerが保存を拒否しました');
  }
- goAdminKeepScroll('第'+storyPosition(stage).chapter+'章 第'+storyPosition(stage).section+'節のボス設定をサーバーに保存し、読み返し確認しました。');
+
+ // キャッシュを避けてD1から最新値を取り直す。
+ const verify=await apiCall('/game/config?fresh='+Date.now());
+ if(!verify||!verify.config||typeof verify.config!=='object'){
+  throw new Error('保存後の確認データを取得できません（/game/config）');
+ }
+ const saved=verify.config.storyBosses&&verify.config.storyBosses[String(stage)];
+ if(!saved)throw new Error('サーバーにこの章・節のボス設定が見つかりません');
+
+ const numericFields=['cpuCount','cpuLevel','hp','atk','sh'];
+ const compareFields=['enabled','name','icon','img','musicUrl','musicName',...numericFields];
+ for(const key of compareFields){
+  const expected=numericFields.includes(key)?Number(boss[key]):(key==='enabled'?!!boss[key]:String(boss[key]??''));
+  const actual=numericFields.includes(key)?Number(saved[key]):(key==='enabled'?!!saved[key]:String(saved[key]??''));
+  if(expected!==actual){
+   throw new Error('保存後の確認で「'+key+'」が一致しません。BGM URLが保存されているか確認してください');
+  }
+ }
+ if(tcStableJson(saved.cardWeights||{})!==tcStableJson(boss.cardWeights||{})){
+  throw new Error('カード出現率の保存内容が一致しません');
+ }
+
+ CFG={...next,storyBosses:tcNormalizeStoryBosses(verify.config.storyBosses)};
+ localStorage.cgc_cfg=JSON.stringify(CFG);
+ applyCfg();
+ const pos=storyPosition(stage);
+ goAdminKeepScroll(`保存成功：第${pos.chapter}章 第${pos.section}節「${boss.name||native?.name||'ボス'}」。BGMを含めてサーバーから読み返し確認しました。`);
+ return true;
 }
 async function tcResetStoryBoss(stage){
  if(!isAdmin)return;
