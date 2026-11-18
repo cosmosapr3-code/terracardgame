@@ -939,37 +939,6 @@ Object.assign(CARDS,{
 
 // 限定カード：通常ドロー・?・TERRA CARD・シャッフルの通常抽選対象外。
 const TC_LIMITED_CARD_KEYS=['limited_impostor', 'limited_sheriff', 'limited_crew', 'limited_duolingo', 'limited_naoya', 'limited_kabikiller', 'limited_soviet', 'limited_sans', 'limited_yajuu_senpai'];
-function tcNormalizeCustomLimitedCards(raw){
- const rows=Array.isArray(raw)?raw:[];const out=[];const seen=new Set();
- for(const row of rows){
-  if(!row||typeof row!=='object')continue;
-  const key=String(row.key||'');
-  if(!/^limited_custom_[a-z0-9_]{4,48}$/.test(key)||seen.has(key))continue;
-  const effectKey=String(row.effectKey||'');
-  if(!/^[a-z0-9_]{1,64}$/.test(effectKey))continue;
-  const image=String(row.img||'');
-  const safeImage=/^data:image\/(?:webp|png|jpe?g);base64,[a-z0-9+/=]+$/i.test(image)&&image.length<=60000
-   ?image:(/^https:\/\//i.test(image)?image.slice(0,2000):'');
-  seen.add(key);
-  out.push({
-   key,
-   name:String(row.name||'限定カード').trim().slice(0,32),
-   cost:Math.max(0,Math.min(30,Math.floor(Number(row.cost)||0))),
-   icon:String(row.icon||'✨').trim().slice(0,32),
-   description:String(row.description||'').trim().slice(0,400),
-   effectKey,
-   img:safeImage,
-   color:String(row.color||'#e7ad36').slice(0,24)
-  });
-  if(out.length>=30)break;
- }
- return out;
-}
-function tcAllLimitedCardKeys(customCards){
- const rows=Array.isArray(customCards)?customCards:(typeof CFG!=='undefined'&&Array.isArray(CFG.customLimitedCards)?CFG.customLimitedCards:[]);
- return [...new Set([...TC_LIMITED_CARD_KEYS,...rows.map(x=>String(x&&x.key||'')).filter(k=>/^limited_custom_[a-z0-9_]{4,48}$/.test(k))])];
-}
-
 const TC_LIMITED_CARD_META={
  limited_impostor:{name:'インポスター[限定カード]',description:'自分の攻撃力+10。そして1〜5ターン後、相手に10ダメージ。'},
  limited_sheriff:{name:'シェリフ[限定カード]',description:'自分に「クルー」を3枚追加。相手に「インポスター」があれば相手に100ダメージ。なければ自分に100ダメージ。'},
@@ -1042,12 +1011,53 @@ const DEFAULT_GACHA_PRICES={character:1,charm:1};
 const DEFAULT_CHARM_RATES={N:60,R:25,SR:10,SSR:4,UR:1};
 const DEFAULT_YOUTUBE_KEYS=Object.keys(CARDS).filter(k=>CARDS[k].youtubeAttr);
 let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);CFG.storyChapterTitles=tcNormalizeStoryChapterTitles(CFG.storyChapterTitles);CFG.playerStoryChapterLimits=tcNormalizePlayerStoryLimits(CFG.playerStoryChapterLimits);CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);CFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);
-function tcNormalizeLimitedCardDropChapters(raw,customCards){
+function tcNormalizeCustomLimitedCards(raw){
  const src=raw&&typeof raw==='object'?raw:{};const out={};
- for(const key of tcAllLimitedCardKeys(customCards)){
-  if(key==='limited_yajuu_senpai'&&!Object.prototype.hasOwnProperty.call(src,key)){out[key]=10;continue;}
-  const n=Math.floor(Number(src[key])||0);out[key]=n>=1&&n<=100?n:0;
+ for(const [key,value] of Object.entries(src).slice(0,30)){
+  if(!/^limited_custom_[a-z0-9_]{4,48}$/.test(key)||!value||typeof value!=='object')continue;
+  const effectKey=String(value.effectKey||'');const effect=CARDS[effectKey];
+  if(!effect||effect.passive||['draw','end'].includes(effectKey)||effect.customLimited)continue;
+  const img=String(value.img||'').trim();const safeImg=/^https:\/\//i.test(img)||/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)?img.slice(0,60000):'';
+  out[key]={name:String(value.name||'限定カード').trim().slice(0,32),icon:String(value.icon||'🃏').trim().slice(0,8)||'🃏',cost:clampInt(value.cost??0,0,30),description:String(value.description||effect.d||'').slice(0,300),effectKey,img:safeImg};
  }
+ return out;
+}
+function tcAllLimitedCardKeys(){return [...TC_LIMITED_CARD_KEYS,...Object.keys(CFG&&CFG.customLimitedCards||{})];}
+function tcLimitedEffectOptions(){return Object.keys(CARDS).filter(k=>{const c=CARDS[k];return c&&!c.passive&&!['draw','end'].includes(k)&&!c.customLimited&&(c.tile||c.gen||c.paint||c.limited||c.target||c.targetMode||!c.fixed)}).sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));}
+function tcUpdateLimitedEffectDescription(select){const form=select&&select.form;if(!form)return;const c=CARDS[select.value];const out=form.querySelector('[data-limited-effect-description]');if(out)out.textContent=c?('効果内容：'+(c.d||'説明なし')):'効果を選択してください';}
+function tcPreviewLimitedCardImage(input){const form=input&&input.form;if(!form)return;const hidden=form.elements.namedItem('imgUploadData'),url=form.elements.namedItem('img');if(hidden)hidden.value='';const preview=form.querySelector('[data-limited-image-preview]'),src=String(url&&url.value||'').trim();if(preview)preview.innerHTML=src&&/^https:\/\//i.test(src)?'<img src="'+esc(src)+'" style="max-width:120px;max-height:120px;object-fit:contain">':'';}
+async function tcLimitedCardImageFileChanged(input){const form=input&&input.form;if(!form)return;const file=input.files&&input.files[0];if(!file)return;const status=form.querySelector('[data-limited-image-status]');if(status)status.textContent='画像を軽量化しています…';try{const data=await tcCompressStoryBossImage(file);form.elements.namedItem('imgUploadData').value=data;form.elements.namedItem('img').value='';const preview=form.querySelector('[data-limited-image-preview]');if(preview)preview.innerHTML='<img src="'+esc(data)+'" style="max-width:120px;max-height:120px;object-fit:contain">';if(status)status.textContent='画像をセットしました。保存すると全員に反映されます。';}catch(e){if(status)status.textContent=String(e&&e.message||e);input.value='';}}
+function adminLimitedCardCreationHtml(){
+ const options=tcLimitedEffectOptions();
+ return `<section class="panel" style="border:2px solid #c59cff;margin-top:12px"><h3>✨ 運営：限定カードを新規追加</h3><p><small>既存カードの実際の効果処理を選んで、新しい名前・コスト・画像の限定カードとして追加します。通常ドローには入らず、所持プレイヤーだけが使えます（オンラインは伝説の限定お守りが必要）。</small></p><form onsubmit="event.preventDefault();addLimitedCard(this)">
+ <div class="row" style="flex-wrap:wrap"><label>カード名 <input name="name" maxlength="32" required placeholder="例：期間限定カード"></label><label>アイコン <input name="icon" maxlength="8" value="🃏" style="width:80px"></label><label>コスト <input name="cost" type="number" min="0" max="30" value="5" style="width:70px"></label></div>
+ <label style="display:block;margin:8px 0">発動させる既存カードの効果<select name="effectKey" required onchange="tcUpdateLimitedEffectDescription(this)" style="width:100%"><option value="">効果を選択</option>${options.map(k=>`<option value="${esc(k)}">${esc(CARDS[k].i||'🃏')} ${esc(CARDS[k].n||k)}</option>`).join('')}</select></label><small data-limited-effect-description style="display:block;margin-bottom:8px">効果内容：効果を選択してください</small>
+ <label style="display:block;margin:8px 0">画像URL <input name="img" type="url" placeholder="https://..." oninput="tcPreviewLimitedCardImage(this)" style="width:100%;box-sizing:border-box"></label>
+ <label style="display:block;margin:8px 0">端末から画像を選択 <input name="imgFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="tcLimitedCardImageFileChanged(this)"></label><input type="hidden" name="imgUploadData"><small data-limited-image-status>画像は自動でWebPに軽量化します。</small><div data-limited-image-preview style="margin:6px 0"></div>
+ <div class="row" style="flex-wrap:wrap"><label>獲得できる章 <input name="chapter" type="number" min="0" max="100" value="0" style="width:70px"> <small>0=章クリアで獲得しない</small></label><label>試合中の出現重み <input name="weight" type="number" min="0" max="9" value="1" style="width:70px"></label></div><button type="submit">限定カードを全員に追加・保存</button></form><div style="margin-top:10px"><b>追加済みのカスタム限定カード</b>${Object.entries(CFG.customLimitedCards||{}).length?Object.entries(CFG.customLimitedCards).map(([k,c])=>`<div class="row" style="justify-content:space-between;border-top:1px solid #53677a;padding:6px 0"><span>${esc(c.icon)} ${esc(c.name)} <small>（効果：${esc(CARDS[c.effectKey]?.n||c.effectKey)}）</small></span><button type="button" class="sm" onclick="deleteCustomLimitedCard('${esc(k)}')">削除</button></div>`).join(''):'<p><small>まだ追加されていません。</small></p>'}</div></section>`;
+}
+async function addLimitedCard(form){
+ if(!isAdmin)return;const current=CFG.customLimitedCards||{};if(Object.keys(current).length>=30){goAdminKeepScroll('カスタム限定カードは最大30枚です');return;}
+ const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32),effectKey=String(form.elements.namedItem('effectKey')?.value||'');
+ if(!name||!CARDS[effectKey]||CARDS[effectKey].passive||['draw','end'].includes(effectKey)||CARDS[effectKey].customLimited){goAdminKeepScroll('カード名と、発動可能な既存カードの効果を選択してください');return;}
+ const uploaded=String(form.elements.namedItem('imgUploadData')?.value||'').trim();let img=uploaded||String(form.elements.namedItem('img')?.value||'').trim();
+ if(img&&!/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)){let u;try{u=new URL(img)}catch(e){}if(!u||u.protocol!=='https:'){goAdminKeepScroll('画像URLはhttps://から始まるURLにしてください');return;}}
+ const slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,24)||'card';const key='limited_custom_'+slug+'_'+Math.random().toString(36).slice(2,8);
+ CFG.customLimitedCards=tcNormalizeCustomLimitedCards({...current,[key]:{name,icon:String(form.elements.namedItem('icon')?.value||'🃏').trim().slice(0,8)||'🃏',cost:clampInt(form.elements.namedItem('cost')?.value||5,0,30),effectKey,description:CARDS[effectKey].d||'',img}});
+ CFG.limitedCardDropChapters=CFG.limitedCardDropChapters||{};CFG.limitedCardDropChapters[key]=clampInt(form.elements.namedItem('chapter')?.value||0,0,100);
+ CFG.over=CFG.over||{};CFG.over[key]={...(CFG.over[key]||{}),w:clampInt(form.elements.namedItem('weight')?.value||1,0,9)};
+ const ok=await saveCfg();if(!ok){goAdminKeepScroll('限定カードの保存・読み返しに失敗しました。接続を確認してください');return;}
+ goAdminKeepScroll('限定カード「'+name+'」を追加して全員に保存しました');
+}
+async function deleteCustomLimitedCard(key){
+ if(!isAdmin||!CFG.customLimitedCards||!CFG.customLimitedCards[key])return;
+ delete CFG.customLimitedCards[key];if(CFG.limitedCardDropChapters)delete CFG.limitedCardDropChapters[key];if(CFG.over)delete CFG.over[key];
+ const ok=await saveCfg();goAdminKeepScroll(ok?'カスタム限定カードを削除しました':'削除設定の保存に失敗しました');
+}
+function tcNormalizeLimitedCardDropChapters(raw){
+ const src=raw&&typeof raw==='object'?raw:{};const out={};
+ const keys=[...new Set([...TC_LIMITED_CARD_KEYS,...Object.keys(CFG&&CFG.customLimitedCards||{}),...Object.keys(src)])];
+ for(const key of keys){if(key==='limited_yajuu_senpai'&&!Object.prototype.hasOwnProperty.call(src,key)){out[key]=10;continue;}const n=Math.floor(Number(src[key])||0);out[key]=n>=1&&n<=100?n:0;}
  return out;
 }
 function tcBossWeightCardAllowed(key){
@@ -1116,10 +1126,9 @@ function tcGetStoryBossConfig(stage){
  const custom=all[String(n)];
  if(native){
   if(!custom)return native;
-  const chosenIcon=String(custom.icon||'').trim();
-  return {...native,...custom,enabled:true,iconCustom:!!chosenIcon&&chosenIcon!==String(native.icon||''),cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
+  return {...native,...custom,enabled:true,iconCustom:!!(custom.icon&&String(custom.icon)!==String(native.icon||'')),cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
  }
- return custom&&custom.enabled?{...custom,iconCustom:!!String(custom.icon||'').trim()}:null;
+ return custom&&custom.enabled?{...custom,iconCustom:!!String(custom.icon||'')}:null;
 }
 function tcOwnedLimitedCardKeys(user){
  // 所持情報は旧形式のlimitedCards配列と、現在のcharms形式の両方から復元する。
@@ -1166,7 +1175,7 @@ function tcRollChapterLimitedDrop(user,chapter){
  const key=candidates[Math.floor(Math.random()*candidates.length)];
  return tcGiveLimitedCard(user,key)?key:null;
 }
-CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters,CFG.customLimitedCards);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
+CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
 let POOL=[];
 function tcStableJson(value){if(Array.isArray(value))return '['+value.map(tcStableJson).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+tcStableJson(value[k])).join(',')+'}';return JSON.stringify(value);}
 const saveCfg=async()=>{
@@ -1186,23 +1195,7 @@ function applyCfg(){
  for(const [k,v] of Object.entries(BASE_CARDS))CARDS[k]={...v};
  for(const k in CFG.cards)CARDS[k]={...CFG.cards[k]};
  CFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);
- for(const card of CFG.customLimitedCards){
-  const effect=CARDS[card.effectKey];
-  if(!effect||effect.passive||card.effectKey==='draw'||card.effectKey==='end')continue;
-  CARDS[card.key]={
-   ...effect,
-   n:card.name,
-   c:card.cost,
-   i:card.icon,
-   d:card.description||effect.d||'選択した既存カードと同じ効果',
-   col:card.color||'#e7ad36',
-   img:card.img||'',
-   fixed:1,
-   limited:true,
-   customLimited:true,
-   effectKey:card.effectKey
-  };
- }
+ for(const [key,def] of Object.entries(CFG.customLimitedCards)){const effect=CARDS[def.effectKey];if(effect)CARDS[key]={...effect,n:def.name,c:def.cost,i:def.icon,d:def.description||effect.d||'',img:def.img||effect.img||'',fixed:1,limited:true,customLimited:true,effectKey:def.effectKey,col:'#e7ad36'};}
  const __ytSet=new Set(Array.isArray(CFG.youtubeCards)?CFG.youtubeCards:DEFAULT_YOUTUBE_KEYS);const __soundSet=new Set(Array.isArray(CFG.soundCards)?CFG.soundCards:[]);for(const [k,c] of Object.entries(CARDS)){c.youtubeAttr=__ytSet.has(k);c.soundAttr=__soundSet.has(k)}
  for(const k in CFG.over)if(CARDS[k]&&CFG.over[k].c!=null)CARDS[k].c=CFG.over[k].c;
  POOL=[];Object.keys(CARDS).filter(k=>!CARDS[k].fixed).forEach(k=>{const o=CFG.over[k]||{};let w=o.w!=null?o.w:(BASE_ENABLED.includes(k)||CFG.cards[k]?1:0);if(['fire'].includes(k)&&o.w==null)w=2;if(['sovres','ally','umbrella','head'].includes(k)&&o.w==null)w=0;if(k==='umbrella'||k==='head'||k==='gasmask'){if(o.w==null)w=1}for(let i=0;i<w;i++)POOL.push(k)});
@@ -1214,45 +1207,7 @@ const save=()=>localStorage.cgc_db=JSON.stringify(db);
 const TERRACARD_API='https://terracard-api.cosmos-apr-3.workers.dev';
 let TERRACARD_TOKEN=localStorage.cgc_token||'';
 async function apiCall(path,body=null){const r=await fetch(TERRACARD_API+path,{method:body===null?'GET':'POST',cache:String(path).split('?')[0]==='/game/config'?'no-store':'default',headers:{'Content-Type':'application/json',...(TERRACARD_TOKEN?{Authorization:'Bearer '+TERRACARD_TOKEN}:{})},...(body===null?{}:{body:JSON.stringify(body)})});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'サーバーに接続できません');return d;}
-async function loadGlobalGameConfig(){
- try{
-  const d=await apiCall('/game/config?fresh='+Date.now());
-  if(d&&d.config&&typeof d.config==='object'){
-   const c=d.config;
-   let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];
-   let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));
-   const migrated=soundCardsVersion<1||!c.storyChapterTitles||typeof c.storyChapterTitles!=='object';
-   if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}
-   const customLimitedCards=tcNormalizeCustomLimitedCards(c.customLimitedCards);
-   CFG={
-    s:Object.assign({},DEF_S,c.s||{}),
-    cards:c.cards&&typeof c.cards==='object'?c.cards:{},
-    over:c.over&&typeof c.over==='object'?c.over:{},
-    customLimitedCards,
-    copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],
-    youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),
-    soundCards,soundCardsVersion,
-    gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],
-    gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),
-    charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),
-    storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),
-    storyChapterTitles:tcNormalizeStoryChapterTitles(c.storyChapterTitles),
-    playerStoryChapterLimits:tcNormalizePlayerStoryLimits(c.playerStoryChapterLimits),
-    storyBosses:tcNormalizeStoryBosses(c.storyBosses),
-    limitedCardDropChapters:tcNormalizeLimitedCardDropChapters(c.limitedCardDropChapters,customLimitedCards),
-    limitedCardDropRate:Math.max(0,Math.min(100,Number(c.limitedCardDropRate??5)||0)),
-    online:c.online&&typeof c.online==='object'?c.online:undefined,
-    updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null
-   };
-   localStorage.cgc_cfg=JSON.stringify(CFG);
-   applyCfg();
-   if(migrated&&isAdmin&&TERRACARD_TOKEN)await apiCall('/admin/game/config',{config:CFG});
-   return true;
-  }
-  if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}
- }catch(e){console.error('運営ゲーム設定の取得に失敗しました。/game/config のGETを確認してください',e)}
- return false;
-}
+async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config?fresh='+Date.now());if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1||!c.storyChapterTitles||typeof c.storyChapterTitles!=='object';if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),storyChapterTitles:tcNormalizeStoryChapterTitles(c.storyChapterTitles),playerStoryChapterLimits:tcNormalizePlayerStoryLimits(c.playerStoryChapterLimits),storyBosses:tcNormalizeStoryBosses(c.storyBosses),customLimitedCards:tcNormalizeCustomLimitedCards(c.customLimitedCards),limitedCardDropChapters:tcNormalizeLimitedCardDropChapters(c.limitedCardDropChapters),limitedCardDropRate:Math.max(0,Math.min(100,Number(c.limitedCardDropRate??5)||0)),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.error('運営ゲーム設定の取得に失敗しました。/game/config のGETを確認してください',e)}return false;}
 async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0,charms:Array.isArray(u.charms)?u.charms:[],equippedCharmId:u.equippedCharmId||null,achievements:Array.isArray(u.achievements)?u.achievements:[],equippedAchievement:u.equippedAchievement||null,medals:Array.isArray(u.medals)?u.medals:[],equippedMedals:Array.isArray(u.equippedMedals)?u.equippedMedals:[],gachaPulls:Number(u.gachaPulls)||0});u.profileInitialized=true;return d;}
 async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Math.max(0,Math.floor(Number(d.player.coins)||0)+Math.floor(Number(u.cgDelta)||0));u.cgDelta=0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number.isInteger(Number(d.player.char))?Number(d.player.char):0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';const serverStory=Math.max(0,Number(d.player.story)||0);let pendingStory=0;try{pendingStory=Math.max(0,Number(localStorage.getItem('tc_story_pending_'+me))||0)}catch(e){}u.story=Math.max(serverStory,pendingStory);const __localLimitedBeforeSync=tcOwnedLimitedCardKeys(u);const __serverCharms=Array.isArray(d.player.charms)?d.player.charms:[];u.charms=__serverCharms.slice();for(const __key of __localLimitedBeforeSync){if(!u.charms.some(x=>x&&x.type==='limitedCard'&&x.cardKey===__key)){u.charms.push({id:'tc-limited-card-'+__key,type:'limitedCard',rarity:'限定',cardKey:__key,createdAt:new Date().toISOString()});}}const __remoteLimited=Array.isArray(d.player.limitedCards)?d.player.limitedCards:[];u.limitedCards=[...new Set([...__remoteLimited,...__localLimitedBeforeSync,...tcOwnedLimitedCardKeys(u)])].filter(k=>tcAllLimitedCardKeys().includes(k));u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.achievements=Array.isArray(d.player.achievements)?d.player.achievements:(Array.isArray(u.achievements)?u.achievements:[]);u.equippedAchievement=d.player.equipped_achievement||d.player.equippedAchievement||u.equippedAchievement||null;u.medals=Array.isArray(d.player.medals)?d.player.medals:(Array.isArray(u.medals)?u.medals:[]);u.equippedMedals=Array.isArray(d.player.equipped_medals)?d.player.equipped_medals:(Array.isArray(d.player.equippedMedals)?d.player.equippedMedals:(Array.isArray(u.equippedMedals)?u.equippedMedals:[]));u.gachaPulls=Math.max(Number(u.gachaPulls)||0,Number(d.player.gacha_pulls||d.player.gachaPulls)||0);u.profileInitialized=true;if(pendingStory>serverStory){save();try{const synced=await syncCloudProfile();if((Number(synced&&synced.player&&synced.player.story)||0)>=pendingStory)localStorage.removeItem('tc_story_pending_'+me)}catch(e){console.warn('未同期のストーリー進行を再送します',e)}}}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
 setInterval(()=>{if(me&&!isAdmin&&screen==='home')refreshCloudChat()},5000);
@@ -1456,7 +1411,7 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'&&HOME_CHAT_OPEN)toggleHomeChat(false);
 });
 // ---------- profile helpers ----------
-const avatar=(u,cls='av')=>u.iconCustom&&u.icon?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900">${esc(u.icon)}</span>`:u.kabi?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%;font-weight:900">🧴</span>`:u.soviet?`<span class="${cls} tc-soviet-avatar">☭</span>`:u.sans?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%;font-weight:900">💀</span>`:u.icon?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900">${esc(u.icon)}</span>`:u.img?`<img class="${cls}" src="${u.img}">`:`<span class="${cls}">${CHARS[u.char||0][0]}</span>`;
+const avatar=(u,cls='av')=>u.bossImgCustom&&u.img?`<img class="${cls}" src="${esc(u.img)}" alt="">`:u.bossIconCustom&&u.bossIcon?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;font-weight:900">${esc(u.bossIcon)}</span>`:u.kabi?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%;font-weight:900">🧴</span>`:u.soviet?`<span class="${cls} tc-soviet-avatar">☭</span>`:u.sans?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%;font-weight:900">💀</span>`:u.img?`<img class="${cls}" src="${esc(u.img)}" alt="">`:`<span class="${cls}">${CHARS[u.char||0][0]}</span>`;
 function gain(u,win,cpu,mul){
  let xp;
  if(cpu){if(win){u.cstreak=(u.cstreak||0)+1;u.cbest=Math.max(u.cbest||0,u.cstreak);xp=30+10*Math.min(u.cstreak,20)}else{u.cstreak=0;xp=10}}
@@ -2619,7 +2574,7 @@ function tcStoryBossFieldsHtml(stage){
  const musicOptions=['<option value="">既存の章BGMを使う</option>'];
  if(savedUrl&&!TC_GITHUB_MUSIC_FILES.some(x=>x.url===savedUrl))musicOptions.push(`<option value="${esc(savedUrl)}" selected>保存済みの曲</option>`);
  for(const song of TC_GITHUB_MUSIC_FILES)musicOptions.push(`<option value="${esc(song.url)}" ${song.url===savedUrl?'selected':''}>${esc(song.path||song.name)}</option>`);
- return `<form id="tc-story-boss-form" onsubmit="return tcSaveStoryBossSubmit(this)" class="panel" style="margin-top:10px">
+ return `<form id="tc-story-boss-form" onsubmit="event.preventDefault();tcSaveStoryBoss(this)" class="panel" style="margin-top:10px">
   <input type="hidden" name="stage" value="${stage}">
   <div style="padding:8px 10px;border-radius:8px;background:${native?'#1d503d':'#243c59'};margin-bottom:10px"><b>${native?'既存ボス設定':'新規ボス設定'}</b> ・ 第${pos.chapter}章 第${pos.section}節 ${native?'／ '+esc(native.feature):'／ この節に新しいボスを設定できます'}</div>
   <div class="row"><label><input type="checkbox" name="enabled" ${b.enabled?'checked':''} ${native?'disabled title="既存ボスは常に有効です"':''}> ${native?'既存ボス（常に有効）':'この節をカスタムボス戦にする'}</label></div>
@@ -2634,7 +2589,14 @@ function tcStoryBossFieldsHtml(stage){
    <label>追加攻撃力 <input name="atk" type="number" min="0" max="9999" value="${Number(b.atk)||0}" style="width:90px"></label>
    <label>追加防御力 <input name="sh" type="number" min="0" max="9999" value="${Number(b.sh)||0}" style="width:90px"></label>
   </div>
-  <label style="display:block;margin:8px 0">ボス画像URL（空欄=既存画像） <input name="img" type="url" value="${esc(saved.img||'')}" placeholder="https://..." style="width:100%;box-sizing:border-box"></label>
+  <div class="panel" style="margin:8px 0;padding:10px;background:#122638">
+   <b>🖼 ボス画像</b>
+   <label style="display:block;margin:8px 0">画像URLで設定 <input name="img" type="url" value="${esc(saved.img&&!/^data:image\//i.test(saved.img)?saved.img:'')}" placeholder="https://example.com/boss.png" oninput="tcBossImageUrlChanged(this)" style="width:100%;box-sizing:border-box"></label>
+   <label style="display:block;margin:8px 0">端末から画像を直接選択 <input name="imgFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="tcBossImageFileChanged(this)" style="display:block;width:100%;margin-top:5px"></label>
+   <input type="hidden" name="imgUploadData" value="${esc(saved.img&&/^data:image\//i.test(saved.img)?saved.img:'')}">
+   <small id="tc-boss-image-status" style="display:block;color:#a9c9df">URLまたは画像ファイルのどちらかを指定できます。ファイル画像は自動で軽量化して保存します。</small>
+   <div id="tc-boss-image-preview" style="margin-top:8px;min-height:34px">${saved.img?`<img src="${esc(saved.img)}" alt="ボス画像プレビュー" style="max-width:150px;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #789">`: '<small style="color:#91a7b8">画像未設定</small>'}</div><button type="button" class="sm" onclick="tcClearBossImage(this)">画像設定をクリア（標準画像に戻す）</button>
+  </div>
   <div class="row" style="align-items:center;flex-wrap:wrap">
    <label style="flex:1;min-width:230px">ボス戦BGM（GitHubから自動取得）<select id="tc-boss-music-select" name="musicUrl" data-saved-url="${esc(savedUrl)}" onchange="tcBossMusicSelected(this)" style="width:100%">${musicOptions.join('')}</select></label>
    <input type="hidden" name="musicName" value="${esc(saved.musicName||'')}">
@@ -2647,7 +2609,7 @@ function tcStoryBossFieldsHtml(stage){
   <div style="max-height:280px;overflow:auto;border:1px solid #526879;border-radius:8px;padding:6px">
    <table style="width:100%"><thead><tr><th>カード</th><th>重み</th></tr></thead><tbody>${cardKeys.map(k=>`<tr><td>${esc(CARDS[k].i||'🃏')} ${esc(CARDS[k].n||k)}</td><td><input type="number" min="0" max="9" step="1" data-boss-card-weight="${esc(k)}" value="${b.cardWeights&&b.cardWeights[k]!=null?clampInt(b.cardWeights[k],0,9):1}" style="width:66px"></td></tr>`).join('')}</tbody></table>
   </div>
-  <button type="button" data-save-story-boss onclick="tcSaveStoryBossSubmit(this)" style="margin-top:10px">この章・節のボス設定を全員に保存</button><p data-boss-save-status role="status" aria-live="polite" style="min-height:1.4em;margin:6px 0;color:#ffd37a"></p>
+  <button type="submit" style="margin-top:10px">この章・節のボス設定を全員に保存</button>
   <button type="button" class="sm" onclick="tcResetStoryBoss(${stage})">この章・節の変更をリセット</button>
  </form>`;
 }
@@ -2687,73 +2649,93 @@ function tcBossMusicSelected(select){
  const name=form.elements.namedItem('musicName');
  if(name)name.value=TC_GITHUB_MUSIC_FILES.find(x=>x.url===select.value)?.name||(select.value?'保存済みの曲':'');
 }
-function tcSaveStoryBossSubmit(target){
- const form=target&&target.tagName==='FORM'?target:(target&&target.closest?target.closest('form'):null);
- const button=target&&target.tagName==='BUTTON'?target:(form?form.querySelector('[data-save-story-boss]'):null);
- const status=form?form.querySelector('[data-boss-save-status]'):null;
- if(!form){const message='ボス設定フォームを取得できません。画面を開き直してください。';goAdminKeepScroll(message);return false;}
- if(form.dataset.saving==='1')return false;
- form.dataset.saving='1';
- if(button){button.disabled=true;button.dataset.originalText=button.textContent;button.textContent='サーバーに保存中…';}
- if(status)status.textContent='BGM・アイコンを含む設定をCloudflareに送信しています…';
- Promise.resolve().then(()=>tcSaveStoryBoss(form)).then(()=>{
-  if(status)status.textContent='保存成功：設定をサーバーから読み返して確認しました。';
- }).catch(e=>{
-  console.error('[TERRACARD] ボス設定保存エラー',e);
-  const message='保存失敗：'+String(e&&e.message||e);
-  if(status)status.textContent=message;
-  goAdminKeepScroll(message);
-  try{alert(message);}catch(ignore){}
- }).finally(()=>{
-  delete form.dataset.saving;
-  if(button){button.disabled=false;button.textContent=button.dataset.originalText||'この章・節のボス設定を全員に保存';}
- });
- return false;
+function tcBossImagePreview(form,src){
+ const box=form&&form.querySelector('#tc-boss-image-preview');if(!box)return;
+ const value=String(src||'').trim();
+ if(value&&(/^https:\/\//i.test(value)||/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(value))){
+  box.innerHTML='<img src="'+esc(value)+'" alt="ボス画像プレビュー" style="max-width:150px;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid #789">';
+ }else box.innerHTML='<small style="color:#91a7b8">画像未設定</small>';
+}
+function tcClearBossImage(button){const form=button&&button.form;if(!form)return;const url=form.elements.namedItem('img'),hidden=form.elements.namedItem('imgUploadData'),file=form.elements.namedItem('imgFile');if(url)url.value='';if(hidden)hidden.value='';if(file)file.value='';const status=form.querySelector('#tc-boss-image-status');if(status)status.textContent='画像設定を解除しました。保存すると既存の標準画像に戻ります。';tcBossImagePreview(form,'');}
+function tcBossImageUrlChanged(input){
+ const form=input&&input.form;if(!form)return;
+ const hidden=form.elements.namedItem('imgUploadData');if(hidden)hidden.value='';
+ const status=form.querySelector('#tc-boss-image-status');if(status)status.textContent='画像URLを使用します。';
+ tcBossImagePreview(form,input.value);
+}
+async function tcCompressStoryBossImage(file){
+ if(!file||!/^image\/(?:png|jpeg|webp|gif)$/i.test(file.type||''))throw new Error('PNG・JPG・WebP・GIF画像を選択してください');
+ if(file.size>8*1024*1024)throw new Error('画像ファイルは8MB以下にしてください');
+ let source;
+ if(typeof createImageBitmap==='function'){
+  source=await createImageBitmap(file);
+ }else{
+  source=await new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(url);resolve(im)};im.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('画像を読み込めませんでした'))};im.src=url;});
+ }
+ const maxSide=Math.max(source.width||source.naturalWidth||1,source.height||source.naturalHeight||1);
+ const scale=Math.min(1,420/maxSide);let width=Math.max(1,Math.round((source.width||source.naturalWidth)*scale));let height=Math.max(1,Math.round((source.height||source.naturalHeight)*scale));
+ const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');if(!ctx)throw new Error('画像処理を開始できませんでした');
+ const qualities=[0.78,0.68,0.58,0.48,0.38,0.30];let best=null;
+ for(const sideScale of [1,0.85,0.7,0.55,0.4]){
+  canvas.width=Math.max(1,Math.round(width*sideScale));canvas.height=Math.max(1,Math.round(height*sideScale));
+  ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(source,0,0,canvas.width,canvas.height);
+  for(const quality of qualities){
+   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+   if(!blob)continue;best=blob;if(blob.size<=35*1024)break;
+  }
+  if(best&&best.size<=35*1024)break;
+ }
+ if(source.close)source.close();
+ if(!best||best.size>40*1024)throw new Error('画像を十分に軽くできませんでした。別の小さめの画像を選んでください');
+ return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||''));reader.onerror=()=>reject(new Error('画像ファイルを読み込めませんでした'));reader.readAsDataURL(best);});
+}
+async function tcBossImageFileChanged(input){
+ const form=input&&input.form;if(!form)return;
+ const file=input.files&&input.files[0];if(!file)return;
+ const status=form.querySelector('#tc-boss-image-status');if(status)status.textContent='画像を軽量化しています…';
+ try{
+  const data=await tcCompressStoryBossImage(file);
+  const hidden=form.elements.namedItem('imgUploadData'),url=form.elements.namedItem('img');
+  if(hidden)hidden.value=data;if(url)url.value='';
+  tcBossImagePreview(form,data);
+  if(status)status.textContent='画像をセットしました（'+Math.max(1,Math.round(data.length*0.75/1024))+'KB程度）。保存ボタンを押すと全員に反映されます。';
+ }catch(e){if(status)status.textContent=String(e&&e.message||e);input.value='';}
 }
 async function tcSaveStoryBoss(form){
- if(!isAdmin)throw new Error('運営ログイン状態ではありません');
- if(!TERRACARD_TOKEN)throw new Error('運営APIトークンがありません。運営ログインをやり直してください');
+ if(!isAdmin)return;
  const stage=clampInt(form.elements.namedItem('stage')?.value||1,1,2000);
- const native=tcNativeStoryBossDefaults(stage);
- const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32);
- const icon=String(form.elements.namedItem('icon')?.value||'').trim().slice(0,32);
- const enabledEl=form.elements.namedItem('enabled');
- if(!native&&!enabledEl?.checked)throw new Error('「この節をカスタムボス戦にする」にチェックを入れてください');
- if(!native&&!name)throw new Error('新規ボスの名前を入力してください');
  const cardWeights={};
  form.querySelectorAll('[data-boss-card-weight]').forEach(el=>{cardWeights[String(el.dataset.bossCardWeight)]=clampInt(el.value,0,9)});
- const musicSelect=form.elements.namedItem('musicUrl');
- let musicUrl=String(musicSelect?.value||'').trim();
- const img=String(form.elements.namedItem('img')?.value||'').trim();
+ const musicUrl=String(form.elements.namedItem('musicUrl')?.value||'').trim();
+ const uploadedImg=String(form.elements.namedItem('imgUploadData')?.value||'').trim();
+ const img=uploadedImg||String(form.elements.namedItem('img')?.value||'').trim();
  if(img&&!/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)){
-  let imageUrl;try{imageUrl=new URL(img);}catch(e){throw new Error('ボス画像URLの形式が正しくありません');}
-  if(imageUrl.protocol!=='https:')throw new Error('ボス画像はhttps://から始まるURLを指定してください');
+  let parsed;try{parsed=new URL(img)}catch(e){}
+  if(!parsed||parsed.protocol!=='https:'){goAdminKeepScroll('ボス画像はhttps://から始まる画像URL、または端末から選んだ画像を指定してください');return;}
  }
- if(musicUrl){
-  let audioUrl;try{audioUrl=new URL(musicUrl);}catch(e){throw new Error('選択したBGMのURLを読み取れません。GitHubの曲一覧を再読込して選び直してください');}
-  if(audioUrl.protocol!=='https:')throw new Error('BGMはhttps://のURLを指定してください');
-  musicUrl=audioUrl.href;
- }
- const chosenMusicLabel=musicSelect&&musicSelect.selectedOptions&&musicSelect.selectedOptions[0]?String(musicSelect.selectedOptions[0].textContent||'').trim():'';
- const musicName=String(form.elements.namedItem('musicName')?.value||chosenMusicLabel||'').trim().slice(0,120);
+ if(musicUrl){let parsedMusic;try{parsedMusic=new URL(musicUrl)}catch(e){}if(!parsedMusic||parsedMusic.protocol!=='https:'){goAdminKeepScroll('BGM URLはhttps://から始まるURLを指定してください');return;}}
  CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
  CFG.storyBosses[String(stage)]={
-  enabled:native?true:!!enabledEl?.checked,
-  name,icon,img,
+  enabled:!!form.elements.namedItem('enabled')?.checked||!!tcNativeStoryBossDefaults(stage),
+  name:String(form.elements.namedItem('name')?.value||'').trim().slice(0,32),
+  icon:String(form.elements.namedItem('icon')?.value||'').trim().slice(0,32),
+  img,
   cpuCount:clampInt(form.elements.namedItem('cpuCount')?.value||1,1,3),
   cpuLevel:clampInt(form.elements.namedItem('cpuLevel')?.value||2,1,4),
   hp:clampInt(form.elements.namedItem('hp')?.value||0,0,999999),
   atk:clampInt(form.elements.namedItem('atk')?.value||0,0,9999),
   sh:clampInt(form.elements.namedItem('sh')?.value||0,0,9999),
-  cardWeights,musicUrl,musicName:musicUrl?musicName:''
+  cardWeights,
+  musicUrl,
+  musicName:String(form.elements.namedItem('musicName')?.value||'').slice(0,120)
  };
  const ok=await saveCfg();
- if(!ok)throw new Error('Workerへの保存、またはD1からの読み返しに失敗しました');
+ if(!ok){goAdminKeepScroll('ボス設定をサーバーに保存・再取得できませんでした。運営ログイン状態とWorkerの /admin/game/config・/game/config を確認してください。');return;}
  const saved=CFG.storyBosses[String(stage)];
- if(!saved)throw new Error('サーバーから章・節の設定を読み返せませんでした');
- for(const key of ['name','icon','img','musicUrl','musicName'])if(String(saved[key]||'')!==String(CFG.storyBosses[String(stage)][key]||''))throw new Error(key+'の保存結果が一致しません');
- const pos=storyPosition(stage);
- goAdminKeepScroll('保存成功：第'+pos.chapter+'章 第'+pos.section+'節。BGM・アイコンを含む設定をサーバーから確認しました。');
+ if(!saved||saved.name!==String(form.elements.namedItem('name')?.value||'').trim().slice(0,32)||Number(saved.cpuCount)!==clampInt(form.elements.namedItem('cpuCount')?.value||1,1,3)){
+  goAdminKeepScroll('保存後の確認に失敗しました。サーバー側の設定が一致していません。');return;
+ }
+ goAdminKeepScroll('第'+storyPosition(stage).chapter+'章 第'+storyPosition(stage).section+'節のボス設定をサーバーに保存し、読み返し確認しました。');
 }
 async function tcResetStoryBoss(stage){
  if(!isAdmin)return;
@@ -2768,8 +2750,8 @@ function adminCfg(){const S0=CFG.s,GP=CFG.gachaPrices||DEFAULT_GACHA_PRICES;
  return `<h3>ゲーム設定</h3><form class="row" onsubmit="event.preventDefault();setCfg(this)">${[['hp','最大HP'],['ap','コスト最大値'],['apInc','ターンごとのコスト増加量'],['hand','初期手札'],['maxHand','手札上限(ドロー)'],['drawCost','2回目以降ドローのコスト'],['sovietBossHp','第1章20節・ソ連ボスHP']].map(([k,l])=>`<label>${l} <input name="${k}" type="number" min="${k==='sovietBossHp'?1:0}" max="${k==='sovietBossHp'?999999:99}" value="${S0[k]}" style="width:90px"></label>`).join('')}<button>保存</button></form>
  <h3>📖 ストーリー章名の変更</h3><p><small>章番号と章名を設定すると、全プレイヤーのストーリー画面に反映されます。空欄にすると初期の章名（設定がない章は番号表示）に戻ります。</small></p><form class="row" onsubmit="event.preventDefault();setStoryChapterTitle(this)"><label>章 <select name="chapter" onchange="adminChapterNamePick(this)">${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${ch===7?'selected':''}>第${ch}章</option>`).join('')}</select></label><label>章名 <input id="admin-story-chapter-title" name="title" maxlength="40" value="${esc(storyChapterName(7))}" placeholder="章名"></label><button>章名を全員に保存</button></form>
  ${adminStoryUnlocksHtml()}
- ${adminLimitedCardCreationHtml()}
  ${adminLimitedCardDropsHtml()}
+ ${adminLimitedCardCreationHtml()}
  ${adminStoryBossSettingsHtml()}
  <h3>ガチャ価格設定</h3><p><small>1回の価格を設定します。10連は設定価格×10枚分です。0にすると無料になります。全プレイヤーに共有されます。</small></p><form class="row" onsubmit="event.preventDefault();setGachaPrices(this)"><label>キャラクターガチャ1回 🪙 <input name="character" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.character)||0)}" style="width:90px"></label><label>お守りガチャ1回 🪙 <input name="charm" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.charm)||0)}" style="width:90px"></label><button>ガチャ価格を保存</button></form>
  <h3>🧿 お守りガチャのレアリティ排出率</h3><p><small>合計が100%になるように設定してください。保存すると全プレイヤーのガチャに反映されます。</small></p><form class="row" onsubmit="event.preventDefault();setCharmRates(this)">${['N','R','SR','SSR','UR'].map(k=>`<label>${k} <input name="${k}" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.charmRates?.[k]??DEFAULT_CHARM_RATES[k])))}" style="width:64px">%</label>`).join('')}<button>排出率を保存</button></form>
@@ -2779,108 +2761,6 @@ function adminStoryUnlockPickerHtml(ch){
  const unlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);
  const selectable=Object.keys(CARDS).filter(k=>!CARDS[k].fixed&&!TC_STORY_START_CARD_KEYS.has(k)).sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));
  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-top:10px">${selectable.map(k=>{const c=CARDS[k];return `<label style="display:flex;align-items:center;gap:6px;padding:5px;background:#173a59;border-radius:6px;font-size:12px"><input type="checkbox" data-story-chapter="${ch}" value="${esc(k)}" ${unlocks[ch].includes(k)?'checked':''}>${esc(c.i||'🃏')} ${esc(c.n||k)}</label>`}).join('')}</div>`;
-}
-
-function tcUpdateLimitedEffectDescription(select){const host=document.getElementById('tc-limited-effect-description');if(host)host.textContent=String(CARDS[select&&select.value]?.d||'選択した既存カードと同じ効果');}
-function tcLimitedEffectOptions(){
- return Object.keys(CARDS).filter(key=>{
-  const c=CARDS[key];
-  return c&&!c.passive&&key!=='draw'&&key!=='end'&&!c.customLimited;
- }).sort((a,b)=>String(CARDS[a].n).localeCompare(String(CARDS[b].n),'ja'));
-}
-function adminLimitedCardCreationHtml(){
- const effects=tcLimitedEffectOptions();
- const custom=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);
- return `<section class="panel" style="border:2px solid #d8ad37;margin:10px 0">
- <h3>✨ 運営：限定カードを新規追加</h3>
- <p><small>ここで追加したカードは、選択した既存カードの実際の効果を発動します。説明だけを追加するのではありません。カード画像は端末からアップロードできます。登録後、章クリア報酬設定・試合中出現率設定にも自動で追加されます。</small></p>
- <form class="row" onsubmit="event.preventDefault();addLimitedCard(this)">
-  <label>カード名 <input name="name" maxlength="32" required placeholder="限定カード名"></label>
-  <label>カードに表示する絵文字 <input name="icon" maxlength="32" value="✨" style="width:100px"></label>
-  <label>コスト <input name="cost" type="number" min="0" max="30" value="3" style="width:70px"></label>
-  <label style="min-width:240px">発動する既存カードの効果
-   <select name="effectKey" required style="max-width:320px" onchange="tcUpdateLimitedEffectDescription(this)">${effects.map(key=>`<option value="${esc(key)}">${esc(CARDS[key].n)}（${esc(key)}）</option>`).join('')}</select>
-   <small id="tc-limited-effect-description">${esc(CARDS[effects[0]]?.d||'選択した既存カードと同じ効果')}</small>
-  </label>
-  <label>章クリア時の入手章
-   <select name="chapter"><option value="0">設定なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}">第${ch}章</option>`).join('')}</select>
-  </label>
-  <label>試合中の出現率（重み） <input name="weight" type="number" min="0" max="9" value="1" style="width:70px"></label>
-  <label style="min-width:230px">カード画像をアップロード <input name="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="tcPreviewLimitedCardImage(this)"></label>
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%"><img id="tc-limited-card-image-preview" alt="画像プレビュー" style="display:none;width:112px;max-height:150px;object-fit:contain;border:1px solid #d8ad37;border-radius:8px;background:#18243a;padding:4px"><small>画像は自動でWebPに縮小・圧縮して保存します（元画像12MB以下、保存後35KB以下）。</small></div>
-  <button type="submit">この限定カードを追加して全員に保存</button>
- </form>
- <h4>追加済みの運営限定カード（${custom.length}枚）</h4>
- ${custom.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px">${custom.map(card=>`<div class="panel" style="padding:8px"><div style="display:flex;gap:8px;align-items:center">${card.img?`<img src="${card.img}" alt="" style="width:54px;height:64px;object-fit:contain">`:`<b style="font-size:26px">${esc(card.icon)}</b>`}<div><b>${esc(card.name)}</b><br><small>効果：${esc(CARDS[card.effectKey]?.n||card.effectKey)} / コスト${card.cost}</small></div></div><button type="button" class="sm" onclick="deleteCustomLimitedCard('${esc(card.key)}')">この限定カードを削除</button></div>`).join('')}</div>`:'<small>まだ運営追加の限定カードはありません。</small>'}
- </section>`;
-}
-async function tcCompressLimitedCardImage(file){
- if(!file)return '';
- if(!/^image\/(png|jpeg|webp|gif)$/i.test(file.type))throw new Error('PNG・JPG・WebP・GIF画像を選んでください');
- if(file.size>12*1024*1024)throw new Error('元画像は12MB以下にしてください');
- let bitmap;
- try{bitmap=await createImageBitmap(file);}catch(e){throw new Error('画像を読み込めませんでした。別の画像を選んでください');}
- const scale=Math.min(1,420/Math.max(bitmap.width,bitmap.height));
- const canvas=document.createElement('canvas');
- canvas.width=Math.max(1,Math.round(bitmap.width*scale));
- canvas.height=Math.max(1,Math.round(bitmap.height*scale));
- const ctx=canvas.getContext('2d');
- if(!ctx)throw new Error('画像変換を開始できません');
- ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
- bitmap.close&&bitmap.close();
- let blob=null;
- for(const quality of [0.78,0.68,0.58,0.48,0.38]){
-  blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
-  if(blob&&blob.size<=35*1024)break;
- }
- if(!blob||blob.size>35*1024)throw new Error('画像を35KB以下に圧縮できませんでした。小さめの画像を選んでください');
- const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(new Error('画像の読み取りに失敗しました'));r.readAsDataURL(blob);});
- if(!/^data:image\/webp;base64,/i.test(data))throw new Error('画像をWebP形式に変換できませんでした');
- return data;
-}
-async function tcPreviewLimitedCardImage(input){
- const preview=document.getElementById('tc-limited-card-image-preview');
- if(!preview)return;
- input._tcCompressedImage='';
- if(!input.files||!input.files[0]){preview.removeAttribute('src');preview.style.display='none';return;}
- preview.style.display='block';preview.alt='画像を圧縮中…';
- try{input._tcCompressedImage=await tcCompressLimitedCardImage(input.files[0]);preview.src=input._tcCompressedImage;preview.alt='アップロード画像のプレビュー';}
- catch(e){preview.style.display='none';alert(e.message||String(e));input.value='';}
-}
-async function addLimitedCard(form){
- if(!isAdmin)return goAdminKeepScroll('運営ログインしてください');
- const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32);
- const icon=String(form.elements.namedItem('icon')?.value||'✨').trim().slice(0,32)||'✨';
- const effectKey=String(form.elements.namedItem('effectKey')?.value||'');
- const effect=CARDS[effectKey];
- if(!name)return goAdminKeepScroll('限定カード名を入力してください');
- if(!effect||effect.passive||effectKey==='draw'||effectKey==='end'||effect.customLimited)return goAdminKeepScroll('選択した効果は限定カードに設定できません');
- let img='';
- try{img=form.elements.namedItem('imageFile')?._tcCompressedImage||'';if(form.elements.namedItem('imageFile')?.files?.[0]&&!img)img=await tcCompressLimitedCardImage(form.elements.namedItem('imageFile').files[0]);}
- catch(e){return goAdminKeepScroll('画像を追加できませんでした：'+(e.message||e));}
- const key='limited_custom_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
- const card={key,name,cost:clampInt(form.elements.namedItem('cost')?.value||0,0,30),icon,description:String(effect.d||effect.n||'選択した既存カードと同じ効果').slice(0,400),effectKey,img,color:'#e7ad36'};
- const previous=JSON.parse(JSON.stringify(CFG));
- if((CFG.customLimitedCards||[]).length>=30)return goAdminKeepScroll('運営追加の限定カードは30枚までです');
- CFG.customLimitedCards=tcNormalizeCustomLimitedCards([...(CFG.customLimitedCards||[]),card]);
- CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters,CFG.customLimitedCards);
- CFG.limitedCardDropChapters[key]=clampInt(form.elements.namedItem('chapter')?.value||0,0,100);
- CFG.over=CFG.over||{};CFG.over[key]={...(CFG.over[key]||{}),w:clampInt(form.elements.namedItem('weight')?.value||0,0,9)};
- const ok=await saveCfg();
- if(!ok){CFG=previous;applyCfg();return goAdminKeepScroll('限定カードの保存に失敗しました。通信・Workerの設定保存を確認してください');}
- applyCfg();
- goAdminRebuildKeepScroll('限定カード「'+name+'」を追加しました。効果は「'+effect.n+'」と同じ実処理です。章クリア入手設定と試合中の出現率にも登録しました。');
-}
-async function deleteCustomLimitedCard(key){
- if(!isAdmin)return;
- const previous=JSON.parse(JSON.stringify(CFG));
- CFG.customLimitedCards=(CFG.customLimitedCards||[]).filter(x=>x.key!==key);
- CFG.over=CFG.over||{};delete CFG.over[key];
- CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters,CFG.customLimitedCards);
- delete CFG.limitedCardDropChapters[key];
- const ok=await saveCfg();
- if(!ok){CFG=previous;applyCfg();return goAdminKeepScroll('限定カードの削除に失敗しました');}
- applyCfg();goAdminRebuildKeepScroll('限定カードを削除しました。過去に所持していたプレイヤーの所持履歴は保持されます。');
 }
 
 function adminLimitedCardDropsHtml(){
@@ -3018,12 +2898,12 @@ const rc=(player=null,excludeLimited=false)=>{
 };
 let tcMatchIntroTimer=0;
 function matchIntroAvatar(p){
+ if(p&&p.imgCustom&&p.img&&(/^https:\/\//i.test(p.img)||/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(p.img)))return '<img class="tc-match-intro-avatar" src="'+esc(p.img)+'" alt="">';
  if(p&&p.iconCustom&&p.icon)return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc(p.icon)+'</span>';
  if(p&&p.icon==='☭')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji tc-soviet-avatar">☭</span>';
  if(p&&p.icon==='💀')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%">💀</span>';
  if(p&&p.icon==='🧴')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%">🧴</span>';
- if(p&&p.icon==='👑')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#fff0b8;color:#8a5a00;border:2px solid #d9a928;border-radius:50%">👑</span>';
- if(p&&p.icon)return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc(p.icon)+'</span>';
+ if(p&&p.icon==='👑')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#fff0b8;color:#8a5a00;border:2px solid #d9a928;border-radius:50%">👑</span>'; 
  const img=String(p&&p.img||'');
  if(img && (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)||/^https:\/\//i.test(img)))return '<img class="tc-match-intro-avatar" src="'+esc(img)+'" alt="">';
  const ch=Number.isInteger(Number(p&&p.char))?Number(p.char):0;
@@ -3033,7 +2913,7 @@ function showMatchIntro(playerEntries,online){
  try{
   if(tcMatchIntroTimer){clearTimeout(tcMatchIntroTimer);tcMatchIntroTimer=0;}
   const old=document.getElementById('tc-match-intro');if(old)old.remove();
-  let lineup=(Array.isArray(playerEntries)?playerEntries:[]).map(v=>typeof v==='string'?{name:v,char:0,img:''}:{name:String(v&&v.name||'プレイヤー').trim(),char:Number(v&&v.char)||0,img:v&&v.img||'',icon:v&&v.icon||'',iconCustom:!!(v&&v.iconCustom)}).filter(v=>v.name);
+  let lineup=(Array.isArray(playerEntries)?playerEntries:[]).map(v=>typeof v==='string'?{name:v,char:0,img:''}:{name:String(v&&v.name||'プレイヤー').trim(),char:Number(v&&v.char)||0,img:v&&v.img||'',imgCustom:!!(v&&v.imgCustom),iconCustom:!!(v&&v.iconCustom),icon:v&&v.icon||''}).filter(v=>v.name);
   if(!online){if(!lineup.length)lineup=[{name:U().display||'プレイヤー',char:U().char||0,img:U().img||''}];if(lineup.length===1)lineup.push({name:'CPU',char:1,img:''});}
   if(!lineup.length)return;
   const root=document.createElement('div');root.id='tc-match-intro';root.className='tc-match-intro';root.setAttribute('role','status');root.setAttribute('aria-live','assertive');
@@ -3172,8 +3052,8 @@ function startBattle(cpus,names,charms,profiles,storyBossOverride){
   if(__storyBossCfg&&i>0){
    p.isBoss=true;
    p.name=(__storyBossCfg.name||p.name)+(i>1?' '+i:'');
-   if(__storyBossCfg.icon){p.icon=__storyBossCfg.icon;p.storyBossIconCustom=!!__storyBossCfg.iconCustom;}
-   if(__storyBossCfg.img)p.u.img=__storyBossCfg.img;
+   if(__storyBossCfg.icon){p.icon=__storyBossCfg.icon;if(__storyBossCfg.iconCustom){p.u.bossIconCustom=true;p.u.bossIcon=__storyBossCfg.icon;}}
+   if(__storyBossCfg.img){p.u.img=__storyBossCfg.img;p.u.bossImgCustom=true;}
    if(Number(__storyBossCfg.hp)>0){p.hp=Number(__storyBossCfg.hp);p.mhp=Number(__storyBossCfg.hp);}
    p.atk=Math.max(0,Number(p.atk)||0)+Math.max(0,Number(__storyBossCfg.atk)||0);
    p.sh=Math.max(0,Number(p.sh)||0)+Math.max(0,Number(__storyBossCfg.sh)||0);
@@ -3186,7 +3066,7 @@ function startBattle(cpus,names,charms,profiles,storyBossOverride){
  ps.forEach((p,i)=>{if(!(STORY===180&&i===1&&p.impostorBoss))p.f[12]={c:'w',d:3};});
  G={ps,hist:[],impostorTurns:0,impostorBoss:(!names&&STORY===180&&cpus===1),limitedSovietTurns:0,limitedDelayedEvents:[],snow:{left:0,lvl:0},soundMuteTurns:0,soundBoostTurns:0,delayedSoundEvents:[],turn:Math.floor(Math.random()*n),turnSeq:0,ap:S().ap,sel:null,card:null,target:1,over:false,keys:{},log:'',timer:0,done:false};
  document.body.classList.toggle('tc-impostor-alert',!names&&STORY===180&&cpus===1);attachBattleLog(G);G.target=nextAlive(0,1);battleLog=[];G.log='対戦開始';startTurn(false);
- G.timer=setInterval(tick,50);screen='battle';render();if(!names)tcSyncMusic();showMatchIntro(ps.map(p=>({name:p.name,char:p.u.char,img:p.u.img,icon:p.icon||(p.u.kabi?'🧴':p.u.soviet?'☭':p.u.sans?'💀':p.u.boss?'👑':''),iconCustom:!!p.storyBossIconCustom})),!!names);if(names)pushSoon();
+ G.timer=setInterval(tick,50);screen='battle';render();if(!names)tcSyncMusic();showMatchIntro(ps.map(p=>({name:p.name,char:p.u.char,img:p.u.img,imgCustom:!!p.u.bossImgCustom,iconCustom:!!p.u.bossIconCustom,icon:p.u.bossIcon||p.icon||(p.u.kabi?'🧴':p.u.soviet?'☭':p.u.sans?'💀':p.u.boss?'👑':'')})),!!names);if(names)pushSoon();
 }
 function nextAlive(from,step){const n=G.ps.length;for(let k=1;k<=n;k++){const j=(from+k)%n;if(G.ps[j].alive&&j!==from)return j}return from}
 function snap(){return JSON.stringify({turn:G.turn,turnSeq:G.turnSeq||0,ps:G.ps.map(p=>({hp:p.hp,sh:p.sh,atk:p.atk,umb:p.umb,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,draws:p.draws||0,sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,scratchBoost:Number(p.scratchBoost)||0,cardMul:Number(p.cardMul)||1,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1,hikakinFreeUsed:!!p.hikakinFreeUsed,aoOniBonus:Number(p.aoOniBonus)||0,matsuokaActive:!!p.matsuokaActive,deathnoteBoost:!!p.deathnoteBoost,anzaiApBonus:Number(p.anzaiApBonus)||0,akainuTurns:Number(p.akainuTurns)||0,bakidoActive:!!p.bakidoActive,deathFlagTurns:p.deathFlagTurns,pikachuPendingTarget:p.pikachuPendingTarget,gameFpsBonus:Number(p.gameFpsBonus)||0,kuyaHeldTurns:Number(p.kuyaHeldTurns)||0,equalMultiplier:Number(p.equalMultiplier)||1,hapiEneCostSurcharge:Number(p.hapiEneCostSurcharge)||0,dozuruEffectBonus:Number(p.dozuruEffectBonus)||0,freezeTurns:Number(p.freezeTurns)||0,skipTurns:Number(p.skipTurns)||0,shieldUses:Number(p.shieldUses??3),tntEnhancedCount:Number(p.tntEnhancedCount)||0,tntPowerMultiplier:Number(p.tntPowerMultiplier)||1,zeninBuffTurns:Number(p.zeninBuffTurns)||0,duolingoTurns:Number(p.duolingoTurns)||0,duolingoCorrect:Number(p.duolingoCorrect)||0,duolingoEasy:!!p.duolingoEasy,friezaActive:!!p.friezaActive,friezaPenaltyPending:!!p.friezaPenaltyPending,studyDamageBonus:Number(p.studyDamageBonus)||0,studyCostPenalty:Number(p.studyCostPenalty)||0,studyCardCostPenalty:Number(p.studyCardCostPenalty)||0,studyAtkPerTurnPenalty:Number(p.studyAtkPerTurnPenalty)||0,bossCardWeights:p.bossCardWeights||null,reviveFxAt:Number(p.reviveFxAt)||0})),soundMuteTurns:Number(G.soundMuteTurns)||0,soundBoostTurns:Number(G.soundBoostTurns)||0,delayedSoundEvents:Array.isArray(G.delayedSoundEvents)?G.delayedSoundEvents:[],limitedDelayedEvents:Array.isArray(G.limitedDelayedEvents)?G.limitedDelayedEvents:[],limitedSovietTurns:Number(G.limitedSovietTurns)||0})}
@@ -3309,26 +3189,11 @@ function advanceSoundEffects(){
 function endTurn(){if(G.over)return;const __endingPlayer=G.ps[G.turn];if(__endingPlayer&&Number(__endingPlayer.freezeTurns)>0){__endingPlayer.freezeTurns=Math.max(0,Number(__endingPlayer.freezeTurns)-1);if(__endingPlayer.freezeTurns===0)G.log=__endingPlayer.name+'の凍結が解けた！';}if(__endingPlayer&&Number(__endingPlayer.hapiEneCostSurcharge)>0){const __hapiExpired=Number(__endingPlayer.hapiEneCostSurcharge)||0;__endingPlayer.hapiEneCostSurcharge=0;G.log='ハピエネ：カードコスト+'+__hapiExpired+'の効果が終了した';}if(__endingPlayer&&Number(__endingPlayer.akainuTurns)>0){__endingPlayer.akainuTurns=Math.max(0,Number(__endingPlayer.akainuTurns)-1);if(__endingPlayer.akainuTurns===0){hurt(__endingPlayer,10,'赤犬の5ターン経過の反動',1,G.turn,true);G.log='赤犬：5ターンが終了し自分に10ダメージ！';checkEnd();if(G.over)return;}}if(__endingPlayer&&Number(__endingPlayer.scratchBoost)>0)__endingPlayer.scratchBoost=Math.max(0,Number(__endingPlayer.scratchBoost)-1);if(__endingPlayer&&Number(__endingPlayer.cactusTurns)>0)__endingPlayer.cactusTurns=Math.max(0,Number(__endingPlayer.cactusTurns)-1);if(__endingPlayer&&__endingPlayer.bannedCards){for(const __key of Object.keys(__endingPlayer.bannedCards)){const __left=Number(__endingPlayer.bannedCards[__key])||0;if(__left<=1)delete __endingPlayer.bannedCards[__key];else __endingPlayer.bannedCards[__key]=__left-1;}}if(G.smell>0){G.smell--;G.ps.forEach(q=>{if(q.alive&&!gmBlock(q))hurt(q,1,'体臭',1)});checkEnd();if(G.over)return}if(G.snow.left>0){G.snow.left--;G.snow.lvl++}else G.snow.lvl=0;advanceSoundEffects();if(G.over)return;advanceLimitedSovietTurn();if(G.over)return;if(STORY===180&&!ONL&&__endingPlayer===G.ps[0]&&G.ps[1]&&G.ps[1].alive){G.impostorTurns=(Number(G.impostorTurns)||0)+1;if(G.impostorTurns>=20){G.ps[0].alive=false;G.ps[0].hp=0;G.log='20ターン以内にインポスターを倒せなかったため強制敗北！';G.over=true;return;}}let __skipLog=[];let __skipGuard=0;do{G.turn=nextAlive(G.turn,1);const __next=G.ps[G.turn];if(__next&&__next.alive&&Number(__next.skipTurns)>0){__next.skipTurns=Math.max(0,Number(__next.skipTurns)-1);__skipLog.push(__next.name+'のターンをスキップ（残り'+__next.skipTurns+'回）');}else break;__skipGuard++;}while(__skipGuard<=G.ps.length*100);G.ps.forEach((p,i)=>{});startTurn();if(__skipLog.length)G.log+=' / '+__skipLog.join('・');if(G.turn===0&&G.target===0)G.target=nextAlive(0,1)}
 function enemyOf(i){return G.target!==i&&G.ps[G.target]&&G.ps[G.target].alive?G.target:nextAlive(i,1)}
 function playCard(i,k,tile,customLimitedContext){ // i player, k card key, tile {pi,ti}
- const p=G.ps[i],originalK=k;
- const selectedLimitedKey=customLimitedContext?customLimitedContext.limitedKey:k;
- const selectedCard=customLimitedContext?customLimitedContext.card:CARDS[k];
- if(G.over||G.turn!==i)return false;
- if(Number(p.bannedCards&&p.bannedCards[selectedLimitedKey])>0){G.log=(selectedCard?.n||CARDS[k]?.n||k)+' はBAN中（残り'+p.bannedCards[selectedLimitedKey]+'ターン）';return false;}
+ const p=G.ps[i],originalK=customLimitedContext?customLimitedContext.limitedKey:k,handKey=originalK;if(G.over||G.turn!==i)return false;
+ if(!customLimitedContext&&CARDS[k]&&CARDS[k].customLimited){const custom=CARDS[k],def=(CFG.customLimitedCards||{})[k],effectKey=def&&def.effectKey;if(!def||!CARDS[effectKey])return false;return playCard(i,effectKey,tile,{limitedKey:k,card:{...CARDS[effectKey],n:custom.n,c:custom.c,i:custom.i,d:custom.d,img:custom.img,limited:true,customLimited:true}});}
+ if(Number(p.bannedCards&&p.bannedCards[handKey])>0){G.log=(CARDS[k]?.n||k)+' はBAN中（残り'+p.bannedCards[handKey]+'ターン）';return false;}
  if(k==='cheat_limit'||k==='cheat'){if(!cheatLimitReady(p)){G.log='チートカードは、願い星・デンチャ・島雪・体臭・馬・逆戻りの6枚をすべて手札にそろえると使えます';return false}if(k==='cheat_limit')k='cheat'}
- let c=CARDS[k];if(!c)return false;
- if(customLimitedContext){
-  const effectBase=c;
-  c={...effectBase,...selectedCard,c:selectedCard.c,tile:effectBase.tile,passive:effectBase.passive,gen:effectBase.gen,paint:effectBase.paint,limited:true,customLimitedRuntime:true};
- }else if(c.customLimited&&c.effectKey){
-  if(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(k)){G.log='この限定カードを所持していません';return false;}
-  if(!tcLimitedCardsAllowedForPlayer(p)){G.log='オンラインで限定カードを使うには「限定お守り」（伝説）が必要です';return false;}
-  const effectKey=String(c.effectKey);
-  if(!CARDS[effectKey]||CARDS[effectKey].passive||effectKey==='draw'||effectKey==='end'){
-   G.log='この限定カードの効果設定が無効です。運営に効果を選び直してもらってください';return false;
-  }
-  return playCard(i,effectKey,tile,{limitedKey:k,card:c});
- }
- const handKey=customLimitedContext?customLimitedContext.limitedKey:k;
+ const c=customLimitedContext?customLimitedContext.card:CARDS[k];if(!c)return false;
  if(c.limited&&(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(handKey))){G.log='この限定カードを所持していません';return false;}
  if(c.limited&&!tcLimitedCardsAllowedForPlayer(p)){G.log='オンラインで限定カードを使うには「限定お守り」（伝説）が必要です';return false;}
  if(k==='draw'&&p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}
@@ -4535,7 +4400,7 @@ function paintBattle(){
  statusSummary.innerHTML=`${STORY>0?`<div style="font-weight:900;padding:6px 10px;margin-bottom:6px;border-radius:8px;background:rgba(0,0,0,.24)">📖 第${storyPosition(STORY).chapter}章${storyChapterTitleHtml(storyPosition(STORY).chapter)} 第${storyPosition(STORY).section}節</div>`:''}${STORY===180?'<div class="tc-impostor-boss-banner"><span>🚨</span><strong>IMPOSTOR ALERT</strong><span>🚨</span><small>20ターン以内に撃破せよ</small></div>':''}<div class="row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax??S().ap}${G.snow.lvl?' ❄️':''}</span><span>⚔攻撃力 ${Number(you.atk)||0}</span><span>🛡防御力 ${Number(you.sh)||0}</span><span>❤️HP ${Number(you.hp)||0}/${Number(you.mhp)||0}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>${playerBuffBadges(you)}<div style="margin-top:5px">${esc(G.log)}</div>`;
  // ステータスだけを更新し、ログdetailsとスクロール位置は維持する。
  syncBattleLogDom(statusPanel);
- boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.isBoss&&p.icon?{...p.u,icon:p.icon,iconCustom:!!p.storyBossIconCustom}:p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> <small>(${POS[i]})</small></div>${(()=>{const age=Date.now()-(Number(p.reviveFxAt)||0);return age>=0&&age<1650?`<div class="tc-revive-overlay" style="--tc-revive-delay:-${(age/1000).toFixed(3)}s"><span class="tc-revive-ring tc-revive-ring-a"></span><span class="tc-revive-ring tc-revive-ring-b"></span><span class="tc-revive-rays">✦　✧　✦</span><span class="tc-revive-badge"><b>♻ REVIVE!</b><small>逆戻りで復活</small></span></div>`:''})()}${playerBuffBadges(p)}<div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
+ boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> <small>(${POS[i]})</small></div>${(()=>{const age=Date.now()-(Number(p.reviveFxAt)||0);return age>=0&&age<1650?`<div class="tc-revive-overlay" style="--tc-revive-delay:-${(age/1000).toFixed(3)}s"><span class="tc-revive-ring tc-revive-ring-a"></span><span class="tc-revive-ring tc-revive-ring-b"></span><span class="tc-revive-rays">✦　✧　✦</span><span class="tc-revive-badge"><b>♻ REVIVE!</b><small>逆戻りで復活</small></span></div>`:''})()}${playerBuffBadges(p)}<div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
  const handKey=JSON.stringify([you.hand,G.card,!!G.cardTargeting,you.draws,you.ap,G.ps[SEAT].cheatActive]);
  if(el.dataset.handKey!==handKey){
   if(window.__tcHandPointerActive){window.__tcHandRefreshPending=true;}
@@ -4785,12 +4650,12 @@ addEventListener('blur',()=>{if(G)G.keys={}});
 
 // ---------- online ----------
 let ONL=false,HOST=false,SEAT=0,room=null,roster=null,pushT=0,lastMv=0;
-function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],limitedDelayedEvents:Array.isArray(G.limitedDelayedEvents)?G.limitedDelayedEvents:[],limitedSovietTurns:Number(G.limitedSovietTurns)||0,cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,charm:p.charm||null,limitedCards:Array.isArray(p.limitedCards)?p.limitedCards:[],hasLimitedCharm:!!p.hasLimitedCharm,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,img:p.u.img||'',sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,scratchBoost:Number(p.scratchBoost)||0,cardMul:Number(p.cardMul)||1,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1,matsuokaActive:!!p.matsuokaActive,deathnoteBoost:!!p.deathnoteBoost,anzaiApBonus:Number(p.anzaiApBonus)||0,akainuTurns:Number(p.akainuTurns)||0,bakidoActive:!!p.bakidoActive,deathFlagTurns:p.deathFlagTurns,pikachuPendingTarget:p.pikachuPendingTarget,gameFpsBonus:Number(p.gameFpsBonus)||0,kuyaHeldTurns:Number(p.kuyaHeldTurns)||0,equalMultiplier:Number(p.equalMultiplier)||1,hapiEneCostSurcharge:Number(p.hapiEneCostSurcharge)||0,zeninBuffTurns:Number(p.zeninBuffTurns)||0,skipTurns:Number(p.skipTurns)||0,duolingoTurns:Number(p.duolingoTurns)||0,duolingoCorrect:Number(p.duolingoCorrect)||0,duolingoEasy:!!p.duolingoEasy,friezaActive:!!p.friezaActive,friezaPenaltyPending:!!p.friezaPenaltyPending,reviveFxAt:Number(p.reviveFxAt)||0}))}}
+function pack(){return{turn:G.turn,turnSeq:G.turnSeq||0,ap:G.ap,apMax:G.apMax,log:G.log,over:G.over,snow:G.snow,inc:G.inc||[],limitedDelayedEvents:Array.isArray(G.limitedDelayedEvents)?G.limitedDelayedEvents:[],limitedSovietTurns:Number(G.limitedSovietTurns)||0,cc:CFG.cards,cs:Object.fromEntries(Object.keys(CARDS).map(k=>[k,CARDS[k].c])),ps:G.ps.map(p=>({name:p.name,charm:p.charm||null,limitedCards:Array.isArray(p.limitedCards)?p.limitedCards:[],hasLimitedCharm:!!p.hasLimitedCharm,hp:p.hp,mhp:p.mhp,sh:p.sh,atk:p.atk,x:p.x,y:p.y,f:p.f,hand:p.hand,alive:p.alive,draws:p.draws,turns:p.turns||0,ap:p.ap||0,apMax:(Number.isFinite(p.apMax)?p.apMax:S().ap),boost:p.boost||0,char:p.u.char,img:p.u.img||'',bossImgCustom:!!p.u.bossImgCustom,bossIconCustom:!!p.u.bossIconCustom,bossIcon:p.u.bossIcon||'',sleep:p.sleep||0,sansUntil:p.sansUntil||0,horseUntil:p.horseUntil||0,youtubeAtkBonus:p.youtubeAtkBonus||0,bannedCards:p.bannedCards||{},copyrightDisabled:Array.isArray(p.copyrightDisabled)?p.copyrightDisabled:[],cheatActive:!!p.cheatActive,cheatRisk:p.cheatRisk||0,scratchBoost:Number(p.scratchBoost)||0,cardMul:Number(p.cardMul)||1,cactusTurns:p.cactusTurns||0,bleeding:!!p.bleeding,bleedSourceIndex:Number.isInteger(p.bleedSourceIndex)?p.bleedSourceIndex:-1,matsuokaActive:!!p.matsuokaActive,deathnoteBoost:!!p.deathnoteBoost,anzaiApBonus:Number(p.anzaiApBonus)||0,akainuTurns:Number(p.akainuTurns)||0,bakidoActive:!!p.bakidoActive,deathFlagTurns:p.deathFlagTurns,pikachuPendingTarget:p.pikachuPendingTarget,gameFpsBonus:Number(p.gameFpsBonus)||0,kuyaHeldTurns:Number(p.kuyaHeldTurns)||0,equalMultiplier:Number(p.equalMultiplier)||1,hapiEneCostSurcharge:Number(p.hapiEneCostSurcharge)||0,zeninBuffTurns:Number(p.zeninBuffTurns)||0,skipTurns:Number(p.skipTurns)||0,duolingoTurns:Number(p.duolingoTurns)||0,duolingoCorrect:Number(p.duolingoCorrect)||0,duolingoEasy:!!p.duolingoEasy,friezaActive:!!p.friezaActive,friezaPenaltyPending:!!p.friezaPenaltyPending,reviveFxAt:Number(p.reviveFxAt)||0}))}}
 function pushSoon(){if(pushT||!room||!HOST)return;pushT=setTimeout(()=>{pushT=0;if(room&&HOST&&G)room.send('state',pack())},80)}
 function applyState(d){  const __tcFirstOnlineState=!G;  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc){if(CARDS[k]){if(CFG.cards&&CFG.cards[k])CARDS[k]={...CARDS[k],...d.cc[k]};}else CARDS[k]=d.cc[k];}for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
  if(!G){G={ps:[],hist:[],snow:{left:0,lvl:0},card:null,target:(SEAT+1)%d.ps.length,keys:{},log:'',timer:setInterval(tick,50)};}
  attachBattleLog(G);
- G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,scratchBoost:Number.isFinite(q.scratchBoost)?q.scratchBoost:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,bleeding:!!q.bleeding,bleedSourceIndex:Number.isInteger(q.bleedSourceIndex)?q.bleedSourceIndex:-1,matsuokaActive:!!q.matsuokaActive,deathnoteBoost:!!q.deathnoteBoost,anzaiApBonus:Number(q.anzaiApBonus)||0,akainuTurns:Number(q.akainuTurns)||0,bakidoActive:!!q.bakidoActive,deathFlagTurns:q.deathFlagTurns??null,pikachuPendingTarget:q.pikachuPendingTarget??null,gameFpsBonus:Number(q.gameFpsBonus)||0,kuyaHeldTurns:Number(q.kuyaHeldTurns)||0,equalMultiplier:Number(q.equalMultiplier)||1,hapiEneCostSurcharge:Number(q.hapiEneCostSurcharge)||0,zeninBuffTurns:Number(q.zeninBuffTurns)||0,skipTurns:Number(q.skipTurns)||0,duolingoTurns:Number(q.duolingoTurns)||0,duolingoCorrect:Number(q.duolingoCorrect)||0,duolingoEasy:!!q.duolingoEasy,friezaActive:!!q.friezaActive,friezaPenaltyPending:!!q.friezaPenaltyPending,charm:q.charm&&typeof q.charm==='object'?q.charm:null,limitedCards:Array.isArray(q.limitedCards)?q.limitedCards.filter(k=>tcAllLimitedCardKeys().includes(k)):[],hasLimitedCharm:!!q.hasLimitedCharm,human:true,u:{char:q.char||0,img:typeof q.img==='string'?q.img:'',limitedCards:Array.isArray(q.limitedCards)?q.limitedCards:[],hasLimitedCharm:!!q.hasLimitedCharm}}));
+ G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,scratchBoost:Number.isFinite(q.scratchBoost)?q.scratchBoost:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,bleeding:!!q.bleeding,bleedSourceIndex:Number.isInteger(q.bleedSourceIndex)?q.bleedSourceIndex:-1,matsuokaActive:!!q.matsuokaActive,deathnoteBoost:!!q.deathnoteBoost,anzaiApBonus:Number(q.anzaiApBonus)||0,akainuTurns:Number(q.akainuTurns)||0,bakidoActive:!!q.bakidoActive,deathFlagTurns:q.deathFlagTurns??null,pikachuPendingTarget:q.pikachuPendingTarget??null,gameFpsBonus:Number(q.gameFpsBonus)||0,kuyaHeldTurns:Number(q.kuyaHeldTurns)||0,equalMultiplier:Number(q.equalMultiplier)||1,hapiEneCostSurcharge:Number(q.hapiEneCostSurcharge)||0,zeninBuffTurns:Number(q.zeninBuffTurns)||0,skipTurns:Number(q.skipTurns)||0,duolingoTurns:Number(q.duolingoTurns)||0,duolingoCorrect:Number(q.duolingoCorrect)||0,duolingoEasy:!!q.duolingoEasy,friezaActive:!!q.friezaActive,friezaPenaltyPending:!!q.friezaPenaltyPending,charm:q.charm&&typeof q.charm==='object'?q.charm:null,limitedCards:Array.isArray(q.limitedCards)?q.limitedCards.filter(k=>tcAllLimitedCardKeys().includes(k)):[],hasLimitedCharm:!!q.hasLimitedCharm,human:true,u:{char:q.char||0,img:typeof q.img==='string'?q.img:'',bossImgCustom:!!q.bossImgCustom,bossIconCustom:!!q.bossIconCustom,bossIcon:typeof q.bossIcon==='string'?q.bossIcon:'',limitedCards:Array.isArray(q.limitedCards)?q.limitedCards:[],hasLimitedCharm:!!q.hasLimitedCharm}}));
  Object.assign(G,{turn:d.turn,turnSeq:Number.isFinite(d.turnSeq)?d.turnSeq:(G.turnSeq||0),ap:d.ap,apMax:d.apMax,log:d.log,over:d.over,snow:d.snow,inc:Array.isArray(d.inc)?d.inc:[],limitedDelayedEvents:Array.isArray(d.limitedDelayedEvents)?d.limitedDelayedEvents:[],limitedSovietTurns:Number(d.limitedSovietTurns)||0});
  if(__tcPreviousTurn!==d.turn&&d.turn===SEAT)showOwnTurnNotice();
  if(TC_CARD_ACTION_BUSY)releaseCardAction();
