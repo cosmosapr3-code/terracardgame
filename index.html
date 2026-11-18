@@ -939,6 +939,37 @@ Object.assign(CARDS,{
 
 // 限定カード：通常ドロー・?・TERRA CARD・シャッフルの通常抽選対象外。
 const TC_LIMITED_CARD_KEYS=['limited_impostor', 'limited_sheriff', 'limited_crew', 'limited_duolingo', 'limited_naoya', 'limited_kabikiller', 'limited_soviet', 'limited_sans', 'limited_yajuu_senpai'];
+function tcNormalizeCustomLimitedCards(raw){
+ const rows=Array.isArray(raw)?raw:[];const out=[];const seen=new Set();
+ for(const row of rows){
+  if(!row||typeof row!=='object')continue;
+  const key=String(row.key||'');
+  if(!/^limited_custom_[a-z0-9_]{4,48}$/.test(key)||seen.has(key))continue;
+  const effectKey=String(row.effectKey||'');
+  if(!/^[a-z0-9_]{1,64}$/.test(effectKey))continue;
+  const image=String(row.img||'');
+  const safeImage=/^data:image\/(?:webp|png|jpe?g);base64,[a-z0-9+/=]+$/i.test(image)&&image.length<=60000
+   ?image:(/^https:\/\//i.test(image)?image.slice(0,2000):'');
+  seen.add(key);
+  out.push({
+   key,
+   name:String(row.name||'限定カード').trim().slice(0,32),
+   cost:Math.max(0,Math.min(30,Math.floor(Number(row.cost)||0))),
+   icon:String(row.icon||'✨').trim().slice(0,32),
+   description:String(row.description||'').trim().slice(0,400),
+   effectKey,
+   img:safeImage,
+   color:String(row.color||'#e7ad36').slice(0,24)
+  });
+  if(out.length>=30)break;
+ }
+ return out;
+}
+function tcAllLimitedCardKeys(customCards){
+ const rows=Array.isArray(customCards)?customCards:(typeof CFG!=='undefined'&&Array.isArray(CFG.customLimitedCards)?CFG.customLimitedCards:[]);
+ return [...new Set([...TC_LIMITED_CARD_KEYS,...rows.map(x=>String(x&&x.key||'')).filter(k=>/^limited_custom_[a-z0-9_]{4,48}$/.test(k))])];
+}
+
 const TC_LIMITED_CARD_META={
  limited_impostor:{name:'インポスター[限定カード]',description:'自分の攻撃力+10。そして1〜5ターン後、相手に10ダメージ。'},
  limited_sheriff:{name:'シェリフ[限定カード]',description:'自分に「クルー」を3枚追加。相手に「インポスター」があれば相手に100ダメージ。なければ自分に100ダメージ。'},
@@ -1010,10 +1041,13 @@ function tcNormalizePlayerStoryLimits(raw){
 const DEFAULT_GACHA_PRICES={character:1,charm:1};
 const DEFAULT_CHARM_RATES={N:60,R:25,SR:10,SSR:4,UR:1};
 const DEFAULT_YOUTUBE_KEYS=Object.keys(CARDS).filter(k=>CARDS[k].youtubeAttr);
-let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);CFG.storyChapterTitles=tcNormalizeStoryChapterTitles(CFG.storyChapterTitles);CFG.playerStoryChapterLimits=tcNormalizePlayerStoryLimits(CFG.playerStoryChapterLimits);CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
-function tcNormalizeLimitedCardDropChapters(raw){
+let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);CFG.storyChapterTitles=tcNormalizeStoryChapterTitles(CFG.storyChapterTitles);CFG.playerStoryChapterLimits=tcNormalizePlayerStoryLimits(CFG.playerStoryChapterLimits);CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);CFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);
+function tcNormalizeLimitedCardDropChapters(raw,customCards){
  const src=raw&&typeof raw==='object'?raw:{};const out={};
- for(const key of TC_LIMITED_CARD_KEYS){if(key==='limited_yajuu_senpai'&&!Object.prototype.hasOwnProperty.call(src,key)){out[key]=10;continue;}const n=Math.floor(Number(src[key])||0);out[key]=n>=1&&n<=100?n:0;}
+ for(const key of tcAllLimitedCardKeys(customCards)){
+  if(key==='limited_yajuu_senpai'&&!Object.prototype.hasOwnProperty.call(src,key)){out[key]=10;continue;}
+  const n=Math.floor(Number(src[key])||0);out[key]=n>=1&&n<=100?n:0;
+ }
  return out;
 }
 function tcBossWeightCardAllowed(key){
@@ -1083,14 +1117,9 @@ function tcGetStoryBossConfig(stage){
  if(native){
   if(!custom)return native;
   const chosenIcon=String(custom.icon||'').trim();
-  return {...native,...custom,enabled:true,
-   iconCustom:!!chosenIcon&&chosenIcon!==String(native.icon||''),
-   cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
+  return {...native,...custom,enabled:true,iconCustom:!!chosenIcon&&chosenIcon!==String(native.icon||''),cardWeights:{...(native.cardWeights||{}),...(custom.cardWeights||{})}};
  }
- if(custom&&custom.enabled){
-  return {...custom,iconCustom:!!String(custom.icon||'').trim()};
- }
- return null;
+ return custom&&custom.enabled?{...custom,iconCustom:!!String(custom.icon||'').trim()}:null;
 }
 function tcOwnedLimitedCardKeys(user){
  // 所持情報は旧形式のlimitedCards配列と、現在のcharms形式の両方から復元する。
@@ -1099,14 +1128,14 @@ function tcOwnedLimitedCardKeys(user){
  for(const item of charms){
   if(!item||typeof item!=='object')continue;
   const key=String(item.cardKey||item.card_key||item.key||'');
-  if((item.type==='limitedCard'||item.type==='limited_card'||item.kind==='limitedCard')&&TC_LIMITED_CARD_KEYS.includes(key))found.push(key);
+  if((item.type==='limitedCard'||item.type==='limited_card'||item.kind==='limitedCard')&&tcAllLimitedCardKeys().includes(key))found.push(key);
  }
  const arrays=[user&&user.limitedCards,user&&user.limited_cards,user&&user.ownedLimitedCards];
  for(const arr of arrays){
   if(!Array.isArray(arr))continue;
   for(const item of arr){
    const key=typeof item==='string'?item:String(item&& (item.cardKey||item.card_key||item.key)||'');
-   if(TC_LIMITED_CARD_KEYS.includes(key))found.push(key);
+   if(tcAllLimitedCardKeys().includes(key))found.push(key);
   }
  }
  return [...new Set(found)];
@@ -1115,7 +1144,7 @@ function tcHasLimitedCharm(user){
  return !!(Array.isArray(user&&user.charms)&&user.charms.some(x=>x&&x.type==='limitedCharm'&&x.rarity==='伝説'));
 }
 function tcGiveLimitedCard(user,key){
- if(!user||!TC_LIMITED_CARD_KEYS.includes(key))return false;
+ if(!user||!tcAllLimitedCardKeys().includes(key))return false;
  user.charms=Array.isArray(user.charms)?user.charms:[];
  if(user.charms.some(x=>x&&x.type==='limitedCard'&&x.cardKey===key))return false;
  user.charms.push({id:'tc-limited-card-'+key,type:'limitedCard',rarity:'限定',cardKey:key,createdAt:new Date().toISOString()});
@@ -1131,13 +1160,13 @@ function tcGiveLimitedCharm(user){
 }
 function tcRollChapterLimitedDrop(user,chapter){
  const drops=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);
- const candidates=TC_LIMITED_CARD_KEYS.filter(key=>drops[key]===chapter&&!tcOwnedLimitedCardKeys(user).includes(key));
+ const candidates=tcAllLimitedCardKeys().filter(key=>drops[key]===chapter&&!tcOwnedLimitedCardKeys(user).includes(key));
  const rate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
  if(!candidates.length||Math.random()*100>=rate)return null;
  const key=candidates[Math.floor(Math.random()*candidates.length)];
  return tcGiveLimitedCard(user,key)?key:null;
 }
-CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
+CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters,CFG.customLimitedCards);CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0));
 let POOL=[];
 function tcStableJson(value){if(Array.isArray(value))return '['+value.map(tcStableJson).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+tcStableJson(value[k])).join(',')+'}';return JSON.stringify(value);}
 const saveCfg=async()=>{
@@ -1156,6 +1185,24 @@ function applyCfg(){
  for(const k of Object.keys(CARDS))delete CARDS[k];
  for(const [k,v] of Object.entries(BASE_CARDS))CARDS[k]={...v};
  for(const k in CFG.cards)CARDS[k]={...CFG.cards[k]};
+ CFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);
+ for(const card of CFG.customLimitedCards){
+  const effect=CARDS[card.effectKey];
+  if(!effect||effect.passive||card.effectKey==='draw'||card.effectKey==='end')continue;
+  CARDS[card.key]={
+   ...effect,
+   n:card.name,
+   c:card.cost,
+   i:card.icon,
+   d:card.description||effect.d||'選択した既存カードと同じ効果',
+   col:card.color||'#e7ad36',
+   img:card.img||'',
+   fixed:1,
+   limited:true,
+   customLimited:true,
+   effectKey:card.effectKey
+  };
+ }
  const __ytSet=new Set(Array.isArray(CFG.youtubeCards)?CFG.youtubeCards:DEFAULT_YOUTUBE_KEYS);const __soundSet=new Set(Array.isArray(CFG.soundCards)?CFG.soundCards:[]);for(const [k,c] of Object.entries(CARDS)){c.youtubeAttr=__ytSet.has(k);c.soundAttr=__soundSet.has(k)}
  for(const k in CFG.over)if(CARDS[k]&&CFG.over[k].c!=null)CARDS[k].c=CFG.over[k].c;
  POOL=[];Object.keys(CARDS).filter(k=>!CARDS[k].fixed).forEach(k=>{const o=CFG.over[k]||{};let w=o.w!=null?o.w:(BASE_ENABLED.includes(k)||CFG.cards[k]?1:0);if(['fire'].includes(k)&&o.w==null)w=2;if(['sovres','ally','umbrella','head'].includes(k)&&o.w==null)w=0;if(k==='umbrella'||k==='head'||k==='gasmask'){if(o.w==null)w=1}for(let i=0;i<w;i++)POOL.push(k)});
@@ -1167,9 +1214,47 @@ const save=()=>localStorage.cgc_db=JSON.stringify(db);
 const TERRACARD_API='https://terracard-api.cosmos-apr-3.workers.dev';
 let TERRACARD_TOKEN=localStorage.cgc_token||'';
 async function apiCall(path,body=null){const r=await fetch(TERRACARD_API+path,{method:body===null?'GET':'POST',cache:String(path).split('?')[0]==='/game/config'?'no-store':'default',headers:{'Content-Type':'application/json',...(TERRACARD_TOKEN?{Authorization:'Bearer '+TERRACARD_TOKEN}:{})},...(body===null?{}:{body:JSON.stringify(body)})});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'サーバーに接続できません');return d;}
-async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config?fresh='+Date.now());if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1||!c.storyChapterTitles||typeof c.storyChapterTitles!=='object';if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),storyChapterTitles:tcNormalizeStoryChapterTitles(c.storyChapterTitles),playerStoryChapterLimits:tcNormalizePlayerStoryLimits(c.playerStoryChapterLimits),storyBosses:tcNormalizeStoryBosses(c.storyBosses),limitedCardDropChapters:tcNormalizeLimitedCardDropChapters(c.limitedCardDropChapters),limitedCardDropRate:Math.max(0,Math.min(100,Number(c.limitedCardDropRate??5)||0)),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.error('運営ゲーム設定の取得に失敗しました。/game/config のGETを確認してください',e)}return false;}
+async function loadGlobalGameConfig(){
+ try{
+  const d=await apiCall('/game/config?fresh='+Date.now());
+  if(d&&d.config&&typeof d.config==='object'){
+   const c=d.config;
+   let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];
+   let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));
+   const migrated=soundCardsVersion<1||!c.storyChapterTitles||typeof c.storyChapterTitles!=='object';
+   if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}
+   const customLimitedCards=tcNormalizeCustomLimitedCards(c.customLimitedCards);
+   CFG={
+    s:Object.assign({},DEF_S,c.s||{}),
+    cards:c.cards&&typeof c.cards==='object'?c.cards:{},
+    over:c.over&&typeof c.over==='object'?c.over:{},
+    customLimitedCards,
+    copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],
+    youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),
+    soundCards,soundCardsVersion,
+    gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],
+    gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),
+    charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),
+    storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),
+    storyChapterTitles:tcNormalizeStoryChapterTitles(c.storyChapterTitles),
+    playerStoryChapterLimits:tcNormalizePlayerStoryLimits(c.playerStoryChapterLimits),
+    storyBosses:tcNormalizeStoryBosses(c.storyBosses),
+    limitedCardDropChapters:tcNormalizeLimitedCardDropChapters(c.limitedCardDropChapters,customLimitedCards),
+    limitedCardDropRate:Math.max(0,Math.min(100,Number(c.limitedCardDropRate??5)||0)),
+    online:c.online&&typeof c.online==='object'?c.online:undefined,
+    updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null
+   };
+   localStorage.cgc_cfg=JSON.stringify(CFG);
+   applyCfg();
+   if(migrated&&isAdmin&&TERRACARD_TOKEN)await apiCall('/admin/game/config',{config:CFG});
+   return true;
+  }
+  if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}
+ }catch(e){console.error('運営ゲーム設定の取得に失敗しました。/game/config のGETを確認してください',e)}
+ return false;
+}
 async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0,charms:Array.isArray(u.charms)?u.charms:[],equippedCharmId:u.equippedCharmId||null,achievements:Array.isArray(u.achievements)?u.achievements:[],equippedAchievement:u.equippedAchievement||null,medals:Array.isArray(u.medals)?u.medals:[],equippedMedals:Array.isArray(u.equippedMedals)?u.equippedMedals:[],gachaPulls:Number(u.gachaPulls)||0});u.profileInitialized=true;return d;}
-async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Math.max(0,Math.floor(Number(d.player.coins)||0)+Math.floor(Number(u.cgDelta)||0));u.cgDelta=0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number.isInteger(Number(d.player.char))?Number(d.player.char):0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';const serverStory=Math.max(0,Number(d.player.story)||0);let pendingStory=0;try{pendingStory=Math.max(0,Number(localStorage.getItem('tc_story_pending_'+me))||0)}catch(e){}u.story=Math.max(serverStory,pendingStory);const __localLimitedBeforeSync=tcOwnedLimitedCardKeys(u);const __serverCharms=Array.isArray(d.player.charms)?d.player.charms:[];u.charms=__serverCharms.slice();for(const __key of __localLimitedBeforeSync){if(!u.charms.some(x=>x&&x.type==='limitedCard'&&x.cardKey===__key)){u.charms.push({id:'tc-limited-card-'+__key,type:'limitedCard',rarity:'限定',cardKey:__key,createdAt:new Date().toISOString()});}}const __remoteLimited=Array.isArray(d.player.limitedCards)?d.player.limitedCards:[];u.limitedCards=[...new Set([...__remoteLimited,...__localLimitedBeforeSync,...tcOwnedLimitedCardKeys(u)])].filter(k=>TC_LIMITED_CARD_KEYS.includes(k));u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.achievements=Array.isArray(d.player.achievements)?d.player.achievements:(Array.isArray(u.achievements)?u.achievements:[]);u.equippedAchievement=d.player.equipped_achievement||d.player.equippedAchievement||u.equippedAchievement||null;u.medals=Array.isArray(d.player.medals)?d.player.medals:(Array.isArray(u.medals)?u.medals:[]);u.equippedMedals=Array.isArray(d.player.equipped_medals)?d.player.equipped_medals:(Array.isArray(d.player.equippedMedals)?d.player.equippedMedals:(Array.isArray(u.equippedMedals)?u.equippedMedals:[]));u.gachaPulls=Math.max(Number(u.gachaPulls)||0,Number(d.player.gacha_pulls||d.player.gachaPulls)||0);u.profileInitialized=true;if(pendingStory>serverStory){save();try{const synced=await syncCloudProfile();if((Number(synced&&synced.player&&synced.player.story)||0)>=pendingStory)localStorage.removeItem('tc_story_pending_'+me)}catch(e){console.warn('未同期のストーリー進行を再送します',e)}}}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
+async function refreshCloudInbox(){const d=await apiCall('/me');const claimed=new Set(d.claimed||[]);const u=U();u.mail=(d.messages||[]).map(m=>({serverId:m.id,from:m.sender||'運営',text:m.message||'',coins:Number(m.coins)||0,xp:Number(m.xp)||0,done:claimed.has(m.id)}));u.coins=Math.max(0,Math.floor(Number(d.player.coins)||0)+Math.floor(Number(u.cgDelta)||0));u.cgDelta=0;u.xp=Number(d.player.xp)||0;u.level=Number(d.player.level)||1;u.best=Number(d.player.best)||u.best||0;u.cbest=Number(d.player.cbest)||u.cbest||0;u.streak=Number(d.player.streak)||u.streak||0;u.cstreak=Number(d.player.cstreak)||u.cstreak||0;if(d.player.profile_initialized){u.display=d.player.display_name||u.display;u.char=Number.isInteger(Number(d.player.char))?Number(d.player.char):0;u.chars=Array.isArray(d.player.chars)&&d.player.chars.length?d.player.chars:[0];u.img=d.player.img||'';const serverStory=Math.max(0,Number(d.player.story)||0);let pendingStory=0;try{pendingStory=Math.max(0,Number(localStorage.getItem('tc_story_pending_'+me))||0)}catch(e){}u.story=Math.max(serverStory,pendingStory);const __localLimitedBeforeSync=tcOwnedLimitedCardKeys(u);const __serverCharms=Array.isArray(d.player.charms)?d.player.charms:[];u.charms=__serverCharms.slice();for(const __key of __localLimitedBeforeSync){if(!u.charms.some(x=>x&&x.type==='limitedCard'&&x.cardKey===__key)){u.charms.push({id:'tc-limited-card-'+__key,type:'limitedCard',rarity:'限定',cardKey:__key,createdAt:new Date().toISOString()});}}const __remoteLimited=Array.isArray(d.player.limitedCards)?d.player.limitedCards:[];u.limitedCards=[...new Set([...__remoteLimited,...__localLimitedBeforeSync,...tcOwnedLimitedCardKeys(u)])].filter(k=>tcAllLimitedCardKeys().includes(k));u.equippedCharmId=d.player.equipped_charm_id||d.player.equippedCharmId||null;u.achievements=Array.isArray(d.player.achievements)?d.player.achievements:(Array.isArray(u.achievements)?u.achievements:[]);u.equippedAchievement=d.player.equipped_achievement||d.player.equippedAchievement||u.equippedAchievement||null;u.medals=Array.isArray(d.player.medals)?d.player.medals:(Array.isArray(u.medals)?u.medals:[]);u.equippedMedals=Array.isArray(d.player.equipped_medals)?d.player.equipped_medals:(Array.isArray(d.player.equippedMedals)?d.player.equippedMedals:(Array.isArray(u.equippedMedals)?u.equippedMedals:[]));u.gachaPulls=Math.max(Number(u.gachaPulls)||0,Number(d.player.gacha_pulls||d.player.gachaPulls)||0);u.profileInitialized=true;if(pendingStory>serverStory){save();try{const synced=await syncCloudProfile();if((Number(synced&&synced.player&&synced.player.story)||0)>=pendingStory)localStorage.removeItem('tc_story_pending_'+me)}catch(e){console.warn('未同期のストーリー進行を再送します',e)}}}else{u.charms=Array.isArray(u.charms)?u.charms:[];u.equippedCharmId=u.equippedCharmId||null;}save();return d;}
 setInterval(()=>{if(me&&!isAdmin&&screen==='home')refreshCloudChat()},5000);
 const sha=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cgc'+s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 let me=null,isAdmin=false,screen='auth',msg='';
@@ -1371,7 +1456,7 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'&&HOME_CHAT_OPEN)toggleHomeChat(false);
 });
 // ---------- profile helpers ----------
-const avatar=(u,cls='av')=>u.kabi?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%;font-weight:900">🧴</span>`:u.soviet?`<span class="${cls} tc-soviet-avatar">☭</span>`:u.sans?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%;font-weight:900">💀</span>`:u.img?`<img class="${cls}" src="${u.img}">`:`<span class="${cls}">${CHARS[u.char||0][0]}</span>`;
+const avatar=(u,cls='av')=>u.iconCustom&&u.icon?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900">${esc(u.icon)}</span>`:u.kabi?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%;font-weight:900">🧴</span>`:u.soviet?`<span class="${cls} tc-soviet-avatar">☭</span>`:u.sans?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%;font-weight:900">💀</span>`:u.icon?`<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:900">${esc(u.icon)}</span>`:u.img?`<img class="${cls}" src="${u.img}">`:`<span class="${cls}">${CHARS[u.char||0][0]}</span>`;
 function gain(u,win,cpu,mul){
  let xp;
  if(cpu){if(win){u.cstreak=(u.cstreak||0)+1;u.cbest=Math.max(u.cbest||0,u.cstreak);xp=30+10*Math.min(u.cstreak,20)}else{u.cstreak=0;xp=10}}
@@ -1573,52 +1658,46 @@ function confirmBattleAbort(){
 async function startStory(n){
  if(window.__tcStoryStarting)return;
  window.__tcStoryStarting=true;
- try{
-  // All clients refresh the latest shared config immediately before creating CPU players.
-  if(TERRACARD_TOKEN){
-   const ready=await loadGlobalGameConfig();
-   if(!ready){go('story','運営のボス設定をサーバーから取得できませんでした。WorkerにGET /game/configを追加してください。');return;}
-  }
-  if(ONL||room){try{leaveNet()}catch(e){ONL=false;room=null;HOST=false;roster=null;SEAT=0;}}
-  ONL=false;
-  const stage=Math.max(1,Math.min(STORY_TOTAL,Math.floor(Number(n)||1)));
-  const access=storyChapterAccess(U());
-  const cleared=storyProgress(U());
-  const requested=storyPosition(stage);
-  if(!isAdmin&&(requested.chapter>access.max||(!access.override&&stage>cleared+1))){go('story','運営が設定した解放範囲、またはクリア進行度を確認してください');return;}
-  const pos=storyPosition(stage);
-  const lv=pos.section<=6?1:pos.section<=15?2:pos.section<=18?3:4;
-  const configuredBoss=tcGetStoryBossConfig(stage);
-  CPULV=configuredBoss?configuredBoss.cpuLevel:lv;
-  STORY=stage;
-  const isSovietBoss=(pos.chapter===1&&pos.section===20);
-  const isSansStage=(pos.chapter===2&&pos.section===10);
-  const isSansBoss=(pos.chapter===2&&pos.section===20);
-  const isKabiBoss=(pos.chapter===3&&pos.section===20);
-  const isChapter4Boss=(pos.chapter===4&&pos.section===20);
-  const isTadokoroBoss=(pos.chapter===10&&pos.section===20);
-  const defaultBoss=(isSovietBoss||isSansStage||isSansBoss||isKabiBoss||isChapter4Boss||
-    (pos.chapter===5&&(pos.section===10||pos.section===20))||isTadokoroBoss||
-    (pos.chapter===6&&pos.section===20)||((pos.chapter===7||pos.chapter===8)&&pos.section===20)||
-    (pos.chapter===9&&pos.section===20));
-  const cpus=configuredBoss?configuredBoss.cpuCount:(defaultBoss?1:1+Math.floor((pos.section-1)/7));
-  tcStopMusic();
-  if(isSovietBoss)tcStartSovietChapterMusic();
-  else if(isSansStage)tcStartSansChapterMusic();
-  else if(isSansBoss)tcStartSansChapter20Music();
-  else if(isKabiBoss)tcStartKabiChapterMusic();
-  else if(isChapter4Boss)tcStartChapter4BossMusic();
-  else if(isTadokoroBoss)tcStartTadokoroMusic();
-  console.info('[TERRACARD] 章・節ボス設定をD1から読み込みました',{stage,boss:configuredBoss||null,cpuCount:cpus,cpuLevel:CPULV});
-  startBattle(cpus,null,null,null,configuredBoss);
- }catch(e){
-  console.error('[TERRACARD] ストーリー開始時のボス設定適用エラー',e);
-  go('story','ストーリー開始に失敗しました：'+String(e&&e.message||e));
- }finally{
-  window.__tcStoryStarting=false;
- }
+ let __tcConfigReady=false;
+ try{__tcConfigReady=await loadGlobalGameConfig();}
+ catch(e){console.warn('ストーリー開始前の運営設定再取得に失敗しました',e)}
+ finally{window.__tcStoryStarting=false;}
+ if(!__tcConfigReady){go('story','運営設定をサーバーから取得できませんでした。試合を開始せず停止しました。Workerの /game/config を確認してください。');return;}
+ if(ONL||room){try{leaveNet()}catch(e){ONL=false;room=null;HOST=false;roster=null;SEAT=0;}}
+ ONL=false;
+ const stage=Math.max(1,Math.min(STORY_TOTAL,Math.floor(Number(n)||1)));
+ const access=storyChapterAccess(U());
+ const cleared=storyProgress(U());
+ const requested=storyPosition(stage);
+ if(!isAdmin&&(requested.chapter>access.max||(!access.override&&stage>cleared+1))){go('story','運営が設定した解放範囲、またはクリア進行度を確認してください');return;}
+ const pos=storyPosition(stage);
+ const lv=pos.section<=6?1:pos.section<=15?2:pos.section<=18?3:4;
+ const configuredBoss=tcGetStoryBossConfig(stage);
+ CPULV=configuredBoss?configuredBoss.cpuLevel:lv;
+ STORY=stage;
+ const isSovietBoss=(pos.chapter===1&&pos.section===20);
+ const isSansStage=(pos.chapter===2&&pos.section===10);
+ const isSansBoss=(pos.chapter===2&&pos.section===20);
+ const isKabiBoss=(pos.chapter===3&&pos.section===20);
+ const isChapter4Boss=(pos.chapter===4&&pos.section===20);
+ const isNaoyaBoss=(pos.chapter===5&&pos.section===10);
+ const isNaoyaCursedBoss=(pos.chapter===5&&pos.section===20);
+ const isDuolingoBoss=(pos.chapter===6&&pos.section===20);
+ const isCrewBoss=(pos.chapter===7&&pos.section===20)||(pos.chapter===8&&pos.section===20);
+ const isImpostorBoss=(pos.chapter===9&&pos.section===20);
+ const isTadokoroBoss=(pos.chapter===10&&pos.section===20);
+ const defaultBoss=(isSovietBoss||isSansStage||isSansBoss||isKabiBoss||isChapter4Boss||isNaoyaBoss||isNaoyaCursedBoss||isDuolingoBoss||isCrewBoss||isImpostorBoss||isTadokoroBoss);
+ const cpus=configuredBoss?configuredBoss.cpuCount:(defaultBoss?1:1+Math.floor((pos.section-1)/7));
+ tcStopMusic();
+ if(isSovietBoss)tcStartSovietChapterMusic();
+ else if(isSansStage)tcStartSansChapterMusic();
+ else if(isSansBoss)tcStartSansChapter20Music();
+ else if(isKabiBoss)tcStartKabiChapterMusic();
+ else if(isChapter4Boss)tcStartChapter4BossMusic();
+ else if(isTadokoroBoss)tcStartTadokoroMusic();
+ console.info('[TERRACARD] 適用中の章・節別ボス設定', {stage, boss:configuredBoss||null, cpuCount:cpus, cpuLevel:CPULV});
+ startBattle(cpus,null,null,null,configuredBoss);
 }
-
 function continueStory(){const cleared=storyProgress(U());if(cleared>=STORY_TOTAL){alert('全100章をクリア済みです！');return}startStory(cleared+1)}
 function startChapter(ch){selectStoryChapter(ch)}
 function startPractice(){STORY=0;CPULV=HLV;startBattle(HCPUS)}
@@ -2372,7 +2451,7 @@ function charmScreenHtml(u){
  const rarityButtons=charmFilterButton('すべて','rarity','ALL',CHARM_FILTER_RARITY==='ALL','#8cc8ff')+rarityOrder.map(k=>{const r=CHARM_RARITIES[k];return charmFilterButton(k+' '+r.label.split(' ').slice(1).join(' '),'rarity',k,CHARM_FILTER_RARITY===k,r.color)}).join('');
  const typeButtons=charmFilterButton('すべて','type','ALL',CHARM_FILTER_TYPE==='ALL','#8cc8ff')+CHARM_TYPES.map(t=>charmFilterButton(t.icon+' '+t.name,'type',t.id,CHARM_FILTER_TYPE===t.id,'#5ab0f0')).join('');
  const cards=list.map(c=>{const r=CHARM_RARITIES[c.rarity]||CHARM_RARITIES.N,t=charmType(c.type),on=c.id===u.equippedCharmId;return `<div class="panel row" style="border-color:${r.color};border-width:2px;align-items:center"><div style="font-size:30px;min-width:38px;text-align:center">${t.icon}</div><div style="flex:1;min-width:150px"><b style="color:${r.color}">${esc(r.label)}</b>　<strong>${esc(t.name)}</strong><br><small>${esc(charmText(c))}</small></div>${on?'<b>装備中</b>':`<button class="sm" onclick="equipCharm('${esc(c.id)}')">装備</button>`}</div>`}).join('');
- const limitedCardsHtml=`<section class="panel" style="border:2px solid #d8ad37"><h3>🎴 限定カードコレクション（${limitedOwned.length}/${TC_LIMITED_CARD_KEYS.length}）</h3><p><small>章クリア時に低確率で獲得。オンライン対戦で使うには伝説のお守り「限定お守り」が必要です。</small></p>${limitedOwned.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px">${limitedOwned.map(key=>`<div style="text-align:center;background:#172b45;border:1px solid #d8ad37;border-radius:8px;padding:6px"><img src="${CARDS[key].img}" alt="${esc(CARDS[key].n)}" style="width:100%;max-height:180px;object-fit:contain"><b style="font-size:11px">${esc(CARDS[key].n)}</b></div>`).join('')}</div>`:'<p>まだ限定カードを持っていません。</p>'}</section>`;
+ const limitedCardsHtml=`<section class="panel" style="border:2px solid #d8ad37"><h3>🎴 限定カードコレクション（${limitedOwned.length}/${tcAllLimitedCardKeys().length}）</h3><p><small>章クリア時に低確率で獲得。オンライン対戦で使うには伝説のお守り「限定お守り」が必要です。</small></p>${limitedOwned.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:8px">${limitedOwned.map(key=>`<div style="text-align:center;background:#172b45;border:1px solid #d8ad37;border-radius:8px;padding:6px"><img src="${CARDS[key].img}" alt="${esc(CARDS[key].n)}" style="width:100%;max-height:180px;object-fit:contain"><b style="font-size:11px">${esc(CARDS[key].n)}</b></div>`).join('')}</div>`:'<p>まだ限定カードを持っていません。</p>'}</section>`;
  return `<div class="panel tc-charm-screen"><h2>🧿 お守りボックス</h2><p>レアリティと種類の両方で絞り込めます。装備できるお守りは1つだけです。</p><div class="panel tc-charm-equipped"><b>現在の装備</b><p>${equipped?esc(charmText(equipped)):'未装備'}</p>${equipped?'<button class="sm" onclick="equipCharm(null)">装備を外す</button>':''}</div><section class="tc-charm-filter"><h3>レアリティで絞り込む</h3><div class="row">${rarityButtons}</div></section><section class="tc-charm-filter"><h3>種類で絞り込む</h3><div class="row">${typeButtons}</div></section><div class="tc-charm-count">表示：${list.length} / 所持：${all.length}</div>${list.length?cards:'<div class="panel">この条件に合うお守りはありません。別のボタンを選んでね。</div>'}${limitedCardsHtml}<button type="button" onclick="go('gacha')">🧿 お守りガチャへ</button></div>`;
 }
 function adminCharmGrantHtml(){
@@ -2532,7 +2611,7 @@ async function tcLoadGithubMusicOptions(force=false){
 function tcStoryBossFieldsHtml(stage){
  const native=tcNativeStoryBossDefaults(stage);
  const saved=(CFG.storyBosses||{})[String(stage)]||{};
- const b={...(native||{}),...saved,enabled:native?true:(saved.enabled!==false),cardWeights:{...(native?.cardWeights||{}),...(saved.cardWeights||{})}};
+ const b={...(native||{}),...saved,enabled:native?true:!!saved.enabled,cardWeights:{...(native?.cardWeights||{}),...(saved.cardWeights||{})}};
  const pos=storyPosition(stage);
  const cardKeys=Object.keys(CARDS).filter(k=>(!CARDS[k].fixed||CARDS[k].limited)&&tcBossWeightCardAllowed(k)).sort((a,b)=>(CARDS[a].n||a).localeCompare(CARDS[b].n||b,'ja'));
  const savedUrl=String(b.musicUrl||'');
@@ -2612,23 +2691,13 @@ function tcSaveStoryBossSubmit(target){
  const form=target&&target.tagName==='FORM'?target:(target&&target.closest?target.closest('form'):null);
  const button=target&&target.tagName==='BUTTON'?target:(form?form.querySelector('[data-save-story-boss]'):null);
  const status=form?form.querySelector('[data-boss-save-status]'):null;
- if(!form){
-  const message='ボス設定フォームを取得できません。運営画面を開き直してください。';
-  goAdminKeepScroll(message);
-  try{alert(message);}catch(e){}
-  return false;
- }
+ if(!form){const message='ボス設定フォームを取得できません。画面を開き直してください。';goAdminKeepScroll(message);return false;}
  if(form.dataset.saving==='1')return false;
  form.dataset.saving='1';
- if(button){
-  button.disabled=true;
-  button.dataset.originalText=button.textContent;
-  button.textContent='サーバーに保存中…';
- }
- if(status)status.textContent='保存処理を開始しました。Cloudflareに送信しています…';
- goAdminKeepScroll('ボス設定をサーバーに保存しています…');
+ if(button){button.disabled=true;button.dataset.originalText=button.textContent;button.textContent='サーバーに保存中…';}
+ if(status)status.textContent='BGM・アイコンを含む設定をCloudflareに送信しています…';
  Promise.resolve().then(()=>tcSaveStoryBoss(form)).then(()=>{
-  if(status)status.textContent='保存成功：選択したBGMを含む設定をサーバーから読み返して確認しました。';
+  if(status)status.textContent='保存成功：設定をサーバーから読み返して確認しました。';
  }).catch(e=>{
   console.error('[TERRACARD] ボス設定保存エラー',e);
   const message='保存失敗：'+String(e&&e.message||e);
@@ -2637,105 +2706,54 @@ function tcSaveStoryBossSubmit(target){
   try{alert(message);}catch(ignore){}
  }).finally(()=>{
   delete form.dataset.saving;
-  if(button){
-   button.disabled=false;
-   button.textContent=button.dataset.originalText||'この章・節のボス設定を全員に保存';
-  }
+  if(button){button.disabled=false;button.textContent=button.dataset.originalText||'この章・節のボス設定を全員に保存';}
  });
  return false;
 }
-
 async function tcSaveStoryBoss(form){
- if(!form)throw new Error('保存フォームがありません');
- if(!isAdmin)throw new Error('運営ログイン状態ではありません。運営アカウントで再ログインしてください');
- if(!TERRACARD_TOKEN)throw new Error('運営APIトークンがありません。いったんログアウトして運営ログインしてください');
+ if(!isAdmin)throw new Error('運営ログイン状態ではありません');
+ if(!TERRACARD_TOKEN)throw new Error('運営APIトークンがありません。運営ログインをやり直してください');
  const stage=clampInt(form.elements.namedItem('stage')?.value||1,1,2000);
  const native=tcNativeStoryBossDefaults(stage);
- const enabledEl=form.elements.namedItem('enabled');
  const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32);
  const icon=String(form.elements.namedItem('icon')?.value||'').trim().slice(0,32);
+ const enabledEl=form.elements.namedItem('enabled');
  if(!native&&!enabledEl?.checked)throw new Error('「この節をカスタムボス戦にする」にチェックを入れてください');
  if(!native&&!name)throw new Error('新規ボスの名前を入力してください');
-
  const cardWeights={};
- form.querySelectorAll('[data-boss-card-weight]').forEach(el=>{
-  cardWeights[String(el.dataset.bossCardWeight)]=clampInt(el.value,0,9);
- });
-
- let musicUrl=String(form.elements.namedItem('musicUrl')?.value||'').trim();
+ form.querySelectorAll('[data-boss-card-weight]').forEach(el=>{cardWeights[String(el.dataset.bossCardWeight)]=clampInt(el.value,0,9)});
+ const musicSelect=form.elements.namedItem('musicUrl');
+ let musicUrl=String(musicSelect?.value||'').trim();
  const img=String(form.elements.namedItem('img')?.value||'').trim();
- if(img){
-  let imageUrl;
-  try{imageUrl=new URL(img);}catch(e){throw new Error('ボス画像URLの形式が正しくありません');}
+ if(img&&!/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)){
+  let imageUrl;try{imageUrl=new URL(img);}catch(e){throw new Error('ボス画像URLの形式が正しくありません');}
   if(imageUrl.protocol!=='https:')throw new Error('ボス画像はhttps://から始まるURLを指定してください');
  }
  if(musicUrl){
-  let audioUrl;
-  try{audioUrl=new URL(musicUrl);}catch(e){throw new Error('選択したBGMのURLを読み取れません。GitHubの曲一覧を再読込して選び直してください');}
+  let audioUrl;try{audioUrl=new URL(musicUrl);}catch(e){throw new Error('選択したBGMのURLを読み取れません。GitHubの曲一覧を再読込して選び直してください');}
   if(audioUrl.protocol!=='https:')throw new Error('BGMはhttps://のURLを指定してください');
   musicUrl=audioUrl.href;
  }
- const musicSelect=form.elements.namedItem('musicUrl');
- const chosenMusicLabel=musicSelect&&musicSelect.selectedOptions&&musicSelect.selectedOptions[0]
-  ?String(musicSelect.selectedOptions[0].textContent||'').trim():'';
+ const chosenMusicLabel=musicSelect&&musicSelect.selectedOptions&&musicSelect.selectedOptions[0]?String(musicSelect.selectedOptions[0].textContent||'').trim():'';
  const musicName=String(form.elements.namedItem('musicName')?.value||chosenMusicLabel||'').trim().slice(0,120);
-
- const boss={
+ CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
+ CFG.storyBosses[String(stage)]={
   enabled:native?true:!!enabledEl?.checked,
-  name,
-  icon,
-  img,
+  name,icon,img,
   cpuCount:clampInt(form.elements.namedItem('cpuCount')?.value||1,1,3),
   cpuLevel:clampInt(form.elements.namedItem('cpuLevel')?.value||2,1,4),
   hp:clampInt(form.elements.namedItem('hp')?.value||0,0,999999),
   atk:clampInt(form.elements.namedItem('atk')?.value||0,0,9999),
   sh:clampInt(form.elements.namedItem('sh')?.value||0,0,9999),
-  cardWeights,
-  musicUrl,
-  musicName:musicUrl?musicName:''
+  cardWeights,musicUrl,musicName:musicUrl?musicName:''
  };
-
- const next={
-  ...CFG,
-  storyBosses:{
-   ...tcNormalizeStoryBosses(CFG.storyBosses),
-   [String(stage)]:boss
-  }
- };
-
- // 音源URLを含む設定も、まずWorkerに送信してD1に保存する。
- const savedResponse=await apiCall('/admin/game/config',{config:next});
- if(savedResponse&&savedResponse.ok===false){
-  throw new Error(savedResponse.error||'Workerが保存を拒否しました');
- }
-
- // キャッシュを避けてD1から最新値を取り直す。
- const verify=await apiCall('/game/config?fresh='+Date.now());
- if(!verify||!verify.config||typeof verify.config!=='object'){
-  throw new Error('保存後の確認データを取得できません（/game/config）');
- }
- const saved=verify.config.storyBosses&&verify.config.storyBosses[String(stage)];
- if(!saved)throw new Error('サーバーにこの章・節のボス設定が見つかりません');
-
- const numericFields=['cpuCount','cpuLevel','hp','atk','sh'];
- const compareFields=['enabled','name','icon','img','musicUrl','musicName',...numericFields];
- for(const key of compareFields){
-  const expected=numericFields.includes(key)?Number(boss[key]):(key==='enabled'?!!boss[key]:String(boss[key]??''));
-  const actual=numericFields.includes(key)?Number(saved[key]):(key==='enabled'?!!saved[key]:String(saved[key]??''));
-  if(expected!==actual){
-   throw new Error('保存後の確認で「'+key+'」が一致しません。BGM URLが保存されているか確認してください');
-  }
- }
- if(tcStableJson(saved.cardWeights||{})!==tcStableJson(boss.cardWeights||{})){
-  throw new Error('カード出現率の保存内容が一致しません');
- }
-
- CFG={...next,storyBosses:tcNormalizeStoryBosses(verify.config.storyBosses)};
- localStorage.cgc_cfg=JSON.stringify(CFG);
- applyCfg();
+ const ok=await saveCfg();
+ if(!ok)throw new Error('Workerへの保存、またはD1からの読み返しに失敗しました');
+ const saved=CFG.storyBosses[String(stage)];
+ if(!saved)throw new Error('サーバーから章・節の設定を読み返せませんでした');
+ for(const key of ['name','icon','img','musicUrl','musicName'])if(String(saved[key]||'')!==String(CFG.storyBosses[String(stage)][key]||''))throw new Error(key+'の保存結果が一致しません');
  const pos=storyPosition(stage);
- goAdminKeepScroll(`保存成功：第${pos.chapter}章 第${pos.section}節「${boss.name||native?.name||'ボス'}」。BGMを含めてサーバーから読み返し確認しました。`);
- return true;
+ goAdminKeepScroll('保存成功：第'+pos.chapter+'章 第'+pos.section+'節。BGM・アイコンを含む設定をサーバーから確認しました。');
 }
 async function tcResetStoryBoss(stage){
  if(!isAdmin)return;
@@ -2750,6 +2768,7 @@ function adminCfg(){const S0=CFG.s,GP=CFG.gachaPrices||DEFAULT_GACHA_PRICES;
  return `<h3>ゲーム設定</h3><form class="row" onsubmit="event.preventDefault();setCfg(this)">${[['hp','最大HP'],['ap','コスト最大値'],['apInc','ターンごとのコスト増加量'],['hand','初期手札'],['maxHand','手札上限(ドロー)'],['drawCost','2回目以降ドローのコスト'],['sovietBossHp','第1章20節・ソ連ボスHP']].map(([k,l])=>`<label>${l} <input name="${k}" type="number" min="${k==='sovietBossHp'?1:0}" max="${k==='sovietBossHp'?999999:99}" value="${S0[k]}" style="width:90px"></label>`).join('')}<button>保存</button></form>
  <h3>📖 ストーリー章名の変更</h3><p><small>章番号と章名を設定すると、全プレイヤーのストーリー画面に反映されます。空欄にすると初期の章名（設定がない章は番号表示）に戻ります。</small></p><form class="row" onsubmit="event.preventDefault();setStoryChapterTitle(this)"><label>章 <select name="chapter" onchange="adminChapterNamePick(this)">${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${ch===7?'selected':''}>第${ch}章</option>`).join('')}</select></label><label>章名 <input id="admin-story-chapter-title" name="title" maxlength="40" value="${esc(storyChapterName(7))}" placeholder="章名"></label><button>章名を全員に保存</button></form>
  ${adminStoryUnlocksHtml()}
+ ${adminLimitedCardCreationHtml()}
  ${adminLimitedCardDropsHtml()}
  ${adminStoryBossSettingsHtml()}
  <h3>ガチャ価格設定</h3><p><small>1回の価格を設定します。10連は設定価格×10枚分です。0にすると無料になります。全プレイヤーに共有されます。</small></p><form class="row" onsubmit="event.preventDefault();setGachaPrices(this)"><label>キャラクターガチャ1回 🪙 <input name="character" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.character)||0)}" style="width:90px"></label><label>お守りガチャ1回 🪙 <input name="charm" type="number" min="0" max="100000" value="${Math.max(0,Number(GP.charm)||0)}" style="width:90px"></label><button>ガチャ価格を保存</button></form>
@@ -2762,14 +2781,116 @@ function adminStoryUnlockPickerHtml(ch){
  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-top:10px">${selectable.map(k=>{const c=CARDS[k];return `<label style="display:flex;align-items:center;gap:6px;padding:5px;background:#173a59;border-radius:6px;font-size:12px"><input type="checkbox" data-story-chapter="${ch}" value="${esc(k)}" ${unlocks[ch].includes(k)?'checked':''}>${esc(c.i||'🃏')} ${esc(c.n||k)}</label>`}).join('')}</div>`;
 }
 
+function tcUpdateLimitedEffectDescription(select){const host=document.getElementById('tc-limited-effect-description');if(host)host.textContent=String(CARDS[select&&select.value]?.d||'選択した既存カードと同じ効果');}
+function tcLimitedEffectOptions(){
+ return Object.keys(CARDS).filter(key=>{
+  const c=CARDS[key];
+  return c&&!c.passive&&key!=='draw'&&key!=='end'&&!c.customLimited;
+ }).sort((a,b)=>String(CARDS[a].n).localeCompare(String(CARDS[b].n),'ja'));
+}
+function adminLimitedCardCreationHtml(){
+ const effects=tcLimitedEffectOptions();
+ const custom=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);
+ return `<section class="panel" style="border:2px solid #d8ad37;margin:10px 0">
+ <h3>✨ 運営：限定カードを新規追加</h3>
+ <p><small>ここで追加したカードは、選択した既存カードの実際の効果を発動します。説明だけを追加するのではありません。カード画像は端末からアップロードできます。登録後、章クリア報酬設定・試合中出現率設定にも自動で追加されます。</small></p>
+ <form class="row" onsubmit="event.preventDefault();addLimitedCard(this)">
+  <label>カード名 <input name="name" maxlength="32" required placeholder="限定カード名"></label>
+  <label>カードに表示する絵文字 <input name="icon" maxlength="32" value="✨" style="width:100px"></label>
+  <label>コスト <input name="cost" type="number" min="0" max="30" value="3" style="width:70px"></label>
+  <label style="min-width:240px">発動する既存カードの効果
+   <select name="effectKey" required style="max-width:320px" onchange="tcUpdateLimitedEffectDescription(this)">${effects.map(key=>`<option value="${esc(key)}">${esc(CARDS[key].n)}（${esc(key)}）</option>`).join('')}</select>
+   <small id="tc-limited-effect-description">${esc(CARDS[effects[0]]?.d||'選択した既存カードと同じ効果')}</small>
+  </label>
+  <label>章クリア時の入手章
+   <select name="chapter"><option value="0">設定なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}">第${ch}章</option>`).join('')}</select>
+  </label>
+  <label>試合中の出現率（重み） <input name="weight" type="number" min="0" max="9" value="1" style="width:70px"></label>
+  <label style="min-width:230px">カード画像をアップロード <input name="imageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange="tcPreviewLimitedCardImage(this)"></label>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%"><img id="tc-limited-card-image-preview" alt="画像プレビュー" style="display:none;width:112px;max-height:150px;object-fit:contain;border:1px solid #d8ad37;border-radius:8px;background:#18243a;padding:4px"><small>画像は自動でWebPに縮小・圧縮して保存します（元画像12MB以下、保存後35KB以下）。</small></div>
+  <button type="submit">この限定カードを追加して全員に保存</button>
+ </form>
+ <h4>追加済みの運営限定カード（${custom.length}枚）</h4>
+ ${custom.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px">${custom.map(card=>`<div class="panel" style="padding:8px"><div style="display:flex;gap:8px;align-items:center">${card.img?`<img src="${card.img}" alt="" style="width:54px;height:64px;object-fit:contain">`:`<b style="font-size:26px">${esc(card.icon)}</b>`}<div><b>${esc(card.name)}</b><br><small>効果：${esc(CARDS[card.effectKey]?.n||card.effectKey)} / コスト${card.cost}</small></div></div><button type="button" class="sm" onclick="deleteCustomLimitedCard('${esc(card.key)}')">この限定カードを削除</button></div>`).join('')}</div>`:'<small>まだ運営追加の限定カードはありません。</small>'}
+ </section>`;
+}
+async function tcCompressLimitedCardImage(file){
+ if(!file)return '';
+ if(!/^image\/(png|jpeg|webp|gif)$/i.test(file.type))throw new Error('PNG・JPG・WebP・GIF画像を選んでください');
+ if(file.size>12*1024*1024)throw new Error('元画像は12MB以下にしてください');
+ let bitmap;
+ try{bitmap=await createImageBitmap(file);}catch(e){throw new Error('画像を読み込めませんでした。別の画像を選んでください');}
+ const scale=Math.min(1,420/Math.max(bitmap.width,bitmap.height));
+ const canvas=document.createElement('canvas');
+ canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+ canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+ const ctx=canvas.getContext('2d');
+ if(!ctx)throw new Error('画像変換を開始できません');
+ ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+ bitmap.close&&bitmap.close();
+ let blob=null;
+ for(const quality of [0.78,0.68,0.58,0.48,0.38]){
+  blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+  if(blob&&blob.size<=35*1024)break;
+ }
+ if(!blob||blob.size>35*1024)throw new Error('画像を35KB以下に圧縮できませんでした。小さめの画像を選んでください');
+ const data=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(new Error('画像の読み取りに失敗しました'));r.readAsDataURL(blob);});
+ if(!/^data:image\/webp;base64,/i.test(data))throw new Error('画像をWebP形式に変換できませんでした');
+ return data;
+}
+async function tcPreviewLimitedCardImage(input){
+ const preview=document.getElementById('tc-limited-card-image-preview');
+ if(!preview)return;
+ input._tcCompressedImage='';
+ if(!input.files||!input.files[0]){preview.removeAttribute('src');preview.style.display='none';return;}
+ preview.style.display='block';preview.alt='画像を圧縮中…';
+ try{input._tcCompressedImage=await tcCompressLimitedCardImage(input.files[0]);preview.src=input._tcCompressedImage;preview.alt='アップロード画像のプレビュー';}
+ catch(e){preview.style.display='none';alert(e.message||String(e));input.value='';}
+}
+async function addLimitedCard(form){
+ if(!isAdmin)return goAdminKeepScroll('運営ログインしてください');
+ const name=String(form.elements.namedItem('name')?.value||'').trim().slice(0,32);
+ const icon=String(form.elements.namedItem('icon')?.value||'✨').trim().slice(0,32)||'✨';
+ const effectKey=String(form.elements.namedItem('effectKey')?.value||'');
+ const effect=CARDS[effectKey];
+ if(!name)return goAdminKeepScroll('限定カード名を入力してください');
+ if(!effect||effect.passive||effectKey==='draw'||effectKey==='end'||effect.customLimited)return goAdminKeepScroll('選択した効果は限定カードに設定できません');
+ let img='';
+ try{img=form.elements.namedItem('imageFile')?._tcCompressedImage||'';if(form.elements.namedItem('imageFile')?.files?.[0]&&!img)img=await tcCompressLimitedCardImage(form.elements.namedItem('imageFile').files[0]);}
+ catch(e){return goAdminKeepScroll('画像を追加できませんでした：'+(e.message||e));}
+ const key='limited_custom_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+ const card={key,name,cost:clampInt(form.elements.namedItem('cost')?.value||0,0,30),icon,description:String(effect.d||effect.n||'選択した既存カードと同じ効果').slice(0,400),effectKey,img,color:'#e7ad36'};
+ const previous=JSON.parse(JSON.stringify(CFG));
+ if((CFG.customLimitedCards||[]).length>=30)return goAdminKeepScroll('運営追加の限定カードは30枚までです');
+ CFG.customLimitedCards=tcNormalizeCustomLimitedCards([...(CFG.customLimitedCards||[]),card]);
+ CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters,CFG.customLimitedCards);
+ CFG.limitedCardDropChapters[key]=clampInt(form.elements.namedItem('chapter')?.value||0,0,100);
+ CFG.over=CFG.over||{};CFG.over[key]={...(CFG.over[key]||{}),w:clampInt(form.elements.namedItem('weight')?.value||0,0,9)};
+ const ok=await saveCfg();
+ if(!ok){CFG=previous;applyCfg();return goAdminKeepScroll('限定カードの保存に失敗しました。通信・Workerの設定保存を確認してください');}
+ applyCfg();
+ goAdminRebuildKeepScroll('限定カード「'+name+'」を追加しました。効果は「'+effect.n+'」と同じ実処理です。章クリア入手設定と試合中の出現率にも登録しました。');
+}
+async function deleteCustomLimitedCard(key){
+ if(!isAdmin)return;
+ const previous=JSON.parse(JSON.stringify(CFG));
+ CFG.customLimitedCards=(CFG.customLimitedCards||[]).filter(x=>x.key!==key);
+ CFG.over=CFG.over||{};delete CFG.over[key];
+ CFG.limitedCardDropChapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters,CFG.customLimitedCards);
+ delete CFG.limitedCardDropChapters[key];
+ const ok=await saveCfg();
+ if(!ok){CFG=previous;applyCfg();return goAdminKeepScroll('限定カードの削除に失敗しました');}
+ applyCfg();goAdminRebuildKeepScroll('限定カードを削除しました。過去に所持していたプレイヤーの所持履歴は保持されます。');
+}
+
 function adminLimitedCardDropsHtml(){
  const chapters=tcNormalizeLimitedCardDropChapters(CFG.limitedCardDropChapters);
- return `<section class="panel" style="border:2px solid #e5b94c"><h3>🎁 限定カードの獲得設定（章クリア報酬）</h3><p><small>設定した章の第20節をクリアしたとき、ここで設定する獲得率で未所持の限定カードが1枚ドロップします。これは試合中に手札へ出る確率とは別設定です。0章はドロップなし。複数カードを同じ章に設定した場合は、その中から抽選します。</small></p><form onsubmit="event.preventDefault();saveLimitedCardDrops(this)"><label>ドロップ率 <input name="rate" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0))}" style="width:70px"> %</label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px;margin:10px 0">${TC_LIMITED_CARD_KEYS.map(key=>{const c=CARDS[key];return `<label style="display:flex;align-items:center;gap:6px"><span style="flex:1">${esc(c.n)}</span><select name="chapter_${key}"><option value="0" ${chapters[key]===0?'selected':''}>設定なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${chapters[key]===ch?'selected':''}>第${ch}章</option>`).join('')}</select></label>`}).join('')}</div><button>限定カードのドロップ設定を保存</button></form></section>`;
+ return `<section class="panel" style="border:2px solid #e5b94c"><h3>🎁 限定カードの獲得設定（章クリア報酬）</h3><p><small>設定した章の第20節をクリアしたとき、ここで設定する獲得率で未所持の限定カードが1枚ドロップします。これは試合中に手札へ出る確率とは別設定です。0章はドロップなし。複数カードを同じ章に設定した場合は、その中から抽選します。</small></p><form onsubmit="event.preventDefault();saveLimitedCardDrops(this)"><label>ドロップ率 <input name="rate" type="number" min="0" max="100" step="1" value="${Math.max(0,Math.min(100,Number(CFG.limitedCardDropRate??5)||0))}" style="width:70px"> %</label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:7px;margin:10px 0">${tcAllLimitedCardKeys().map(key=>{const c=CARDS[key];return `<label style="display:flex;align-items:center;gap:6px"><span style="flex:1">${esc(c.n)}</span><select name="chapter_${key}"><option value="0" ${chapters[key]===0?'selected':''}>設定なし</option>${Array.from({length:100},(_,i)=>i+1).map(ch=>`<option value="${ch}" ${chapters[key]===ch?'selected':''}>第${ch}章</option>`).join('')}</select></label>`}).join('')}</div><button>限定カードのドロップ設定を保存</button></form></section>`;
 }
 async function saveLimitedCardDrops(form){
  if(!isAdmin)return;
  const next={};
- for(const key of TC_LIMITED_CARD_KEYS)next[key]=clampInt(form.elements.namedItem('chapter_'+key)?.value||0,0,100);
+ for(const key of tcAllLimitedCardKeys())next[key]=clampInt(form.elements.namedItem('chapter_'+key)?.value||0,0,100);
  CFG.limitedCardDropChapters=next;
  CFG.limitedCardDropRate=Math.max(0,Math.min(100,Number(form.elements.namedItem('rate')?.value)||0));
  const ok=await saveCfg();
@@ -2843,7 +2964,7 @@ function tcBattleCardPool(player=null,excludeLimited=false){
   if(allowLimited){
    // 限定カードは所持済みカードだけを、運営が設定した試合中の出現率（重み）で追加。
    for(const key of [...new Set(player.limitedCards)]){
-    if(!TC_LIMITED_CARD_KEYS.includes(key)||!CARDS[key]||!CARDS[key].limited)continue;
+    if(!tcAllLimitedCardKeys().includes(key)||!CARDS[key]||!CARDS[key].limited)continue;
     const configured=CFG.over&&CFG.over[key]&&CFG.over[key].w!=null
       ? Number(CFG.over[key].w)
       : 1;
@@ -2897,18 +3018,14 @@ const rc=(player=null,excludeLimited=false)=>{
 };
 let tcMatchIntroTimer=0;
 function matchIntroAvatar(p){
- const icon=String(p&&p.icon||'').trim();
- // 運営が標準アイコンから変更した絵文字は、既定のボス画像より優先する。
- if(p&&p.iconCustom&&icon){
-  return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" aria-label="ボスアイコン">'+esc(icon)+'</span>';
- }
- if(icon==='☭')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji tc-soviet-avatar">☭</span>';
- if(icon==='💀')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%">💀</span>';
- if(icon==='🧴')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%">🧴</span>';
- if(icon==='👑')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#fff0b8;color:#8a5a00;border:2px solid #d9a928;border-radius:50%">👑</span>';
+ if(p&&p.iconCustom&&p.icon)return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc(p.icon)+'</span>';
+ if(p&&p.icon==='☭')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji tc-soviet-avatar">☭</span>';
+ if(p&&p.icon==='💀')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#171717;color:#fff;border:2px solid #aaa;border-radius:50%">💀</span>';
+ if(p&&p.icon==='🧴')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#e8f4ff;color:#1766a8;border:2px solid #7dbce8;border-radius:50%">🧴</span>';
+ if(p&&p.icon==='👑')return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji" style="background:#fff0b8;color:#8a5a00;border:2px solid #d9a928;border-radius:50%">👑</span>';
+ if(p&&p.icon)return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc(p.icon)+'</span>';
  const img=String(p&&p.img||'');
  if(img && (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(img)||/^https:\/\//i.test(img)))return '<img class="tc-match-intro-avatar" src="'+esc(img)+'" alt="">';
- if(icon)return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc(icon)+'</span>';
  const ch=Number.isInteger(Number(p&&p.char))?Number(p.char):0;
  return '<span class="tc-match-intro-avatar tc-match-intro-avatar-emoji">'+esc((CHARS[ch]||CHARS[0])[0])+'</span>';
 }
@@ -2916,7 +3033,7 @@ function showMatchIntro(playerEntries,online){
  try{
   if(tcMatchIntroTimer){clearTimeout(tcMatchIntroTimer);tcMatchIntroTimer=0;}
   const old=document.getElementById('tc-match-intro');if(old)old.remove();
-  let lineup=(Array.isArray(playerEntries)?playerEntries:[]).map(v=>typeof v==='string'?{name:v,char:0,img:''}:{name:String(v&&v.name||'プレイヤー').trim(),char:Number(v&&v.char)||0,img:v&&v.img||'',icon:v&&v.icon||''}).filter(v=>v.name);
+  let lineup=(Array.isArray(playerEntries)?playerEntries:[]).map(v=>typeof v==='string'?{name:v,char:0,img:''}:{name:String(v&&v.name||'プレイヤー').trim(),char:Number(v&&v.char)||0,img:v&&v.img||'',icon:v&&v.icon||'',iconCustom:!!(v&&v.iconCustom)}).filter(v=>v.name);
   if(!online){if(!lineup.length)lineup=[{name:U().display||'プレイヤー',char:U().char||0,img:U().img||''}];if(lineup.length===1)lineup.push({name:'CPU',char:1,img:''});}
   if(!lineup.length)return;
   const root=document.createElement('div');root.id='tc-match-intro';root.className='tc-match-intro';root.setAttribute('role','status');root.setAttribute('aria-live','assertive');
@@ -3039,7 +3156,7 @@ function startBattle(cpus,names,charms,profiles,storyBossOverride){
  for(let i=0;i<n;i++){
   const charm=names?(Array.isArray(charms)?charms[i]||null:null):(i===0?getEquippedCharm():null);
   const profile=names?(Array.isArray(profiles)?profiles[i]||{}:{}):(i===0?u:{char:i%CHARS.length,img:''});
-  const playerUser={char:Number.isInteger(Number(profile.char))?Number(profile.char):0,img:typeof profile.img==='string'?profile.img:'',limitedCards:[...new Set([...tcOwnedLimitedCardKeys(profile),...(Array.isArray(profile.limitedCards)?profile.limitedCards:[]),...(i===0?tcOwnedLimitedCardKeys(u):[])])].filter(k=>TC_LIMITED_CARD_KEYS.includes(k)),hasLimitedCharm:profile.hasLimitedCharm===true||(i===0&&tcHasLimitedCharm(u))};
+  const playerUser={char:Number.isInteger(Number(profile.char))?Number(profile.char):0,img:typeof profile.img==='string'?profile.img:'',limitedCards:[...new Set([...tcOwnedLimitedCardKeys(profile),...(Array.isArray(profile.limitedCards)?profile.limitedCards:[]),...(i===0?tcOwnedLimitedCardKeys(u):[])])].filter(k=>tcAllLimitedCardKeys().includes(k)),hasLimitedCharm:profile.hasLimitedCharm===true||(i===0&&tcHasLimitedCharm(u))};
   const p={name:names?names[i]:(i?`CPU${i}`:u.display),human:names?true:!i,u:playerUser,charm,limitedCards:playerUser.limitedCards.slice(),hasLimitedCharm:!!playerUser.hasLimitedCharm,hp:S().hp,mhp:S().hp,sh:0,atk:0,umb:3,x:2,y:2,f:mkField(),hand:[],copyrightDisabled:[],cactusTurns:0,bleeding:false,bleedSourceIndex:-1,lastMove:0,draws:0,turns:0,ap:0,apMax:0,youtubeAtkBonus:0,hikakinFreeUsed:false,aoOniBonus:0,scratchBoost:0,cardMul:1,matsuokaActive:false,deathnoteBoost:false,anzaiApBonus:0,akainuTurns:0,bakidoActive:false,deathFlagTurns:null,pikachuPendingTarget:null,gameFpsBonus:0,dozuruEffectBonus:0,freezeTurns:0,skipTurns:0,zeninBuffTurns:0,duolingoTurns:0,duolingoCorrect:0,duolingoEasy:false,friezaActive:false,friezaPenaltyPending:false,studyDamageBonus:0,studyCostPenalty:0,studyCardCostPenalty:0,studyAtkPerTurnPenalty:0,shieldUses:3,tntEnhancedCount:0,tntPowerMultiplier:1,alive:true};
   if(!names&&(STORY===30||STORY===40)&&cpus===1&&i>0){p.isBoss=true;p.name='Sans';p.u.sans=true;p.icon='💀';p.sansBoss=true;p.sansBossEvasion=(STORY===40);if(STORY===40){p.hp=1;p.mhp=1;p.hand=['rewind','rewind','rewind'];}}
   if(!names&&STORY===20&&cpus===1&&i>0){p.isBoss=true;p.name='ソ連';p.u.soviet=true;p.icon='☭';p.sovietDeckBias=true;const bossHp=Math.max(1,Math.min(999999,Math.floor(Number(S().sovietBossHp)||50)));p.hp=bossHp;p.mhp=bossHp;}
@@ -3191,12 +3308,28 @@ function advanceSoundEffects(){
 }
 function endTurn(){if(G.over)return;const __endingPlayer=G.ps[G.turn];if(__endingPlayer&&Number(__endingPlayer.freezeTurns)>0){__endingPlayer.freezeTurns=Math.max(0,Number(__endingPlayer.freezeTurns)-1);if(__endingPlayer.freezeTurns===0)G.log=__endingPlayer.name+'の凍結が解けた！';}if(__endingPlayer&&Number(__endingPlayer.hapiEneCostSurcharge)>0){const __hapiExpired=Number(__endingPlayer.hapiEneCostSurcharge)||0;__endingPlayer.hapiEneCostSurcharge=0;G.log='ハピエネ：カードコスト+'+__hapiExpired+'の効果が終了した';}if(__endingPlayer&&Number(__endingPlayer.akainuTurns)>0){__endingPlayer.akainuTurns=Math.max(0,Number(__endingPlayer.akainuTurns)-1);if(__endingPlayer.akainuTurns===0){hurt(__endingPlayer,10,'赤犬の5ターン経過の反動',1,G.turn,true);G.log='赤犬：5ターンが終了し自分に10ダメージ！';checkEnd();if(G.over)return;}}if(__endingPlayer&&Number(__endingPlayer.scratchBoost)>0)__endingPlayer.scratchBoost=Math.max(0,Number(__endingPlayer.scratchBoost)-1);if(__endingPlayer&&Number(__endingPlayer.cactusTurns)>0)__endingPlayer.cactusTurns=Math.max(0,Number(__endingPlayer.cactusTurns)-1);if(__endingPlayer&&__endingPlayer.bannedCards){for(const __key of Object.keys(__endingPlayer.bannedCards)){const __left=Number(__endingPlayer.bannedCards[__key])||0;if(__left<=1)delete __endingPlayer.bannedCards[__key];else __endingPlayer.bannedCards[__key]=__left-1;}}if(G.smell>0){G.smell--;G.ps.forEach(q=>{if(q.alive&&!gmBlock(q))hurt(q,1,'体臭',1)});checkEnd();if(G.over)return}if(G.snow.left>0){G.snow.left--;G.snow.lvl++}else G.snow.lvl=0;advanceSoundEffects();if(G.over)return;advanceLimitedSovietTurn();if(G.over)return;if(STORY===180&&!ONL&&__endingPlayer===G.ps[0]&&G.ps[1]&&G.ps[1].alive){G.impostorTurns=(Number(G.impostorTurns)||0)+1;if(G.impostorTurns>=20){G.ps[0].alive=false;G.ps[0].hp=0;G.log='20ターン以内にインポスターを倒せなかったため強制敗北！';G.over=true;return;}}let __skipLog=[];let __skipGuard=0;do{G.turn=nextAlive(G.turn,1);const __next=G.ps[G.turn];if(__next&&__next.alive&&Number(__next.skipTurns)>0){__next.skipTurns=Math.max(0,Number(__next.skipTurns)-1);__skipLog.push(__next.name+'のターンをスキップ（残り'+__next.skipTurns+'回）');}else break;__skipGuard++;}while(__skipGuard<=G.ps.length*100);G.ps.forEach((p,i)=>{});startTurn();if(__skipLog.length)G.log+=' / '+__skipLog.join('・');if(G.turn===0&&G.target===0)G.target=nextAlive(0,1)}
 function enemyOf(i){return G.target!==i&&G.ps[G.target]&&G.ps[G.target].alive?G.target:nextAlive(i,1)}
-function playCard(i,k,tile){ // i player, k card key, tile {pi,ti}
- const p=G.ps[i],originalK=k;if(G.over||G.turn!==i)return false;
- if(Number(p.bannedCards&&p.bannedCards[k])>0){G.log=CARDS[k].n+' はBAN中（残り'+p.bannedCards[k]+'ターン）';return false;}
+function playCard(i,k,tile,customLimitedContext){ // i player, k card key, tile {pi,ti}
+ const p=G.ps[i],originalK=k;
+ const selectedLimitedKey=customLimitedContext?customLimitedContext.limitedKey:k;
+ const selectedCard=customLimitedContext?customLimitedContext.card:CARDS[k];
+ if(G.over||G.turn!==i)return false;
+ if(Number(p.bannedCards&&p.bannedCards[selectedLimitedKey])>0){G.log=(selectedCard?.n||CARDS[k]?.n||k)+' はBAN中（残り'+p.bannedCards[selectedLimitedKey]+'ターン）';return false;}
  if(k==='cheat_limit'||k==='cheat'){if(!cheatLimitReady(p)){G.log='チートカードは、願い星・デンチャ・島雪・体臭・馬・逆戻りの6枚をすべて手札にそろえると使えます';return false}if(k==='cheat_limit')k='cheat'}
- const c=CARDS[k];if(!c)return false;
- if(c.limited&&(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(k))){G.log='この限定カードを所持していません';return false;}
+ let c=CARDS[k];if(!c)return false;
+ if(customLimitedContext){
+  const effectBase=c;
+  c={...effectBase,...selectedCard,c:selectedCard.c,tile:effectBase.tile,passive:effectBase.passive,gen:effectBase.gen,paint:effectBase.paint,limited:true,customLimitedRuntime:true};
+ }else if(c.customLimited&&c.effectKey){
+  if(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(k)){G.log='この限定カードを所持していません';return false;}
+  if(!tcLimitedCardsAllowedForPlayer(p)){G.log='オンラインで限定カードを使うには「限定お守り」（伝説）が必要です';return false;}
+  const effectKey=String(c.effectKey);
+  if(!CARDS[effectKey]||CARDS[effectKey].passive||effectKey==='draw'||effectKey==='end'){
+   G.log='この限定カードの効果設定が無効です。運営に効果を選び直してもらってください';return false;
+  }
+  return playCard(i,effectKey,tile,{limitedKey:k,card:c});
+ }
+ const handKey=customLimitedContext?customLimitedContext.limitedKey:k;
+ if(c.limited&&(!Array.isArray(p.limitedCards)||!p.limitedCards.includes(handKey))){G.log='この限定カードを所持していません';return false;}
  if(c.limited&&!tcLimitedCardsAllowedForPlayer(p)){G.log='オンラインで限定カードを使うには「限定お守り」（伝説）が必要です';return false;}
  if(k==='draw'&&p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}
  let cost=c.c,costReduced=false;if(k==='draw')cost=p.draws>0?S().drawCost:0;if(k==='hikakin'&&!p.hikakinFreeUsed&&hasYoutubeAttributeCard(p))cost=0;if(p.cheatActive&&k!=='cheat')cost=0;if(Number(p.scratchBoost)>0&&(SCRATCH_KEYS.includes(k)||SCRATCH_KEYS.includes(originalK)))cost=Math.max(1,Math.ceil(cost/2));const costCharm=p.charm;if(cost>0&&costCharm&&costCharm.type==='costLuck'&&Math.random()*100<charmChance(costCharm)){cost=Math.max(0,cost-1);costReduced=true;}const hapiTax=k==='end'?0:Math.max(0,Number(p.hapiEneCostSurcharge)||0);const studyTax=k==='end'?0:Math.max(0,Number(p.studyCardCostPenalty)||0);if(hapiTax>0)cost+=hapiTax;if(studyTax>0)cost+=studyTax;if(Number(G.limitedSovietTurns)>0&&(k==='sovet'||k==='missile'))cost=0;if(k==='rewind'&&G.over)return false;if(cost>(Number(p.ap)||0))return false;if(k==='youtube'&&(Number(p.ap)||0)<10){G.log='Youtubeの効果にはコスト10以上が必要です';return false}
@@ -3228,12 +3361,12 @@ function playCard(i,k,tile){ // i player, k card key, tile {pi,ti}
  if(k==='end'){endTurn();return true}
  if(k==='draw'){if(p.draws>=3){G.log='1ターンに引けるカードは3枚までです';return false}if(p.hand.length<S().maxHand+4)p.hand.push(rc(p));else{G.log='手札がいっぱいです';return false}p.draws++;p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;if(costReduced)G.log='🧿コスト運！ドローのコストが1下がった';return true}
  if(c.passive)return false;
- if(FX(i,k,c,cost,originalK)){if(costReduced)G.log+='（🧿コスト運：コスト-1）';if(i===G.turn)G.ap=p.ap;return true;}
+ if(FX(i,k,c,cost,handKey)){if(costReduced)G.log+='（🧿コスト運：コスト-1）';if(i===G.turn)G.ap=p.ap;return true;}
  if(c.tile){if(!tile)return false;const t=G.ps[tile.pi].f[tile.ti];if(k==='repair'){const durability=Math.max(0,Number(t.d)||0);if(durability===0){t.d=1;G.log='リペア：壊れた地面を耐久1で復活させた！'}else if(durability<3){t.d=Math.min(3,durability+2);G.log='リペア：地面の耐久を'+durability+'から'+t.d+'に回復した！'}else{G.log='リペア：その地面はすでに耐久MAXです';return false}}else if(k==='crush')t.d=Math.max(0,t.d-2);else t.c={w:'r',r:'b',b:'g',g:'r',p:'w'}[t.c]||'r';}
  if(k==='fire'){const t=G.ps[enemyOf(i)];let d=2+p.atk+(here==='g'?1:0);hurt(t,d,p.name+' → '+t.name,1,i)}
  if(k==='heal')p.hp=Math.min(p.mhp,p.hp+2+((here==='r'||here==='p')?1:0));
  if(k==='guard')p.sh+=2+(here==='b'?1:0);
- p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;const ix=p.hand.indexOf(k);if(ix>=0)p.hand.splice(ix,1);if(costReduced)G.log+='（🧿コスト運：コスト-1）';
+ p.ap=Math.max(0,(Number(p.ap)||0)-cost);if(i===G.turn)G.ap=p.ap;const ix=p.hand.indexOf(handKey);if(ix>=0)p.hand.splice(ix,1);if(costReduced)G.log+='（🧿コスト運：コスト-1）';
  checkEnd();return true}
 function umbBlock(t){if(t.hand.includes('umbrella')){if(--t.umb<=0){t.hand.splice(t.hand.indexOf('umbrella'),1);t.umb=3}G.log=t.name+'の傘が無効化';return true}return false}
 function scratchMul(p){return (Number(p&&p.scratchBoost)||0)>0?2:1}
@@ -4402,7 +4535,7 @@ function paintBattle(){
  statusSummary.innerHTML=`${STORY>0?`<div style="font-weight:900;padding:6px 10px;margin-bottom:6px;border-radius:8px;background:rgba(0,0,0,.24)">📖 第${storyPosition(STORY).chapter}章${storyChapterTitleHtml(storyPosition(STORY).chapter)} 第${storyPosition(STORY).section}節</div>`:''}${STORY===180?'<div class="tc-impostor-boss-banner"><span>🚨</span><strong>IMPOSTOR ALERT</strong><span>🚨</span><small>20ターン以内に撃破せよ</small></div>':''}<div class="row"><b>ターン: ${esc(G.ps[G.turn].name)}</b><span>⚡自分のコスト ${Number(you.ap)||0}/${you.apMax??S().ap}${G.snow.lvl?' ❄️':''}</span><span>⚔攻撃力 ${Number(you.atk)||0}</span><span>🛡防御力 ${Number(you.sh)||0}</span><span>❤️HP ${Number(you.hp)||0}/${Number(you.mhp)||0}</span><span style="flex:1"></span><small>移動: 矢印/WASD(0.25秒に1マス・いつでも可)。攻撃対象は相手の枠をクリック</small></div>${playerBuffBadges(you)}<div style="margin-top:5px">${esc(G.log)}</div>`;
  // ステータスだけを更新し、ログdetailsとスクロール位置は維持する。
  syncBattleLogDom(statusPanel);
- boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> <small>(${POS[i]})</small></div>${(()=>{const age=Date.now()-(Number(p.reviveFxAt)||0);return age>=0&&age<1650?`<div class="tc-revive-overlay" style="--tc-revive-delay:-${(age/1000).toFixed(3)}s"><span class="tc-revive-ring tc-revive-ring-a"></span><span class="tc-revive-ring tc-revive-ring-b"></span><span class="tc-revive-rays">✦　✧　✦</span><span class="tc-revive-badge"><b>♻ REVIVE!</b><small>逆戻りで復活</small></span></div>`:''})()}${playerBuffBadges(p)}<div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
+ boards.innerHTML=`${G.ps.map((p,i)=>`<div class="pf ${G.turn===i?'turn':''} ${G.target===i&&i!==SEAT?'sel':''} ${p.alive?'':'dead'}"><div class="row" ${i!==SEAT?`onclick="G.target=${i};paintBattle()"`:''}>${avatar(p.isBoss&&p.icon?{...p.u,icon:p.icon,iconCustom:!!p.storyBossIconCustom}:p.u)}<b>${esc(p.name)}</b> <span class="hp">♥ ${p.hp}/${p.mhp}</span> <small>(${POS[i]})</small></div>${(()=>{const age=Date.now()-(Number(p.reviveFxAt)||0);return age>=0&&age<1650?`<div class="tc-revive-overlay" style="--tc-revive-delay:-${(age/1000).toFixed(3)}s"><span class="tc-revive-ring tc-revive-ring-a"></span><span class="tc-revive-ring tc-revive-ring-b"></span><span class="tc-revive-rays">✦　✧　✦</span><span class="tc-revive-badge"><b>♻ REVIVE!</b><small>逆戻りで復活</small></span></div>`:''})()}${playerBuffBadges(p)}<div class="grid">${p.f.map((t,ti)=>`<button class="t ${t.c} d${t.d}" onclick="tileClick(${i},${ti})">${p.x+p.y*5===ti&&p.alive?`<span>${i!==SEAT?'🙂':'😀'}</span>`:''}<small>${t.d}</small></button>`).join('')}${(G.inc||[]).filter(m=>m.t===i).map(m=>{const x=(m.ti%5)*20+10,y=Math.floor(m.ti/5)*20+10;return `<div class="projectile-layer"><span class="projectile ${m.kind==='barrage'?'barrage':''}" style="--tx:${x}%;--ty:${y}%">${m.kind==='barrage'?'🔥':'🚀'}</span></div>`}).join('')}</div></div>`).join('')}`;
  const handKey=JSON.stringify([you.hand,G.card,!!G.cardTargeting,you.draws,you.ap,G.ps[SEAT].cheatActive]);
  if(el.dataset.handKey!==handKey){
   if(window.__tcHandPointerActive){window.__tcHandRefreshPending=true;}
@@ -4657,7 +4790,7 @@ function pushSoon(){if(pushT||!room||!HOST)return;pushT=setTimeout(()=>{pushT=0;
 function applyState(d){  const __tcFirstOnlineState=!G;  const __tcPreviousTurn=G?G.turn:null;  for(const k in d.cc){if(CARDS[k]){if(CFG.cards&&CFG.cards[k])CARDS[k]={...CARDS[k],...d.cc[k]};}else CARDS[k]=d.cc[k];}for(const k in d.cs)if(CARDS[k])CARDS[k].c=d.cs[k];
  if(!G){G={ps:[],hist:[],snow:{left:0,lvl:0},card:null,target:(SEAT+1)%d.ps.length,keys:{},log:'',timer:setInterval(tick,50)};}
  attachBattleLog(G);
- G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,scratchBoost:Number.isFinite(q.scratchBoost)?q.scratchBoost:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,bleeding:!!q.bleeding,bleedSourceIndex:Number.isInteger(q.bleedSourceIndex)?q.bleedSourceIndex:-1,matsuokaActive:!!q.matsuokaActive,deathnoteBoost:!!q.deathnoteBoost,anzaiApBonus:Number(q.anzaiApBonus)||0,akainuTurns:Number(q.akainuTurns)||0,bakidoActive:!!q.bakidoActive,deathFlagTurns:q.deathFlagTurns??null,pikachuPendingTarget:q.pikachuPendingTarget??null,gameFpsBonus:Number(q.gameFpsBonus)||0,kuyaHeldTurns:Number(q.kuyaHeldTurns)||0,equalMultiplier:Number(q.equalMultiplier)||1,hapiEneCostSurcharge:Number(q.hapiEneCostSurcharge)||0,zeninBuffTurns:Number(q.zeninBuffTurns)||0,skipTurns:Number(q.skipTurns)||0,duolingoTurns:Number(q.duolingoTurns)||0,duolingoCorrect:Number(q.duolingoCorrect)||0,duolingoEasy:!!q.duolingoEasy,friezaActive:!!q.friezaActive,friezaPenaltyPending:!!q.friezaPenaltyPending,charm:q.charm&&typeof q.charm==='object'?q.charm:null,limitedCards:Array.isArray(q.limitedCards)?q.limitedCards.filter(k=>TC_LIMITED_CARD_KEYS.includes(k)):[],hasLimitedCharm:!!q.hasLimitedCharm,human:true,u:{char:q.char||0,img:typeof q.img==='string'?q.img:'',limitedCards:Array.isArray(q.limitedCards)?q.limitedCards:[],hasLimitedCharm:!!q.hasLimitedCharm}}));
+ G.ps=d.ps.map((q,i)=>Object.assign({},G.ps[i]||{lastMove:0,umb:3},q,{turns:Number.isFinite(q.turns)?q.turns:0,ap:Number.isFinite(q.ap)?q.ap:0,apMax:Number.isFinite(q.apMax)?q.apMax:Math.min(S().ap,Math.max(0,((Number(q.turns)||0)-1)*(Number(S().apInc)||0))),sleep:Number.isFinite(q.sleep)?q.sleep:0,sansUntil:Number.isFinite(q.sansUntil)?q.sansUntil:0,horseUntil:Number.isFinite(q.horseUntil)?q.horseUntil:0,youtubeAtkBonus:Number.isFinite(q.youtubeAtkBonus)?q.youtubeAtkBonus:0,bannedCards:q.bannedCards&&typeof q.bannedCards==='object'?q.bannedCards:{},copyrightDisabled:Array.isArray(q.copyrightDisabled)?q.copyrightDisabled:[],cheatActive:!!q.cheatActive,cheatRisk:Number.isFinite(q.cheatRisk)?q.cheatRisk:0,scratchBoost:Number.isFinite(q.scratchBoost)?q.scratchBoost:0,cactusTurns:Number.isFinite(q.cactusTurns)?q.cactusTurns:0,bleeding:!!q.bleeding,bleedSourceIndex:Number.isInteger(q.bleedSourceIndex)?q.bleedSourceIndex:-1,matsuokaActive:!!q.matsuokaActive,deathnoteBoost:!!q.deathnoteBoost,anzaiApBonus:Number(q.anzaiApBonus)||0,akainuTurns:Number(q.akainuTurns)||0,bakidoActive:!!q.bakidoActive,deathFlagTurns:q.deathFlagTurns??null,pikachuPendingTarget:q.pikachuPendingTarget??null,gameFpsBonus:Number(q.gameFpsBonus)||0,kuyaHeldTurns:Number(q.kuyaHeldTurns)||0,equalMultiplier:Number(q.equalMultiplier)||1,hapiEneCostSurcharge:Number(q.hapiEneCostSurcharge)||0,zeninBuffTurns:Number(q.zeninBuffTurns)||0,skipTurns:Number(q.skipTurns)||0,duolingoTurns:Number(q.duolingoTurns)||0,duolingoCorrect:Number(q.duolingoCorrect)||0,duolingoEasy:!!q.duolingoEasy,friezaActive:!!q.friezaActive,friezaPenaltyPending:!!q.friezaPenaltyPending,charm:q.charm&&typeof q.charm==='object'?q.charm:null,limitedCards:Array.isArray(q.limitedCards)?q.limitedCards.filter(k=>tcAllLimitedCardKeys().includes(k)):[],hasLimitedCharm:!!q.hasLimitedCharm,human:true,u:{char:q.char||0,img:typeof q.img==='string'?q.img:'',limitedCards:Array.isArray(q.limitedCards)?q.limitedCards:[],hasLimitedCharm:!!q.hasLimitedCharm}}));
  Object.assign(G,{turn:d.turn,turnSeq:Number.isFinite(d.turnSeq)?d.turnSeq:(G.turnSeq||0),ap:d.ap,apMax:d.apMax,log:d.log,over:d.over,snow:d.snow,inc:Array.isArray(d.inc)?d.inc:[],limitedDelayedEvents:Array.isArray(d.limitedDelayedEvents)?d.limitedDelayedEvents:[],limitedSovietTurns:Number(d.limitedSovietTurns)||0});
  if(__tcPreviousTurn!==d.turn&&d.turn===SEAT)showOwnTurnNotice();
  if(TC_CARD_ACTION_BUSY)releaseCardAction();
@@ -4691,7 +4824,7 @@ async function p2pRoom(mode,pw,id){
   const bc=(t,v)=>seats.forEach(s=>s.c&&s.c.open&&s.c.send({t,v}));
   p.on('connection',c=>{let me=null;c.on('data',d=>{if(d.t==='join'){if(started||seats.length>=4){c.send({t:'err',v:'満員または開始済みです'});return}
     if(kind==='private'&&pw&&d.pw!==pw){c.send({t:'err',v:'パスワードが違います'});return}
-    me={c,name:String(d.name||'Player').slice(0,16),charm:d.charm&&typeof d.charm==='object'?d.charm:null,profile:d.profile&&typeof d.profile==='object'?{char:Number(d.profile.char)||0,img:typeof d.profile.img==='string'?d.profile.img:'',limitedCards:Array.isArray(d.profile.limitedCards)?d.profile.limitedCards.filter(k=>TC_LIMITED_CARD_KEYS.includes(k)):[],hasLimitedCharm:!!d.profile.hasLimitedCharm}:{char:0,img:'',limitedCards:[],hasLimitedCharm:false}};seats.push(me);rost()}
+    me={c,name:String(d.name||'Player').slice(0,16),charm:d.charm&&typeof d.charm==='object'?d.charm:null,profile:d.profile&&typeof d.profile==='object'?{char:Number(d.profile.char)||0,img:typeof d.profile.img==='string'?d.profile.img:'',limitedCards:Array.isArray(d.profile.limitedCards)?d.profile.limitedCards.filter(k=>tcAllLimitedCardKeys().includes(k)):[],hasLimitedCharm:!!d.profile.hasLimitedCharm}:{char:0,img:'',limitedCards:[],hasLimitedCharm:false}};seats.push(me);rost()}
    else if(me&&d.t==='act')em.emit('act',{seat:seats.indexOf(me),a:d.v});else if(me&&d.t==='chat'){bc('chat',d.v);em.emit('chat',d.v)}});
    c.on('close',()=>{if(!me)return;const i=seats.indexOf(me);if(i>0)seats.splice(i,1);if(started&&seats.length<2){bc('closed',{});em.emit('closed',{})}else rost()})});
   const r=Object.assign(em,{onLeave(f){left=f},send(t,v){if(t==='chat'){bc('chat',v);em.emit('chat',v)}else if(t==='state')bc('state',v);else if(t==='start'){if(seats.length<2)return;started=true;bc('started',{n:seats.length});em.emit('started',{n:seats.length});rost()}},leave(){bc('closed',{});try{p.destroy()}catch(e){}}});
