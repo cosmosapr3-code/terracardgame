@@ -2998,8 +2998,11 @@ function tcLimitedCardsAllowedForPlayer(player=null){
   return !ONL || !!(player && player.hasLimitedCharm);
 }
 function tcBattleCardPool(player=null,excludeLimited=false){
-  let pool=(!STORY||ONL||(player&&player.human===false))?POOL.slice():POOL.filter(key=>tcIsStoryCardUnlocked(key,player)||
-    (player&&player.duolingoDeckBias&&['book','study_please'].includes(key)));
+  // ストーリー中はプレイヤー・CPU・ボス全員が同じ解放済みカードプールを使う。
+  // 以前は human===false のCPUだけ全カードプールを使っていたため、未解放カードが混入していた。
+  const storyRestricted=Number(STORY)>0&&!ONL;
+  let pool=storyRestricted?POOL.filter(key=>tcIsStoryCardUnlocked(key,player)||
+    (player&&player.duolingoDeckBias&&['book','study_please'].includes(key))):POOL.slice();
   const allowLimited=!excludeLimited&&player&&Array.isArray(player.limitedCards)&&tcLimitedCardsAllowedForPlayer(player);
   if(allowLimited){
    // 限定カードは所持済みカードだけを、運営が設定した試合中の出現率（重み）で追加。
@@ -3022,7 +3025,7 @@ function tcBattleCardPool(player=null,excludeLimited=false){
     if(factor<=0)continue;
     let allowed=false;
     if(CARDS[key].limited){allowed=allowLimited&&Array.isArray(player.limitedCards)&&player.limitedCards.includes(key)&&tcLimitedCardsAllowedForPlayer(player);}
-    else{allowed=(player.isBoss||!STORY||ONL||tcIsStoryCardUnlocked(key,player));}
+    else{allowed=(!STORY||ONL||tcIsStoryCardUnlocked(key,player)||(player.duolingoDeckBias&&['book','study_please'].includes(key)));}
     if(!allowed)continue;
     const copies=inPool>0?Math.min(90,inPool):(factor>1?1:0);
     for(let n=0;n<copies;n++)pool.push(key);
