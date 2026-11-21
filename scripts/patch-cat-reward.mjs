@@ -1,6 +1,10 @@
 import fs from 'node:fs';
 const file='index.html';
 let html=fs.readFileSync(file,'utf8');
+if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limited_custom_cat_kanzen')){
+ console.log('TERRA reward integration already exists; nothing to patch.');
+ process.exit(0);
+}
 function replaceOnce(oldText,newText,label,expected=1){
  const count=html.split(oldText).length-1;
  if(count!==expected)throw new Error(label+': expected '+expected+', found '+count);
