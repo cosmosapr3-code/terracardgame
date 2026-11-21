@@ -3701,7 +3701,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
   G.ps.forEach(q=>{
    q.f=Array.from({length:25},()=>({c:'w',d:3}));q.hand=[];
    q.atk=0;q.sh=0;q.mhp=S().hp;q.hp=Math.min(Number(q.hp)||0,q.mhp);q.ap=0;q.apMax=S().ap;
-   q.boost=0;q.scratchBoost=0;scratchBoostMultiplier=1;q.cardMul=1;q.cactusTurns=0;q.bleeding=false;q.bleedSourceIndex=-1;
+   q.boost=0;q.scratchBoost=0;q.scratchBoostMultiplier=1;q.cardMul=1;q.cactusTurns=0;q.bleeding=false;q.bleedSourceIndex=-1;
    q.sleep=0;q.sansUntil=0;q.horseUntil=0;q.freezeTurns=0;q.skipTurns=0;q.duolingoTurns=0;q.duolingoCorrect=0;
    q.matsuokaActive=false;q.deathnoteBoost=false;q.anzaiApBonus=0;q.akainuTurns=0;q.bakidoActive=false;q.deathFlagTurns=null;
    q.youtubeAtkBonus=0;q.gameFpsBonus=0;q.dozuruEffectBonus=0;q.studyDamageBonus=0;q.studyCostPenalty=0;q.studyCardCostPenalty=0;q.studyAtkPerTurnPenalty=0;
@@ -4141,7 +4141,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
  }
  else if(k==='effect_reset'){
   G.soundMuteTurns=0;G.soundBoostTurns=0;G.smell=0;G.delayedSoundEvents=[];G.snow={left:0,lvl:0};
-  G.ps.forEach(q=>{q.cactusTurns=0;q.bleeding=false;q.bleedSourceIndex=-1;q.sleep=0;q.boost=0;q.sansUntil=0;q.horseUntil=0;q.scratchBoost=0;scratchBoostMultiplier=1;q.cardMul=1;q.matsuokaActive=false;q.deathnoteBoost=false;});
+  G.ps.forEach(q=>{q.cactusTurns=0;q.bleeding=false;q.bleedSourceIndex=-1;q.sleep=0;q.boost=0;q.sansUntil=0;q.horseUntil=0;q.scratchBoost=0;q.scratchBoostMultiplier=1;q.cardMul=1;q.matsuokaActive=false;q.deathnoteBoost=false;});
   G.log='効果リセット：今発動しているすべての効果を消した！';
  }
  else if(k==='contract'){
@@ -4218,7 +4218,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
   p.zeninBuffTurns=0;p.duolingoTurns=0;p.duolingoCorrect=0;p.duolingoEasy=false;
   p.friezaActive=false;p.friezaPenaltyPending=false;p.tntEnhancedCount=0;p.tntPowerMultiplier=1;
   p.equalMultiplier=1;p.hapiEneCostSurcharge=0;p.youtubeAtkBonus=0;p.hikakinFreeUsed=false;
-  p.aoOniBonus=0;p.scratchBoost=0;scratchBoostMultiplier=1;p.cardMul=1;p.cactusTurns=0;p.sansUntil=0;p.horseUntil=0;
+  p.aoOniBonus=0;p.scratchBoost=0;p.scratchBoostMultiplier=1;p.cardMul=1;p.cactusTurns=0;p.sansUntil=0;p.horseUntil=0;
   p.freezeTurns=0;p.skipTurns=0;p.sleep=0;p.bleeding=false;p.bleedSourceIndex=-1;
   p.deathFlagTurns=null;p.bannedCards={};p.umb=0;
   p.studyDamageBonus=0;p.studyCostPenalty=0;p.studyCardCostPenalty=0;p.studyAtkPerTurnPenalty=0;
@@ -4241,7 +4241,7 @@ function FX(i,k,c,cost,handKey=k){const p=G.ps[i];let used=true;
    const dozuruBonus=Math.max(0,Number(q.dozuruEffectBonus)||0);
    if(dozuruBonus){q.studyAtkPerTurnPenalty=Math.min(999999,(Number(q.studyAtkPerTurnPenalty)||0)+dozuruBonus);q.dozuruEffectBonus=0;}
    // 効果倍増・回避・反射・防御系も弱体側へ移す。
-   if(Number(q.scratchBoost)>0){q.studyCardCostPenalty=Math.min(999,(Number(q.studyCardCostPenalty)||0)+1);q.scratchBoost=0;scratchBoostMultiplier=1;}
+   if(Number(q.scratchBoost)>0){q.studyCardCostPenalty=Math.min(999,(Number(q.studyCardCostPenalty)||0)+1);q.scratchBoost=0;q.scratchBoostMultiplier=1;}
    if(Number(q.cardMul)>1){q.studyCardCostPenalty=Math.min(999,(Number(q.studyCardCostPenalty)||0)+Math.ceil(Number(q.cardMul)-1));q.cardMul=1;}
    if(Number(q.akainuTurns)>0){q.studyDamageBonus=Math.min(999999,(Number(q.studyDamageBonus)||0)+Number(q.akainuTurns));q.akainuTurns=0;}
    if(Number(q.cactusTurns)>0){q.studyDamageBonus=Math.min(999999,(Number(q.studyDamageBonus)||0)+Number(q.cactusTurns));q.cactusTurns=0;}
