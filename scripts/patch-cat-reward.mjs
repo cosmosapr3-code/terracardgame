@@ -2,7 +2,18 @@ import fs from 'node:fs';
 const file='index.html';
 let html=fs.readFileSync(file,'utf8');
 if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limited_custom_cat_kanzen')){
- console.log('TERRA reward integration already exists; nothing to patch.');
+ const fixes=[
+  ['q.scratchBoost=0;scratchBoostMultiplier=1;','q.scratchBoost=0;q.scratchBoostMultiplier=1;',3],
+  ['p.scratchBoost=0;scratchBoostMultiplier=1;','p.scratchBoost=0;p.scratchBoostMultiplier=1;',1]
+ ];
+ let changed=false;
+ for(const [before,after,expected] of fixes){
+  const count=html.split(before).length-1;
+  if(count!==expected)throw new Error('Scratch multiplier reset repair: expected '+expected+', found '+count);
+  html=html.split(before).join(after);changed=true;
+ }
+ if(changed){fs.writeFileSync(file,html,'utf8');console.log('Repaired player-specific Scratch multiplier resets.');}
+ else console.log('TERRA reward integration already exists; nothing to patch.');
  process.exit(0);
 }
 function replaceOnce(oldText,newText,label,expected=1){
