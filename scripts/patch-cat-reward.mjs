@@ -7,28 +7,28 @@ function replaceOnce(oldText,newText,label,expected=1){
  html=html.split(oldText).join(newText);
 }
 replaceOnce(
- " freeze:'移動を凍結',skip:'ターンスキップ',add_card:'カードを手札に追加',view_hand:'手札を見る',card_effect_up:'特定カードの効果を強化',card_effect_down:'特定カードの効果を弱体化'\\n};\\nconst TC_CUSTOM_LIMITED_TARGETS",
- " freeze:'移動を凍結',skip:'ターンスキップ',add_card:'カードを手札に追加',scratch_boost:'Scratch属性効果アップ・コスト0',view_hand:'手札を見る',card_effect_up:'特定カードの効果を強化',card_effect_down:'特定カードの効果を弱体化'\\n};\\nconst TC_CUSTOM_LIMITED_TARGETS",
+ " freeze:'移動を凍結',skip:'ターンスキップ',add_card:'カードを手札に追加',view_hand:'手札を見る',card_effect_up:'特定カードの効果を強化',card_effect_down:'特定カードの効果を弱体化'\n};\nconst TC_CUSTOM_LIMITED_TARGETS",
+ " freeze:'移動を凍結',skip:'ターンスキップ',add_card:'カードを手札に追加',scratch_boost:'Scratch属性効果アップ・コスト0',view_hand:'手札を見る',card_effect_up:'特定カードの効果を強化',card_effect_down:'特定カードの効果を弱体化'\n};\nconst TC_CUSTOM_LIMITED_TARGETS",
  'register Scratch boost action type'
 );
 replaceOnce(
- "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
- "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\\nconst TC_CAT_KANZEN_KEY='limited_custom_cat_kanzen';\\nconst TC_CAT_KANZEN_DEF={name:'CAT完全体',icon:'🐈‍⬛',cost:0,description:'Scratch属性カードを各2枚追加し、効果を10倍・コスト0にする。相手に10ダメージ、50%で自分に5ダメージ',effectKey:'',img:'https://raw.githubusercontent.com/cosmosapr3-code/CAT-/main/assets/cards/cat-kanzen.webp',actions:[{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'pico',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'gobo2',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'neko',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'scratch',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'janken',count:2},{type:'scratch_boost',target:'self',chance:100,multiplier:10,turns:1},{type:'damage',target:'opponent',chance:100,amount:10},{type:'damage',target:'self',chance:50,amount:5}]};\\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
+ "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
+ "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\nconst TC_CAT_KANZEN_KEY='limited_custom_cat_kanzen';\nconst TC_CAT_KANZEN_DEF={name:'CAT完全体',icon:'🐈‍⬛',cost:0,description:'Scratch属性カードを各2枚追加し、効果を10倍・コスト0にする。相手に10ダメージ、50%で自分に5ダメージ',effectKey:'',img:'https://raw.githubusercontent.com/cosmosapr3-code/CAT-/main/assets/cards/cat-kanzen.webp',actions:[{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'pico',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'gobo2',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'neko',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'scratch',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'janken',count:2},{type:'scratch_boost',target:'self',chance:100,multiplier:10,turns:1},{type:'damage',target:'opponent',chance:100,amount:10},{type:'damage',target:'self',chance:50,amount:5}]};\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
  'define built-in CAT完全体 card'
 );
 replaceOnce(
- "  if(['freeze','skip','card_effect_up','card_effect_down'].includes(type))x.turns=clampInt(a.turns??3,1,50);\\n  if(['card_effect_up','card_effect_down'].includes(type)){",
- "  if(['freeze','skip','card_effect_up','card_effect_down','scratch_boost'].includes(type))x.turns=clampInt(a.turns??1,1,50);\\n  if(type==='scratch_boost')x.multiplier=clampInt(a.multiplier??10,2,10);\\n  if(['card_effect_up','card_effect_down'].includes(type)){",
+ "  if(['freeze','skip','card_effect_up','card_effect_down'].includes(type))x.turns=clampInt(a.turns??3,1,50);\n  if(['card_effect_up','card_effect_down'].includes(type)){",
+ "  if(['freeze','skip','card_effect_up','card_effect_down','scratch_boost'].includes(type))x.turns=clampInt(a.turns??1,1,50);\n  if(type==='scratch_boost')x.multiplier=clampInt(a.multiplier??10,2,10);\n  if(['card_effect_up','card_effect_down'].includes(type)){",
  'normalize Scratch boost action'
 );
 replaceOnce(
- "function tcNormalizeCustomLimitedCards(raw){\\n const src=raw&&typeof raw==='object'?raw:{};const out={};\\n for(const [key,value] of Object.entries(src).slice(0,30)){",
- "function tcNormalizeCustomLimitedCards(raw){\\n const src=raw&&typeof raw==='object'?raw:{};const out={};\\n const entries=Object.entries(src).filter(([key])=>key!==TC_CAT_KANZEN_KEY).slice(0,30);\\n for(const [key,value] of entries){",
+ "function tcNormalizeCustomLimitedCards(raw){\n const src=raw&&typeof raw==='object'?raw:{};const out={};\n for(const [key,value] of Object.entries(src).slice(0,30)){",
+ "function tcNormalizeCustomLimitedCards(raw){\n const src=raw&&typeof raw==='object'?raw:{};const out={};\n const entries=Object.entries(src).filter(([key])=>key!==TC_CAT_KANZEN_KEY).slice(0,30);\n for(const [key,value] of entries){",
  'preserve existing custom cards'
 );
 replaceOnce(
- "  out[key]={name:String(value.name||'限定カード').trim().slice(0,32),icon:String(value.icon||'🃏').trim().slice(0,8)||'🃏',cost:clampInt(value.cost??0,0,30),description,effectKey:actions.length?'':effectKey,actions,img:safeImg};\\n }\\n return out;\\n}",
- "  out[key]={name:String(value.name||'限定カード').trim().slice(0,32),icon:String(value.icon||'🃏').trim().slice(0,8)||'🃏',cost:clampInt(value.cost??0,0,30),description,effectKey:actions.length?'':effectKey,actions,img:safeImg};\\n }\\n out[TC_CAT_KANZEN_KEY]={name:TC_CAT_KANZEN_DEF.name,icon:TC_CAT_KANZEN_DEF.icon,cost:0,description:TC_CAT_KANZEN_DEF.description,effectKey:'',actions:tcNormalizeCustomLimitedActions(TC_CAT_KANZEN_DEF.actions),img:TC_CAT_KANZEN_DEF.img};\\n return out;\\n}",
+ "  out[key]={name:String(value.name||'限定カード').trim().slice(0,32),icon:String(value.icon||'🃏').trim().slice(0,8)||'🃏',cost:clampInt(value.cost??0,0,30),description,effectKey:actions.length?'':effectKey,actions,img:safeImg};\n }\n return out;\n}",
+ "  out[key]={name:String(value.name||'限定カード').trim().slice(0,32),icon:String(value.icon||'🃏').trim().slice(0,8)||'🃏',cost:clampInt(value.cost??0,0,30),description,effectKey:actions.length?'':effectKey,actions,img:safeImg};\n }\n out[TC_CAT_KANZEN_KEY]={name:TC_CAT_KANZEN_DEF.name,icon:TC_CAT_KANZEN_DEF.icon,cost:0,description:TC_CAT_KANZEN_DEF.description,effectKey:'',actions:tcNormalizeCustomLimitedActions(TC_CAT_KANZEN_DEF.actions),img:TC_CAT_KANZEN_DEF.img};\n return out;\n}",
  'include built-in reward in every config'
 );
 replaceOnce(
@@ -42,8 +42,8 @@ replaceOnce(
  'multiply Scratch card effects'
 );
 replaceOnce(
- "    else if(action.type==='ap_down'){target.ap=Math.max(0,(Number(target.ap)||0)-amount);if(targetIndex===G.turn)G.ap=target.ap;results.push(target.name+'のコスト-'+amount);}\\n    else if(action.type==='freeze'){",
- "    else if(action.type==='ap_down'){target.ap=Math.max(0,(Number(target.ap)||0)-amount);if(targetIndex===G.turn)G.ap=target.ap;results.push(target.name+'のコスト-'+amount);}\\n    else if(action.type==='scratch_boost'){target.scratchBoost=1;target.scratchBoostMultiplier=clampInt(action.multiplier??10,2,10);results.push(target.name+'のScratch属性効果'+target.scratchBoostMultiplier+'倍・コスト0（このターン）');}\\n    else if(action.type==='freeze'){",
+ "    else if(action.type==='ap_down'){target.ap=Math.max(0,(Number(target.ap)||0)-amount);if(targetIndex===G.turn)G.ap=target.ap;results.push(target.name+'のコスト-'+amount);}\n    else if(action.type==='freeze'){",
+ "    else if(action.type==='ap_down'){target.ap=Math.max(0,(Number(target.ap)||0)-amount);if(targetIndex===G.turn)G.ap=target.ap;results.push(target.name+'のコスト-'+amount);}\n    else if(action.type==='scratch_boost'){target.scratchBoost=1;target.scratchBoostMultiplier=clampInt(action.multiplier??10,2,10);results.push(target.name+'のScratch属性効果'+target.scratchBoostMultiplier+'倍・コスト0（このターン）');}\n    else if(action.type==='freeze'){",
  'execute Scratch boost'
 );
 replaceOnce('scratchBoost:0,cardMul:1,matsuokaActive:false','scratchBoost:0,scratchBoostMultiplier:1,cardMul:1,matsuokaActive:false','initialize Scratch multiplier');
@@ -61,13 +61,13 @@ replaceOnce(
  'Scratch card free cost'
 );
 replaceOnce(
- "if(Number(G.limitedSovietTurns)>0&&(key==='sovet'||key==='missile'))cost=0;\\n  if(cost>(Number(p.ap)||0))return false;",
- "if(Number(G.limitedSovietTurns)>0&&(key==='sovet'||key==='missile'))cost=0;\\n  if(Number(p.scratchBoost)>0&&Number(p.scratchBoostMultiplier)>=10&&SCRATCH_KEYS.includes(key))cost=0;\\n  if(cost>(Number(p.ap)||0))return false;",
+ "if(Number(G.limitedSovietTurns)>0&&(key==='sovet'||key==='missile'))cost=0;\n  if(cost>(Number(p.ap)||0))return false;",
+ "if(Number(G.limitedSovietTurns)>0&&(key==='sovet'||key==='missile'))cost=0;\n  if(Number(p.scratchBoost)>0&&Number(p.scratchBoostMultiplier)>=10&&SCRATCH_KEYS.includes(key))cost=0;\n  if(cost>(Number(p.ap)||0))return false;",
  'CPU Scratch free cost'
 );
 replaceOnce(
- "if(Number(G.limitedSovietTurns)>0&&(k==='sovet'||k==='missile'))cost=0;\\n if(cost>",
- "if(Number(G.limitedSovietTurns)>0&&(k==='sovet'||k==='missile'))cost=0;\\n if(Number(p.scratchBoost)>0&&Number(p.scratchBoostMultiplier)>=10&&(SCRATCH_KEYS.includes(k)||SCRATCH_KEYS.includes(shown)))cost=0;\\n if(cost>",
+ "if(Number(G.limitedSovietTurns)>0&&(k==='sovet'||k==='missile'))cost=0;\n if(cost>",
+ "if(Number(G.limitedSovietTurns)>0&&(k==='sovet'||k==='missile'))cost=0;\n if(Number(p.scratchBoost)>0&&Number(p.scratchBoostMultiplier)>=10&&(SCRATCH_KEYS.includes(k)||SCRATCH_KEYS.includes(shown)))cost=0;\n if(cost>",
  'card confirm Scratch free cost'
 );
 replaceOnce("const SCRATCH_KEYS=['pico','gobo','neko','scratch','janken'];","const SCRATCH_KEYS=['pico','gobo','gobo2','neko','scratch','janken'];","include real Gobo key");
@@ -99,7 +99,7 @@ const redeemLines = [
 " }catch(error){console.warn('CAT大戦争報酬の受取に失敗しました',error);return 'CAT完全体の受取に失敗しました：'+String(error?.message||error);}",
 "}"
 ];
-replaceOnce(syncProfile,syncProfile+'\\n'+redeemLines.join('\\n'),'add player-side reward redemption');
+replaceOnce(syncProfile,syncProfile+'\n'+redeemLines.join('\n'),'add player-side reward redemption');
 replaceOnce(
  "if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}go('home');setTimeout(()=>pollCardIdeaNotifications(),500);",
  "if(!U().profileInitialized){await syncCloudProfile();await refreshCloudInbox()}const rewardNotice=await redeemCatRewardFromUrl();go('home',rewardNotice);setTimeout(()=>pollCardIdeaNotifications(),500);",
