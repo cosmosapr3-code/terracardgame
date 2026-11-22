@@ -83,6 +83,34 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
    'exclude CAT完全体 from random story drops'
   );changed=true;
  }
+ if(!html.includes("async function loadCatBridgeMissions()")){
+  replaceOnce(
+   "let __tcGlobalMissionLoad = null;\\nasync function loadGlobalMissions(force=false){",
+   "let __tcGlobalMissionLoad = null;\\nasync function loadCatBridgeMissions(){\\n if(!me||!TERRACARD_TOKEN||isAdmin){MS.catBridge=[];return [];}\\n try{\\n  const response=await fetch('https://cat.cat-b7c.workers.dev/api/terra-reward/pending',{method:'POST',mode:'cors',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({terraToken:TERRACARD_TOKEN})});\\n  const data=await response.json().catch(()=>({}));\\n  if(!response.ok||data.ok!==true)throw new Error(data.error||'CAT大戦争連動ミッションを取得できませんでした');\\n  MS.catBridge=Array.isArray(data.missions)?data.missions:[];\\n }catch(error){console.warn('CAT大戦争連動ミッション取得失敗:',error);MS.catBridge=[];}\\n saveMs();return MS.catBridge;\\n}\\nasync function loadGlobalMissions(force=false){",
+   'add CAT-linked mission lookup to TERRACARD'
+  );changed=true;
+ }
+ if(!html.includes("await loadCatBridgeMissions();")){
+  replaceOnce(
+   "  }));\\n  saveMs();\\n  if(screen==='missions')render();\\n  return MS.custom;",
+   "  }));\\n  await loadCatBridgeMissions();\\n  saveMs();\\n  if(screen==='missions')render();\\n  return MS.custom;",
+   'refresh CAT-linked missions when loading mission screen'
+  );changed=true;
+ }
+ if(!html.includes("const catBridgeHtml=")){
+  replaceOnce(
+   "  const creator=isAdmin?",
+   "  const catBridge=(Array.isArray(MS.catBridge)?MS.catBridge:[]).map(m=>{const linked=m.linked!==false,done=!!m.done,status=done?'✔ 達成済み':(!linked?'同じユーザー名のCAT大戦争アカウントがありません':'未達成');const rewardStatus=m.rewardStatus==='delivered'?'TERRACARDに受取済み':(m.rewardStatus==='claimable'?'TERRACARDで受取可能':(done?'ログイン時に受取確認':'クリア後に自動配布'));return '<div class=\\'panel\\'><div class=\\'row\\'><b>'+esc(m.title||'CAT大戦争：TERRA CARDに勝利')+'</b><span style=\\'flex:1\\'></span><span>'+status+'</span></div><p>'+esc(m.description||'CAT大戦争の第3章でTERRA CARDステージに勝利')+'</p><small>報酬：'+esc(m.rewardName||'CAT完全体')+' / '+rewardStatus+'</small></div>';}).join('')||'<p class=\\'sm\\'>CAT大戦争の連動ミッションを確認できませんでした。TERRACARDとCAT大戦争で同じユーザー名を使ってください。</p>';\\n  const catBridgeHtml='<div class=\\'panel\\'><h3>🐈 CAT大戦争連動ミッション</h3>'+catBridge+'</div>';\\n  const creator=isAdmin?",
+   'show CAT mission inside TERRACARD missions'
+  );changed=true;
+ }
+ if(!html.includes("'+catBridgeHtml+creator+")){
+  replaceOnce(
+   "'+custom+'</div>'+creator+'<div class=\\'panel\\'><h3>📖 チュートリアル",
+   "'+custom+'</div>'+catBridgeHtml+creator+'<div class=\\'panel\\'><h3>📖 チュートリアル",
+   'insert CAT mission panel into mission page'
+  );changed=true;
+ }
  const blocks=[...html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(x=>x.trim());
  for(const script of blocks)new Function(script);
  if(changed){fs.writeFileSync(file,html,'utf8');console.log('Added automatic CAT reward collection on TERRA CARD login; parsed inline scripts:',blocks.length);}
