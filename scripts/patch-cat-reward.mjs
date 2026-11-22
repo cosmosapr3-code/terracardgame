@@ -50,6 +50,39 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
   );
   changed=true;
  }
+ if(!html.includes("cardKeys=Object.keys(CARDS).filter(k=>k!==TC_CAT_KANZEN_KEY)")){
+  replaceOnce(
+   "function cardListHtml(){\\n const cardKeys=Object.keys(CARDS),cardCount=cardKeys.length;",
+   "function cardListHtml(){\\n const cardKeys=Object.keys(CARDS).filter(k=>k!==TC_CAT_KANZEN_KEY),cardCount=cardKeys.length;",
+   'hide CAT完全体 from main card catalog'
+  );changed=true;
+ }
+ if(!html.includes("const limitedOwned=tcOwnedLimitedCardKeys(u).filter(key=>key!==TC_CAT_KANZEN_KEY)")){
+  replaceOnce(
+   "const limitedOwned=tcOwnedLimitedCardKeys(u);const all=sortCharmsByRarity(u.charms)",
+   "const limitedOwned=tcOwnedLimitedCardKeys(u).filter(key=>key!==TC_CAT_KANZEN_KEY);const all=sortCharmsByRarity(u.charms)",
+   'hide CAT完全体 from limited collection'
+  );changed=true;
+  replaceOnce(
+   "limitedOwned.length}/\u0024{tcAllLimitedCardKeys().length}",
+   "limitedOwned.length}/\u0024{Math.max(0,tcAllLimitedCardKeys().length-1)}",
+   'correct hidden limited collection count'
+  );
+ }
+ if(!html.includes("tcAllLimitedCardKeys().filter(key=>key!==TC_CAT_KANZEN_KEY).map(key=>{const c=CARDS[key]")){
+  replaceOnce(
+   "tcAllLimitedCardKeys().map(key=>{const c=CARDS[key];return \u0027<label data-tc-search-item",
+   "tcAllLimitedCardKeys().filter(key=>key!==TC_CAT_KANZEN_KEY).map(key=>{const c=CARDS[key];return \u0027<label data-tc-search-item",
+   'hide CAT完全体 from admin drop list'
+  );changed=true;
+ }
+ if(!html.includes("key!==TC_CAT_KANZEN_KEY&&drops[key]===chapter")){
+  replaceOnce(
+   "const candidates=tcAllLimitedCardKeys().filter(key=>drops[key]===chapter&&!tcOwnedLimitedCardKeys(user).includes(key));",
+   "const candidates=tcAllLimitedCardKeys().filter(key=>key!==TC_CAT_KANZEN_KEY&&drops[key]===chapter&&!tcOwnedLimitedCardKeys(user).includes(key));",
+   'exclude CAT完全体 from random story drops'
+  );changed=true;
+ }
  const blocks=[...html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(x=>x.trim());
  for(const script of blocks)new Function(script);
  if(changed){fs.writeFileSync(file,html,'utf8');console.log('Added automatic CAT reward collection on TERRA CARD login; parsed inline scripts:',blocks.length);}
