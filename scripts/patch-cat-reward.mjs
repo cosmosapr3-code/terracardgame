@@ -111,7 +111,7 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
    'insert CAT mission panel into mission page'
   );changed=true;
  }
-m=>m[1]).filter(x=>x.trim());
+const blocks=[...html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(x=>x.trim());
  for(const script of blocks)new Function(script);
  if(changed){fs.writeFileSync(file,html,'utf8');console.log('Added automatic CAT reward collection on TERRA CARD login; parsed inline scripts:',blocks.length);}
  else console.log('Automatic CAT reward collection already exists; Scratch multiplier repair is also current.');
