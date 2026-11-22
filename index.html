@@ -1599,6 +1599,16 @@ function genDaily(){const t=todayStr(),h=msHash(t+(me||''));const pool=Object.ke
 function msCheck(){if(me&&MS.day!==todayStr())genDaily()}
 function paintMissIfOpen(){if(screen==='missions')render()}
 let __tcGlobalMissionLoad = null;
+async function loadCatBridgeMissions(){
+ if(!me||!TERRACARD_TOKEN||isAdmin){MS.catBridge=[];return [];}
+ try{
+  const response=await fetch('https://cat.cat-b7c.workers.dev/api/terra-reward/pending',{method:'POST',mode:'cors',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({terraToken:TERRACARD_TOKEN})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||data.ok!==true)throw new Error(data.error||'CAT大戦争連動ミッションを取得できませんでした');
+  MS.catBridge=Array.isArray(data.missions)?data.missions:[];
+ }catch(error){console.warn('CAT大戦争連動ミッション取得失敗:',error);MS.catBridge=[];}
+ saveMs();return MS.catBridge;
+}
 async function loadGlobalMissions(force=false){
  if(!me||!TERRACARD_TOKEN)return null;
  if(__tcGlobalMissionLoad)return __tcGlobalMissionLoad;
@@ -1618,6 +1628,7 @@ async function loadGlobalMissions(force=false){
    note:String(m.note||''),prog:Number(m.prog)||0,done:!!m.done,
    claimed:!!m.claimed,shared:true
   }));
+  await loadCatBridgeMissions();
   saveMs();
   if(screen==='missions')render();
   return MS.custom;
@@ -2461,8 +2472,15 @@ function render(){
    const extra=isAdmin?'<button class="sm" onclick="msDelCustom(\''+esc(m.id)+'\')">削除</button>':'';
    return row(esc(MTYPES[m.type]||m.type)+(m.note?' <span class="sm">※'+esc(m.note)+'</span>':''),m.prog,m.tgt,m.rw,m.done,m.claimed,"msClaimCustom('"+esc(m.id)+"')",extra);
   }).join(''):'<p class="sm">運営から配布されたミッションはまだありません。</p>';
+  const catBridge=(Array.isArray(MS.catBridge)?MS.catBridge:[]).map(m=>{
+   const linked=m.linked!==false,done=!!m.done;
+   const status=done?'✔ 達成済み':(!linked?'同じユーザー名のCAT大戦争アカウントがありません':'未達成');
+   const rewardStatus=m.rewardStatus==='delivered'?'TERRACARDに受取済み':(m.rewardStatus==='claimable'?'TERRACARDで受取可能':(done?'ログイン時に受取確認':'クリア後に自動配布'));
+   return '<div class="panel"><div class="row"><b>'+esc(m.title||'CAT大戦争：TERRA CARDに勝利')+'</b><span style="flex:1"></span><span>'+status+'</span></div><p>'+esc(m.description||'CAT大戦争の第3章でTERRA CARDステージに勝利')+'</p><small>報酬：'+esc(m.rewardName||'CAT完全体')+' / '+rewardStatus+'</small></div>';
+  }).join('')||'<p class="sm">CAT大戦争の連動ミッションを確認できませんでした。TERRACARDとCAT大戦争で同じユーザー名を使ってください。</p>';
+  const catBridgeHtml='<div class="panel"><h3>🐈 CAT大戦争連動ミッション</h3>'+catBridge+'</div>';
   const creator=isAdmin?'<div class="panel"><h3>✏️ 運営ミッション作成</h3><form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>全員に配布</button></form><p class="sm">作成したミッションは全プレイヤーに配布され、進捗と報酬受取は各プレイヤー別に保存されます。</p></div>':'';
-  const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">📖 チュートリアルを見返す</button></div>';}
+  const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+catBridgeHtml+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">📖 チュートリアルを見返す</button></div>';}
  if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><div id="admin-action-status" aria-live="polite" style="position:fixed;right:12px;bottom:12px;z-index:9999;max-width:min(420px,90vw);padding:8px 12px;border-radius:8px;background:#17202bdc;color:#fff;pointer-events:none"></div><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCharmGrantHtml()}${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
  if(screen==='coinMenu')h=nav+cgCoinMenuHtml();
  if(screen==='cgGacha')h=nav+cgGachaHtml();
