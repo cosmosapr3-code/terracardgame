@@ -7,6 +7,9 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
   ['p.scratchBoost=0;scratchBoostMultiplier=1;','p.scratchBoost=0;p.scratchBoostMultiplier=1;',1]
  ];
  let changed=false;
+ const oldCatApi='https://cat.cosmos-apr-3.workers.dev',newCatApi='https://cat.cat-b7c.workers.dev';
+ if(html.includes(oldCatApi)){html=html.split(oldCatApi).join(newCatApi);changed=true;}
+ if(!html.includes(newCatApi))throw new Error('CAT大戦争Workerの公開URLを確認できません。');
  for(const [before,after,expected] of fixes){
   const count=html.split(before).length-1;
   const afterCount=html.split(after).length-1;
