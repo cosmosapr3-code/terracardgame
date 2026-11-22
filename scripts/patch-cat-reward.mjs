@@ -52,8 +52,8 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
  }
  if(!html.includes("cardKeys=Object.keys(CARDS).filter(k=>k!==TC_CAT_KANZEN_KEY)")){
   replaceOnce(
-   "function cardListHtml(){\\n const cardKeys=Object.keys(CARDS),cardCount=cardKeys.length;",
-   "function cardListHtml(){\\n const cardKeys=Object.keys(CARDS).filter(k=>k!==TC_CAT_KANZEN_KEY),cardCount=cardKeys.length;",
+   "function cardListHtml(){\n const cardKeys=Object.keys(CARDS),cardCount=cardKeys.length;",
+   "function cardListHtml(){\n const cardKeys=Object.keys(CARDS).filter(k=>k!==TC_CAT_KANZEN_KEY),cardCount=cardKeys.length;",
    'hide CAT完全体 from main card catalog'
   );changed=true;
  }
