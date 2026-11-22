@@ -1,6 +1,3 @@
-import fs from 'node:fs';
-const file='index.html';
-let html=fs.readFileSync(file,'utf8');
 if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limited_custom_cat_kanzen')){
  const fixes=[
   ['q.scratchBoost=0;scratchBoostMultiplier=1;','q.scratchBoost=0;q.scratchBoostMultiplier=1;',3],
@@ -9,11 +6,48 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
  let changed=false;
  for(const [before,after,expected] of fixes){
   const count=html.split(before).length-1;
-  if(count!==expected)throw new Error('Scratch multiplier reset repair: expected '+expected+', found '+count);
-  html=html.split(before).join(after);changed=true;
+  const afterCount=html.split(after).length-1;
+  if(count===expected){html=html.split(before).join(after);changed=true;}
+  else if(count===0&&afterCount>=expected){/* already repaired */}
+  else throw new Error('Scratch multiplier reset repair: expected '+expected+' old or repaired matches, found old='+count+', repaired='+afterCount);
  }
- if(changed){fs.writeFileSync(file,html,'utf8');console.log('Repaired player-specific Scratch multiplier resets.');}
- else console.log('TERRA reward integration already exists; nothing to patch.');
+ if(!html.includes('async function redeemCatRewardAutomatically')){
+  replaceOnce(
+   "async function redeemCatRewardFromUrl(){",
+   "async function redeemCatRewardFromUrl(claimUrlOverride=''){",
+   'allow direct reward URL input'
+  );
+  replaceOnce(
+   "const claimUrlText=page.searchParams.get('cat_reward');if(!claimUrlText)return '';",
+   "const claimUrlText=claimUrlOverride||page.searchParams.get('cat_reward');if(!claimUrlText)return '';",
+   'support automatic reward claim'
+  );
+  replaceOnce(
+   "page.searchParams.delete('cat_reward');history.replaceState(null,'',page.pathname+page.search+page.hash);",
+   "if(!claimUrlOverride){page.searchParams.delete('cat_reward');history.replaceState(null,'',page.pathname+page.search+page.hash);}",
+   'only clear explicit reward URL'
+  );
+  replaceOnce(
+   "return 'CAT完全体を受け取りました！カード一覧・限定カード欄を確認してね。';\n }catch(error){console.warn('CAT大戦争報酬の受取に失敗しました',error);return 'CAT完全体の受取に失敗しました：'+String(error?.message||error);}\n}",
+   "return 'CAT完全体を受け取りました！カード一覧・限定カード欄を確認してね。';\n }catch(error){console.warn('CAT大戦争報酬の受取に失敗しました',error);return 'CAT完全体の受取に失敗しました：'+String(error?.message||error);}\n}\nasync function redeemCatRewardAutomatically(){\n if(!me||isAdmin||!TERRACARD_TOKEN)return '';\n try{\n  const response=await fetch('https://cat.cosmos-apr-3.workers.dev/api/terra-reward/pending',{method:'POST',mode:'cors',cache:'no-store',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify({terraToken:TERRACARD_TOKEN})});\n  const data=await response.json().catch(()=>({}));\n  if(!response.ok||data.ok!==true)throw new Error(data.error||'CAT大戦争の報酬一覧を取得できませんでした');\n  const deliveries=Array.isArray(data.deliveries)?data.deliveries:[];let received=0;let firstError='';\n  for(const item of deliveries){if(!item||typeof item.claimUrl!=='string')continue;const result=await redeemCatRewardFromUrl(item.claimUrl);if(result.includes('受け取りました'))received++;else if(result&&!firstError)firstError=result;}\n  if(received)return 'CAT大戦争の報酬を'+received+'件受け取りました！カード一覧の限定カード欄を確認してね。';\n  return firstError;\n }catch(error){console.warn('CAT大戦争の自動報酬確認に失敗しました',error);return 'CAT大戦争の報酬確認に失敗しました：'+String(error?.message||error);}\n}",
+   'add automatic pending reward redemption'
+  );
+  replaceOnce(
+   "const rewardNotice=await redeemCatRewardFromUrl();go('home',rewardNotice);",
+   "const urlRewardNotice=await redeemCatRewardFromUrl();const autoRewardNotice=await redeemCatRewardAutomatically();go('home',urlRewardNotice||autoRewardNotice);",
+   'check CAT rewards after login'
+  );
+  replaceOnce(
+   "const rewardNotice=await redeemCatRewardFromUrl();if(rewardNotice){msg=rewardNotice;render();}",
+   "const urlRewardNotice=await redeemCatRewardFromUrl();const autoRewardNotice=await redeemCatRewardAutomatically();const rewardNotice=urlRewardNotice||autoRewardNotice;if(rewardNotice){msg=rewardNotice;render();}",
+   'check CAT rewards after session restore'
+  );
+  changed=true;
+ }
+ const blocks=[...html.matchAll(/<script(?![^>]*src=)[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(m=>m[1]).filter(x=>x.trim());
+ for(const script of blocks)new Function(script);
+ if(changed){fs.writeFileSync(file,html,'utf8');console.log('Added automatic CAT reward collection on TERRA CARD login; parsed inline scripts:',blocks.length);}
+ else console.log('Automatic CAT reward collection already exists; Scratch multiplier repair is also current.');
  process.exit(0);
 }
 function replaceOnce(oldText,newText,label,expected=1){
