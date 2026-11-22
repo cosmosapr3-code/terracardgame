@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+const file='index.html';
+let html=fs.readFileSync(file,'utf8');
 if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limited_custom_cat_kanzen')){
  const fixes=[
   ['q.scratchBoost=0;scratchBoostMultiplier=1;','q.scratchBoost=0;q.scratchBoostMultiplier=1;',3],
