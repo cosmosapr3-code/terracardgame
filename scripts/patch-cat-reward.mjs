@@ -71,8 +71,8 @@ if(html.includes('async function redeemCatRewardFromUrl')&&html.includes('limite
  }
  if(!html.includes("tcAllLimitedCardKeys().filter(key=>key!==TC_CAT_KANZEN_KEY).map(key=>{const c=CARDS[key]")){
   replaceOnce(
-   "tcAllLimitedCardKeys().map(key=>{const c=CARDS[key];return \u0027<label data-tc-search-item",
-   "tcAllLimitedCardKeys().filter(key=>key!==TC_CAT_KANZEN_KEY).map(key=>{const c=CARDS[key];return \u0027<label data-tc-search-item",
+   "tcAllLimitedCardKeys().map(key=>{const c=CARDS[key];return ",
+   "tcAllLimitedCardKeys().filter(key=>key!==TC_CAT_KANZEN_KEY).map(key=>{const c=CARDS[key];return ",
    'hide CAT完全体 from admin drop list'
   );changed=true;
  }
@@ -101,7 +101,7 @@ replaceOnce(
 );
 replaceOnce(
  "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
- "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\nconst TC_CAT_KANZEN_KEY='limited_custom_cat_kanzen';\nconst TC_CAT_KANZEN_DEF={name:'CAT完全体',icon:'🐈‍⬛',cost:0,description:'Scratch属性カードを各2枚追加し、効果を10倍・コスト0にする。相手に10ダメージ、50%で自分に5ダメージ',effectKey:'',img:'https://raw.githubusercontent.com/cosmosapr3-code/CAT-/main/assets/cards/cat-kanzen.webp',actions:[{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'pico',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'gobo2',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'neko',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'scratch',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'janken',count:2},{type:'scratch_boost',target:'self',chance:100,multiplier:10,turns:1},{type:'damage',target:'opponent',chance:100,amount:10},{type:'damage',target:'self',chance:50,amount:5}]};\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
+ "const TC_CUSTOM_LIMITED_CARD_MODES={specific:'カードを指定',rarest:'出現率が最も低いカード',limited_random:'限定カードからランダム',pool_random:'通常の出現率でランダム'};\nconst TC_CAT_KANZEN_KEY='limited_custom_cat_kanzen';\nconst TC_CAT_KANZEN_DEF={name:'CAT完全体',icon:'🐈‍⬛',cost:0,description:'Scratch属性カードを各2枚追加し、効果を10倍・コスト0にする。相手に10ダメージ、50%で自分に5ダメージ',effectKey:'',img:'https://cat.cat-b7c.workers.dev/assets/cards/cat-kanzen-hd.webp',actions:[{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'pico',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'gobo2',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'neko',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'scratch',count:2},{type:'add_card',target:'self',chance:100,cardMode:'specific',cardKey:'janken',count:2},{type:'scratch_boost',target:'self',chance:100,multiplier:10,turns:1},{type:'damage',target:'opponent',chance:100,amount:10},{type:'damage',target:'self',chance:50,amount:5}]};\nCFG.customLimitedCards=tcNormalizeCustomLimitedCards(CFG.customLimitedCards);",
  'define built-in CAT完全体 card'
 );
 replaceOnce(
