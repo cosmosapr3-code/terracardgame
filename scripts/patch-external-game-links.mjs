@@ -53,8 +53,8 @@ if (!html.includes(adminPanelCall)) {
 // Add the public entry in the existing Other menu.
 if (!html.includes('🎮 別ゲーム</button>')) {
   replaceOnce(
-    '<button onclick="go(\\'post\\')">📮 ポスト ',
-    '<button type="button" onclick="go(\\'externalGames\\')">🎮 別ゲーム</button>\n <button onclick="go(\\'post\\')">📮 ポスト ',
+    '<button onclick="go(\'post\')">📮 ポスト ',
+    '<button type="button" onclick="go(\'externalGames\')">🎮 別ゲーム</button>\n <button onclick="go(\'post\')">📮 ポスト ',
     'add public Other-menu entry'
   );
 }
