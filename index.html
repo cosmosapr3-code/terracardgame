@@ -1011,7 +1011,7 @@ function tcNormalizePlayerStoryLimits(raw){
 const DEFAULT_GACHA_PRICES={character:1,charm:1};
 const DEFAULT_CHARM_RATES={N:60,R:25,SR:10,SSR:4,UR:1};
 const DEFAULT_YOUTUBE_KEYS=Object.keys(CARDS).filter(k=>CARDS[k].youtubeAttr);
-let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);CFG.storyChapterTitles=tcNormalizeStoryChapterTitles(CFG.storyChapterTitles);CFG.playerStoryChapterLimits=tcNormalizePlayerStoryLimits(CFG.playerStoryChapterLimits);CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
+let CFG=JSON.parse(localStorage.cgc_cfg||'{}');CFG.s=Object.assign({},DEF_S,CFG.s);CFG.cards=CFG.cards||{};CFG.over=CFG.over||{};CFG.copyrightCards=Array.isArray(CFG.copyrightCards)?CFG.copyrightCards:[];CFG.youtubeCards=Array.isArray(CFG.youtubeCards)?CFG.youtubeCards.slice():DEFAULT_YOUTUBE_KEYS.slice();CFG.soundCards=Array.isArray(CFG.soundCards)?CFG.soundCards.slice():DEFAULT_SOUND_KEYS.slice();CFG.soundCardsVersion=Math.max(0,Math.floor(Number(CFG.soundCardsVersion)||0));CFG.gachaPrices=Object.assign({},DEFAULT_GACHA_PRICES,CFG.gachaPrices||{});CFG.charmRates=Object.assign({},DEFAULT_CHARM_RATES,CFG.charmRates||{});CFG.updateNotice=CFG.updateNotice&&typeof CFG.updateNotice==='object'?CFG.updateNotice:null;CFG.externalGames=tcNormalizeExternalGames(CFG.externalGames);CFG.storyChapterUnlocks=tcNormalizeStoryChapterUnlocks(CFG.storyChapterUnlocks);CFG.storyChapterTitles=tcNormalizeStoryChapterTitles(CFG.storyChapterTitles);CFG.playerStoryChapterLimits=tcNormalizePlayerStoryLimits(CFG.playerStoryChapterLimits);CFG.storyBosses=tcNormalizeStoryBosses(CFG.storyBosses);
 const TC_CUSTOM_LIMITED_ACTION_TYPES={
  atk_up:'攻撃力アップ',atk_down:'攻撃力ダウン',def_up:'防御力アップ',def_down:'防御力ダウン',
  heal:'HP回復',maxhp_up:'最大HPアップ',damage:'ダメージ',ap_up:'コスト増加',ap_down:'コスト減少',
@@ -1316,6 +1316,146 @@ const saveCfg=async()=>{
   localStorage.cgc_cfg=payload;applyCfg();return true;
  }catch(e){console.warn('ゲーム設定の共有保存・読み返しに失敗しました',e);return false;}
 };
+function tcSafeExternalGameUrl(value){
+ try{
+  const url=new URL(String(value||'').trim());
+  if(url.protocol!=='https:'||!url.hostname||url.username||url.password)return '';
+  return url.href;
+ }catch{return '';}
+}
+function tcNormalizeExternalGames(raw){
+ const rows=Array.isArray(raw)?raw:[];
+ return rows.slice(0,30).map((item,index)=>{
+  if(!item||typeof item!=='object')return null;
+  const name=String(item.name||'').trim().slice(0,40);
+  const url=tcSafeExternalGameUrl(item.url);
+  if(!name||!url)return null;
+  const id=String(item.id||('external_game_'+index)).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,60)||('external_game_'+index);
+  return {
+   id,name,url,
+   icon:String(item.icon||'🎮').trim().slice(0,8)||'🎮',
+   description:String(item.description||'').trim().slice(0,160),
+   buttonText:String(item.buttonText||'プレイする').trim().slice(0,24)||'プレイする',
+   enabled:item.enabled!==false,
+   order:Number.isFinite(Number(item.order))?Number(item.order):index
+  };
+ }).filter(Boolean).sort((a,b)=>a.order-b.order).slice(0,30);
+}
+function tcExternalGamesHtml(){
+ const games=tcNormalizeExternalGames(CFG.externalGames).filter(item=>item.enabled);
+ const cards=games.map(item=>{
+  const url=tcSafeExternalGameUrl(item.url);
+  if(!url)return '';
+  return '<section class="panel" style="border:1px solid #3a6a96">' +
+   '<div class="row" style="align-items:center"><span style="font-size:30px">'+esc(item.icon)+'</span><h3>'+esc(item.name)+'</h3></div>' +
+   (item.description?'<p style="white-space:pre-wrap">'+esc(item.description)+'</p>':'') +
+   '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#1f5e99;color:#fff;text-decoration:none;border-radius:8px;padding:9px 16px;font-weight:700">'+esc(item.buttonText)+'</a>' +
+   '</section>';
+ }).join('');
+ return '<div class="panel"><div class="row" style="justify-content:space-between;align-items:center"><h2>🎮 別ゲーム</h2><button type="button" onclick="loadGlobalGameConfig().then(()=>{if(screen===\'externalGames\')render()})">一覧を更新</button></div>' +
+  '<p>運営が登録したゲームを遊べます。ゲームを開くと別タブで表示されます。</p>' +
+  (cards||'<p>現在、公開中の別ゲームはありません。</p>') +
+  '<button type="button" onclick="go(\'otherMenu\')">← その他に戻る</button></div>';
+}
+function tcAdminExternalGamesHtml(){
+ const games=tcNormalizeExternalGames(CFG.externalGames);
+ const rows=games.map(item=>{
+  const state=item.enabled?'公開中':'非公開';
+  const toggle=item.enabled?'非公開にする':'公開する';
+  const id=esc(item.id);
+  return '<div class="panel" style="margin:8px 0">' +
+   '<div class="row" style="align-items:center"><b>'+esc(item.icon)+' '+esc(item.name)+'</b><span style="flex:1"></span><small>'+state+'</small></div>' +
+   '<div><small>'+esc(item.url)+'</small></div>' +
+   (item.description?'<p>'+esc(item.description)+'</p>':'') +
+   '<div class="row"><button type="button" class="sm" onclick="tcEditExternalGame(\''+id+'\')">編集</button>' +
+   '<button type="button" class="sm" onclick="tcToggleExternalGame(\''+id+'\')">'+toggle+'</button>' +
+   '<button type="button" class="sm" onclick="tcDeleteExternalGame(\''+id+'\')">削除</button></div></div>';
+ }).join('');
+ return '<section class="panel" style="border:2px solid #65c6a4;margin:12px 0">' +
+  '<h3>🎮 別ゲームリンク管理</h3>' +
+  '<p>ここに登録したゲームは、全プレイヤーの「その他 → 別ゲーム」に表示されます。URLはHTTPSのサイトのみ登録できます。</p>' +
+  '<form id="tc-external-game-form" class="panel" onsubmit="event.preventDefault();tcSaveExternalGame(this)">' +
+  '<input type="hidden" name="gameId" value="">' +
+  '<div class="row"><label>ゲーム名 <input name="gameName" maxlength="40" required placeholder="例：新しいゲーム"></label>' +
+  '<label>アイコン <input name="gameIcon" maxlength="8" value="🎮" style="width:90px"></label></div>' +
+  '<label style="display:block;margin:8px 0">URL <input name="gameUrl" type="url" maxlength="1000" required placeholder="https://example.com/" style="width:100%;box-sizing:border-box"></label>' +
+  '<label style="display:block;margin:8px 0">説明 <textarea name="gameDescription" maxlength="160" rows="2" style="width:100%;box-sizing:border-box" placeholder="ゲームの説明（任意）"></textarea></label>' +
+  '<label>リンクの表示名 <input name="gameButtonText" maxlength="24" value="プレイする"></label>' +
+  '<div class="row" style="margin-top:8px"><button type="submit">保存</button><button type="button" onclick="tcResetExternalGameForm()">入力をクリア</button></div>' +
+  '</form><h4>登録済みゲーム（最大30件）</h4>' +
+  (rows||'<p>まだ登録されていません。</p>') +
+  '</section>';
+}
+async function tcPersistExternalGames(next,successMessage){
+ const before=tcNormalizeExternalGames(CFG.externalGames);
+ CFG.externalGames=tcNormalizeExternalGames(next);
+ const scrollY=window.scrollY||0;
+ const ok=await saveCfg();
+ if(!ok){
+  CFG.externalGames=before;
+  msg='別ゲーム設定を保存できませんでした。接続を確認して、もう一度保存してください。';
+ }else{
+  msg=successMessage;
+ }
+ render();
+ window.scrollTo(0,scrollY);
+ return ok;
+}
+async function tcSaveExternalGame(form){
+ if(!isAdmin)return;
+ const field=name=>form.elements.namedItem(name);
+ const name=String(field('gameName')?.value||'').trim().slice(0,40);
+ const url=tcSafeExternalGameUrl(field('gameUrl')?.value);
+ if(!name){alert('ゲーム名を入力してください');return;}
+ if(!url){alert('HTTPSで始まる正しいURLを入力してください');return;}
+ const before=tcNormalizeExternalGames(CFG.externalGames);
+ const id=String(field('gameId')?.value||'');
+ const old=before.find(item=>item.id===id);
+ if(!old&&before.length>=30){alert('登録できるゲームは最大30件です');return;}
+ const item={
+  id:old?old.id:('game_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)),
+  name,url,
+  icon:String(field('gameIcon')?.value||'🎮').trim().slice(0,8)||'🎮',
+  description:String(field('gameDescription')?.value||'').trim().slice(0,160),
+  buttonText:String(field('gameButtonText')?.value||'プレイする').trim().slice(0,24)||'プレイする',
+  enabled:old?old.enabled:true,
+  order:old?old.order:before.length
+ };
+ const next=old?before.map(entry=>entry.id===old.id?item:entry):before.concat(item);
+ await tcPersistExternalGames(next,old?'別ゲームを更新しました。':'別ゲームを登録しました。');
+}
+function tcEditExternalGame(id){
+ if(!isAdmin)return;
+ const item=tcNormalizeExternalGames(CFG.externalGames).find(entry=>entry.id===String(id));
+ const form=document.getElementById('tc-external-game-form');
+ if(!item||!form)return;
+ form.elements.namedItem('gameId').value=item.id;
+ form.elements.namedItem('gameName').value=item.name;
+ form.elements.namedItem('gameUrl').value=item.url;
+ form.elements.namedItem('gameIcon').value=item.icon;
+ form.elements.namedItem('gameDescription').value=item.description;
+ form.elements.namedItem('gameButtonText').value=item.buttonText;
+ form.elements.namedItem('gameName').focus();
+}
+function tcResetExternalGameForm(){
+ const form=document.getElementById('tc-external-game-form');
+ if(!form)return;
+ form.reset();
+ form.elements.namedItem('gameId').value='';
+}
+async function tcToggleExternalGame(id){
+ if(!isAdmin)return;
+ const list=tcNormalizeExternalGames(CFG.externalGames);
+ const item=list.find(entry=>entry.id===String(id));
+ if(!item)return;
+ item.enabled=!item.enabled;
+ await tcPersistExternalGames(list,item.enabled?'別ゲームを公開しました。':'別ゲームを非公開にしました。');
+}
+async function tcDeleteExternalGame(id){
+ if(!isAdmin||!confirm('この別ゲームリンクを削除しますか？'))return;
+ const list=tcNormalizeExternalGames(CFG.externalGames).filter(entry=>entry.id!==String(id));
+ await tcPersistExternalGames(list,'別ゲームリンクを削除しました。');
+}
 function applyCfg(){
  // まず組み込みカードの初期値に戻し、最新の運営設定を重ねる。
  for(const k of Object.keys(CARDS))delete CARDS[k];
@@ -1335,7 +1475,7 @@ const save=()=>localStorage.cgc_db=JSON.stringify(db);
 const TERRACARD_API='https://terracard-api.cosmos-apr-3.workers.dev';
 let TERRACARD_TOKEN=localStorage.cgc_token||'';
 async function apiCall(path,body=null){const r=await fetch(TERRACARD_API+path,{method:body===null?'GET':'POST',cache:String(path).split('?')[0]==='/game/config'?'no-store':'default',headers:{'Content-Type':'application/json',...(TERRACARD_TOKEN?{Authorization:'Bearer '+TERRACARD_TOKEN}:{})},...(body===null?{}:{body:JSON.stringify(body)})});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||'サーバーに接続できません');return d;}
-async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config?fresh='+Date.now());if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1||!c.storyChapterTitles||typeof c.storyChapterTitles!=='object';if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),storyChapterTitles:tcNormalizeStoryChapterTitles(c.storyChapterTitles),playerStoryChapterLimits:tcNormalizePlayerStoryLimits(c.playerStoryChapterLimits),storyBosses:tcNormalizeStoryBosses(c.storyBosses),customLimitedCards:tcNormalizeCustomLimitedCards(c.customLimitedCards),limitedCardDropChapters:tcNormalizeLimitedCardDropChapters(c.limitedCardDropChapters),limitedCardDropRate:Math.max(0,Math.min(100,Number(c.limitedCardDropRate??5)||0)),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.error('運営ゲーム設定の取得に失敗しました。/game/config のGETを確認してください',e)}return false;}
+async function loadGlobalGameConfig(){try{const d=await apiCall('/game/config?fresh='+Date.now());if(d&&d.config&&typeof d.config==='object'){const c=d.config;let soundCards=Array.isArray(c.soundCards)?c.soundCards.slice():[];let soundCardsVersion=Math.max(0,Math.floor(Number(c.soundCardsVersion)||0));const migrated=soundCardsVersion<1||!c.storyChapterTitles||typeof c.storyChapterTitles!=='object';if(migrated){soundCards=[...new Set([...soundCards,...DEFAULT_SOUND_KEYS])];soundCardsVersion=1;}CFG={s:Object.assign({},DEF_S,c.s||{}),cards:c.cards&&typeof c.cards==='object'?c.cards:{},over:c.over&&typeof c.over==='object'?c.over:{},copyrightCards:Array.isArray(c.copyrightCards)?c.copyrightCards:[],youtubeCards:Array.isArray(c.youtubeCards)?c.youtubeCards:DEFAULT_YOUTUBE_KEYS.slice(),soundCards,soundCardsVersion,gameFpsCards:Array.isArray(c.gameFpsCards)?c.gameFpsCards:[],gachaPrices:Object.assign({},DEFAULT_GACHA_PRICES,c.gachaPrices||{}),charmRates:Object.assign({},DEFAULT_CHARM_RATES,c.charmRates||{}),storyChapterUnlocks:tcNormalizeStoryChapterUnlocks(c.storyChapterUnlocks),storyChapterTitles:tcNormalizeStoryChapterTitles(c.storyChapterTitles),playerStoryChapterLimits:tcNormalizePlayerStoryLimits(c.playerStoryChapterLimits),storyBosses:tcNormalizeStoryBosses(c.storyBosses),customLimitedCards:tcNormalizeCustomLimitedCards(c.customLimitedCards),limitedCardDropChapters:tcNormalizeLimitedCardDropChapters(c.limitedCardDropChapters),limitedCardDropRate:Math.max(0,Math.min(100,Number(c.limitedCardDropRate??5)||0)),online:c.online&&typeof c.online==='object'?c.online:undefined,updateNotice:c.updateNotice&&typeof c.updateNotice==='object'?c.updateNotice:null,externalGames:tcNormalizeExternalGames(c.externalGames)};localStorage.cgc_cfg=JSON.stringify(CFG);applyCfg();if(migrated&&isAdmin&&TERRACARD_TOKEN){await apiCall('/admin/game/config',{config:CFG});}return true}if(isAdmin){CFG.soundCards=[...new Set([...(CFG.soundCards||[]),...DEFAULT_SOUND_KEYS])];CFG.soundCardsVersion=1;await apiCall('/admin/game/config',{config:CFG});}}catch(e){console.error('運営ゲーム設定の取得に失敗しました。/game/config のGETを確認してください',e)}return false;}
 async function syncCloudProfile(){if(!me||isAdmin)return;const u=U();const d=await apiCall('/player/profile',{display_name:u.display||me,char:Number(u.char)||0,chars:Array.isArray(u.chars)?u.chars:[0],img:u.img||'',story:Number(u.story)||0,charms:Array.isArray(u.charms)?u.charms:[],equippedCharmId:u.equippedCharmId||null,achievements:Array.isArray(u.achievements)?u.achievements:[],equippedAchievement:u.equippedAchievement||null,medals:Array.isArray(u.medals)?u.medals:[],equippedMedals:Array.isArray(u.equippedMedals)?u.equippedMedals:[],gachaPulls:Number(u.gachaPulls)||0});u.profileInitialized=true;return d;}
 async function claimCleanupMasterReward(){
  if(!me||isAdmin)return '';
@@ -2431,7 +2571,7 @@ async function openPlayerNotifications(){
 }
 setInterval(()=>{if(me&&!isAdmin)refreshPlayerNotifications(true)},10000);
 setInterval(()=>{if(me&&!isAdmin&&screen==='post'&&TERRACARD_TOKEN&&!TC_MAIL_BULK_BUSY)refreshCloudInbox().then(()=>{if(screen==='post')render()}).catch(e=>console.warn('ポスト更新失敗',e))},12000);
-function go(s,m=''){if(s!=='home')HOME_CHAT_OPEN=false;if(s!=='battle'){document.body.classList.remove('tc-impostor-alert');const __floatingCardPrompt=document.querySelector('.tc-card-confirm-floating');if(__floatingCardPrompt){__floatingCardPrompt.hidden=true;__floatingCardPrompt.classList.remove('tc-card-confirm-floating');__floatingCardPrompt.style.left='';__floatingCardPrompt.style.top='';}}screen=s;msg=m;render();if(s==='missions'&&me)loadGlobalMissions(true);if((s==='charms'||s==='post')&&me&&!isAdmin)refreshCloudInbox().then(()=>{if(screen===s)render()}).catch(e=>{console.warn(s+'情報の更新に失敗しました',e);if(screen===s)msg='サーバーから更新できませんでした。再読み込みしてください。'});if(s==='notifications'&&me&&!isAdmin)openPlayerNotifications()}
+function go(s,m=''){if(s!=='home')HOME_CHAT_OPEN=false;if(s!=='battle'){document.body.classList.remove('tc-impostor-alert');const __floatingCardPrompt=document.querySelector('.tc-card-confirm-floating');if(__floatingCardPrompt){__floatingCardPrompt.hidden=true;__floatingCardPrompt.classList.remove('tc-card-confirm-floating');__floatingCardPrompt.style.left='';__floatingCardPrompt.style.top='';}}screen=s;msg=m;render();if(s==='missions'&&me)loadGlobalMissions(true);if((s==='charms'||s==='post')&&me&&!isAdmin)refreshCloudInbox().then(()=>{if(screen===s)render()}).catch(e=>{console.warn(s+'情報の更新に失敗しました',e);if(screen===s)msg='サーバーから更新できませんでした。再読み込みしてください。'});if(s==='notifications'&&me&&!isAdmin)openPlayerNotifications();if(s==='externalGames'&&me&&!isAdmin){loadGlobalGameConfig().then(()=>{if(screen==='externalGames')render()}).catch(()=>{});}}
 function render(){
  if(screen!=='battle'){clearInterval(G&&G.timer);document.body.classList.remove('tc-impostor-alert');}
  const u=me&&U();
@@ -2447,6 +2587,7 @@ function render(){
  <button id="homeChatOpen" class="tc-chat-fab" type="button" onclick="toggleHomeChat(true)" aria-haspopup="dialog" aria-controls="homeChatModal" aria-expanded="${HOME_CHAT_OPEN?'true':'false'}">${HOME_CHAT_OPEN?'✕ チャットを閉じる':'💬 全体チャット'}</button>
  <div id="homeChatModal" class="tc-home-chat-modal" role="dialog" aria-modal="true" aria-label="全体チャット" aria-hidden="${HOME_CHAT_OPEN?'false':'true'}" style="display:${HOME_CHAT_OPEN?'flex':'none'}" onclick="if(event.target===this)toggleHomeChat(false)"><section class="tc-home-chat-window"><header class="tc-home-chat-header"><div><b>💬 全体チャット</b><small>みんなに見えるメッセージ</small></div><button type="button" class="tc-chat-close" onclick="toggleHomeChat(false)" aria-label="チャットを閉じる">✕</button></header><div class="tc-home-chat-body">${chatBox('home')}</div></section></div>`;
  if(screen==='otherMenu')h=nav+`<div class="panel tc-other-menu"><div class="tc-subpage-heading"><h2>☰ その他</h2><button type="button" onclick="go('home')">← ホーム</button></div><p>使いたい機能を選んでね。</p><div class="tc-other-grid">
+ <button type="button" onclick="go('externalGames')">🎮 別ゲーム</button>
  <button onclick="go('post')">📮 ポスト ${u.mail.filter(m=>!m.done).length?'('+u.mail.filter(m=>!m.done).length+')':''}</button>
  <button onclick="go('charms')">🧿 お守り ${u.charms&&u.charms.length?'('+u.charms.length+')':''}</button>
  <button class="cg-menu-entry" onclick="go(\'coinMenu\')">🪙 コイン系</button>
@@ -2459,6 +2600,7 @@ function render(){
  ${isAdmin?'<button onclick="go(\'admin\')">🛠 運営</button><button onclick="dlHtml()">💾 HTML版を保存</button>':''}
  </div><section class="tc-audio-settings"><h3>🔊 音量設定</h3><div class="tc-audio-toggle-slot" id="tc-audio-control-slot"></div><label for="tc-audio-volume">音量：<strong id="tc-audio-volume-value">${Math.round(tcSoundVolume*100)}%</strong></label><input id="tc-audio-volume" type="range" min="0" max="100" step="1" value="${Math.round(tcSoundVolume*100)}" oninput="tcSetVolume(this.value)"></section></div>`;
  if(screen==='cardMenu')h=nav+`<div class="panel tc-other-menu"><div class="tc-subpage-heading"><h2>🃏 カード系</h2><button type="button" onclick="go('otherMenu')">← その他</button></div><p>カードに関する機能を選んでね。</p><div class="tc-other-grid tc-card-menu-grid"><button onclick="go('cards')">📚 カード一覧</button>${!isAdmin?'<button onclick="go(\'cardIdeas\')">💡 カードリクエスト</button>':''}</div></div>`;
+ if(screen==='externalGames')h=nav+tcExternalGamesHtml();
  if(screen==='battleMenu')h=nav+`<div class="panel tc-mode-menu"><h2>⚔️ 戦闘</h2><p>遊びたい対戦モードを選んでね。</p>
  <button class="tc-mode-choice tc-story-choice" onclick="go('storySelect')"><span>📖</span><span><b>ストーリー対戦</b><small>章と節を選んでCPUと対戦</small></span><span class="tc-mode-arrow">›</span></button>
  <button class="tc-mode-choice tc-practice-choice" onclick="go('practiceSelect')"><span>🎯</span><span><b>練習対戦</b><small>CPU人数や強さを決めて対戦</small></span><span class="tc-mode-arrow">›</span></button>
@@ -2500,7 +2642,7 @@ function render(){
   const catBridgeHtml='<div class="panel"><h3>🐈 CAT大戦争連動ミッション</h3>'+catBridge+'</div>';
   const creator=isAdmin?'<div class="panel"><h3>✏️ 運営ミッション作成</h3><form class="row" onsubmit="event.preventDefault();msAddCustom(this)"><select name="t">'+Object.entries(MTYPES).map(kv=>'<option value="'+kv[0]+'">'+esc(kv[1])+'</option>').join('')+'</select><input name="g" type="number" min="1" max="50" value="3" title="目標数" style="max-width:110px"><input name="r" type="number" min="1" max="50" value="2" title="報酬コイン" style="max-width:110px"><button>全員に配布</button></form><p class="sm">作成したミッションは全プレイヤーに配布され、進捗と報酬受取は各プレイヤー別に保存されます。</p></div>':'';
   const __dailyReady=MS.daily.some(m=>m.done&&!m.claimed),__normalReady=NDEF.some(nd=>{const st=MS.normal[nd[0]];return !!(st&&st.done&&!st.claimed&&st.tier<nd[3])}),__customReady=MS.custom.some(m=>m.shared&&m.done&&!m.claimed);const __bulkReady=__dailyReady||__normalReady||__customReady;h=nav+'<div class="row" style="align-items:center;justify-content:space-between"><h2>🎯 ミッション</h2>'+(__bulkReady?'<button type="button" onclick="msClaimAll()">🎁 達成済みを一括受け取り</button>':'')+'</div><div class="panel"><h3>📅 デイリーミッション <span class="sm">(毎日 リセット '+esc(MS.day)+')</span></h3>'+daily+'</div><div class="panel"><h3>📜 通常ミッション <span class="sm">(達成ごとに次の段階へ・報酬が増える)</span></h3>'+normal+'</div><div class="panel"><h3>🌐 運営からの配布ミッション</h3>'+custom+'</div>'+catBridgeHtml+creator+'<div class="panel"><h3>📖 チュートリアル</h3><button type="button" onclick="startTutorial()">📖 チュートリアルを見返す</button></div>';}
- if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2><div id="admin-action-status" aria-live="polite" style="position:fixed;right:12px;bottom:12px;z-index:9999;max-width:min(420px,90vw);padding:8px 12px;border-radius:8px;background:#17202bdc;color:#fff;pointer-events:none"></div><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCharmGrantHtml()}${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
+ if(screen==='admin')h=nav+`<div class="panel"><h2>運営パネル</h2>${tcAdminExternalGamesHtml()}<div id="admin-action-status" aria-live="polite" style="position:fixed;right:12px;bottom:12px;z-index:9999;max-width:min(420px,90vw);padding:8px 12px;border-radius:8px;background:#17202bdc;color:#fff;pointer-events:none"></div><div class="panel"><h3>📢 全プレイヤーへの更新お知らせ</h3><p>説明を書いて「更新した」を押すと、全プレイヤーにログイン時またはプレイ中の通知として届きます。</p><form class="row" onsubmit="event.preventDefault();publishUpdateNotice(this)"><textarea name="description" maxlength="1000" rows="3" required placeholder="今回の更新内容を説明" style="width:100%;box-sizing:border-box"></textarea><button>更新した（全員に通知）</button></form>${CFG.updateNotice&&CFG.updateNotice.text?`<small>前回のお知らせ：${esc(CFG.updateNotice.text)}</small>`:''}</div><form onsubmit="event.preventDefault();adminSend(this)" class="row"><input name="to" placeholder="宛先(空欄=全員)"><input name="coins" type="number" placeholder="ガチャコイン" value="5"><input name="xp" type="number" placeholder="XPアイテム" value="0"><input name="t" placeholder="メッセージ" value="運営からのプレゼント"><button>配布</button></form>${adminCharmGrantHtml()}${adminCfg()}${onlineCfg()}${adminLevelHtml()}<h3>コメント管理</h3><button type="button" onclick="refreshAdminChat()">コメントを更新</button><div id="admin-chat" class="panel">読み込み中...</div><h3>💡 カード追加リクエスト（個別・運営専用）</h3><p><small>投稿者ごとの非公開スレッドです。返信はその投稿者だけに届き、他のプレイヤーには表示されません。</small></p><button type="button" onclick="refreshAdminCardIdeas()">リクエストを更新</button><div id="admin-card-ideas-list" class="panel">読み込み中...</div><div id="admin-card-idea-thread" class="panel"></div><h3>BAN</h3><form onsubmit="event.preventDefault();ban(this)" class="row"><input name="n" placeholder="アカウント名"><button name="a" value="1" onclick="this.form.a2=1">BAN</button><button name="a" value="0" onclick="this.form.a2=0">解除</button></form><p>${esc(msg)}</p><div>${Object.values(db.users).map(x=>esc(x.name)+(x.banned?' [BAN]':'')).join(', ')}</div></div>`;
  if(screen==='coinMenu')h=nav+cgCoinMenuHtml();
  if(screen==='cgGacha')h=nav+cgGachaHtml();
  if(screen==='cgGamble')h=nav+cgGambleMenuHtml();
