@@ -1,0 +1,140 @@
+function tcSafeExternalGameUrl(value){
+ try{
+  const url=new URL(String(value||'').trim());
+  if(url.protocol!=='https:'||!url.hostname||url.username||url.password)return '';
+  return url.href;
+ }catch{return '';}
+}
+function tcNormalizeExternalGames(raw){
+ const rows=Array.isArray(raw)?raw:[];
+ return rows.slice(0,30).map((item,index)=>{
+  if(!item||typeof item!=='object')return null;
+  const name=String(item.name||'').trim().slice(0,40);
+  const url=tcSafeExternalGameUrl(item.url);
+  if(!name||!url)return null;
+  const id=String(item.id||('external_game_'+index)).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,60)||('external_game_'+index);
+  return {
+   id,name,url,
+   icon:String(item.icon||'🎮').trim().slice(0,8)||'🎮',
+   description:String(item.description||'').trim().slice(0,160),
+   buttonText:String(item.buttonText||'プレイする').trim().slice(0,24)||'プレイする',
+   enabled:item.enabled!==false,
+   order:Number.isFinite(Number(item.order))?Number(item.order):index
+  };
+ }).filter(Boolean).sort((a,b)=>a.order-b.order).slice(0,30);
+}
+function tcExternalGamesHtml(){
+ const games=tcNormalizeExternalGames(CFG.externalGames).filter(item=>item.enabled);
+ const cards=games.map(item=>{
+  const url=tcSafeExternalGameUrl(item.url);
+  if(!url)return '';
+  return '<section class="panel" style="border:1px solid #3a6a96">' +
+   '<div class="row" style="align-items:center"><span style="font-size:30px">'+esc(item.icon)+'</span><h3>'+esc(item.name)+'</h3></div>' +
+   (item.description?'<p style="white-space:pre-wrap">'+esc(item.description)+'</p>':'') +
+   '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#1f5e99;color:#fff;text-decoration:none;border-radius:8px;padding:9px 16px;font-weight:700">'+esc(item.buttonText)+'</a>' +
+   '</section>';
+ }).join('');
+ return '<div class="panel"><div class="row" style="justify-content:space-between;align-items:center"><h2>🎮 別ゲーム</h2><button type="button" onclick="loadGlobalGameConfig().then(()=>{if(screen===\'externalGames\')render()})">一覧を更新</button></div>' +
+  '<p>運営が登録したゲームを遊べます。ゲームを開くと別タブで表示されます。</p>' +
+  (cards||'<p>現在、公開中の別ゲームはありません。</p>') +
+  '<button type="button" onclick="go(\'otherMenu\')">← その他に戻る</button></div>';
+}
+function tcAdminExternalGamesHtml(){
+ const games=tcNormalizeExternalGames(CFG.externalGames);
+ const rows=games.map(item=>{
+  const state=item.enabled?'公開中':'非公開';
+  const toggle=item.enabled?'非公開にする':'公開する';
+  const id=esc(item.id);
+  return '<div class="panel" style="margin:8px 0">' +
+   '<div class="row" style="align-items:center"><b>'+esc(item.icon)+' '+esc(item.name)+'</b><span style="flex:1"></span><small>'+state+'</small></div>' +
+   '<div><small>'+esc(item.url)+'</small></div>' +
+   (item.description?'<p>'+esc(item.description)+'</p>':'') +
+   '<div class="row"><button type="button" class="sm" onclick="tcEditExternalGame(\''+id+'\')">編集</button>' +
+   '<button type="button" class="sm" onclick="tcToggleExternalGame(\''+id+'\')">'+toggle+'</button>' +
+   '<button type="button" class="sm" onclick="tcDeleteExternalGame(\''+id+'\')">削除</button></div></div>';
+ }).join('');
+ return '<section class="panel" style="border:2px solid #65c6a4;margin:12px 0">' +
+  '<h3>🎮 別ゲームリンク管理</h3>' +
+  '<p>ここに登録したゲームは、全プレイヤーの「その他 → 別ゲーム」に表示されます。URLはHTTPSのサイトのみ登録できます。</p>' +
+  '<form id="tc-external-game-form" class="panel" onsubmit="event.preventDefault();tcSaveExternalGame(this)">' +
+  '<input type="hidden" name="gameId" value="">' +
+  '<div class="row"><label>ゲーム名 <input name="gameName" maxlength="40" required placeholder="例：新しいゲーム"></label>' +
+  '<label>アイコン <input name="gameIcon" maxlength="8" value="🎮" style="width:90px"></label></div>' +
+  '<label style="display:block;margin:8px 0">URL <input name="gameUrl" type="url" maxlength="1000" required placeholder="https://example.com/" style="width:100%;box-sizing:border-box"></label>' +
+  '<label style="display:block;margin:8px 0">説明 <textarea name="gameDescription" maxlength="160" rows="2" style="width:100%;box-sizing:border-box" placeholder="ゲームの説明（任意）"></textarea></label>' +
+  '<label>リンクの表示名 <input name="gameButtonText" maxlength="24" value="プレイする"></label>' +
+  '<div class="row" style="margin-top:8px"><button type="submit">保存</button><button type="button" onclick="tcResetExternalGameForm()">入力をクリア</button></div>' +
+  '</form><h4>登録済みゲーム（最大30件）</h4>' +
+  (rows||'<p>まだ登録されていません。</p>') +
+  '</section>';
+}
+async function tcPersistExternalGames(next,successMessage){
+ const before=tcNormalizeExternalGames(CFG.externalGames);
+ CFG.externalGames=tcNormalizeExternalGames(next);
+ const scrollY=window.scrollY||0;
+ const ok=await saveCfg();
+ if(!ok){
+  CFG.externalGames=before;
+  msg='別ゲーム設定を保存できませんでした。接続を確認して、もう一度保存してください。';
+ }else{
+  msg=successMessage;
+ }
+ render();
+ window.scrollTo(0,scrollY);
+ return ok;
+}
+async function tcSaveExternalGame(form){
+ if(!isAdmin)return;
+ const field=name=>form.elements.namedItem(name);
+ const name=String(field('gameName')?.value||'').trim().slice(0,40);
+ const url=tcSafeExternalGameUrl(field('gameUrl')?.value);
+ if(!name){alert('ゲーム名を入力してください');return;}
+ if(!url){alert('HTTPSで始まる正しいURLを入力してください');return;}
+ const before=tcNormalizeExternalGames(CFG.externalGames);
+ const id=String(field('gameId')?.value||'');
+ const old=before.find(item=>item.id===id);
+ if(!old&&before.length>=30){alert('登録できるゲームは最大30件です');return;}
+ const item={
+  id:old?old.id:('game_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)),
+  name,url,
+  icon:String(field('gameIcon')?.value||'🎮').trim().slice(0,8)||'🎮',
+  description:String(field('gameDescription')?.value||'').trim().slice(0,160),
+  buttonText:String(field('gameButtonText')?.value||'プレイする').trim().slice(0,24)||'プレイする',
+  enabled:old?old.enabled:true,
+  order:old?old.order:before.length
+ };
+ const next=old?before.map(entry=>entry.id===old.id?item:entry):before.concat(item);
+ await tcPersistExternalGames(next,old?'別ゲームを更新しました。':'別ゲームを登録しました。');
+}
+function tcEditExternalGame(id){
+ if(!isAdmin)return;
+ const item=tcNormalizeExternalGames(CFG.externalGames).find(entry=>entry.id===String(id));
+ const form=document.getElementById('tc-external-game-form');
+ if(!item||!form)return;
+ form.elements.namedItem('gameId').value=item.id;
+ form.elements.namedItem('gameName').value=item.name;
+ form.elements.namedItem('gameUrl').value=item.url;
+ form.elements.namedItem('gameIcon').value=item.icon;
+ form.elements.namedItem('gameDescription').value=item.description;
+ form.elements.namedItem('gameButtonText').value=item.buttonText;
+ form.elements.namedItem('gameName').focus();
+}
+function tcResetExternalGameForm(){
+ const form=document.getElementById('tc-external-game-form');
+ if(!form)return;
+ form.reset();
+ form.elements.namedItem('gameId').value='';
+}
+async function tcToggleExternalGame(id){
+ if(!isAdmin)return;
+ const list=tcNormalizeExternalGames(CFG.externalGames);
+ const item=list.find(entry=>entry.id===String(id));
+ if(!item)return;
+ item.enabled=!item.enabled;
+ await tcPersistExternalGames(list,item.enabled?'別ゲームを公開しました。':'別ゲームを非公開にしました。');
+}
+async function tcDeleteExternalGame(id){
+ if(!isAdmin||!confirm('この別ゲームリンクを削除しますか？'))return;
+ const list=tcNormalizeExternalGames(CFG.externalGames).filter(entry=>entry.id!==String(id));
+ await tcPersistExternalGames(list,'別ゲームリンクを削除しました。');
+}
