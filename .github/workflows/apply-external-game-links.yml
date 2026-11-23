@@ -1,0 +1,35 @@
+name: Apply external game links patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-external-game-links.yml'
+      - 'scripts/patch-external-game-links.mjs'
+      - 'scripts/external-game-links-ui.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Patch the existing frontend safely
+        run: node scripts/patch-external-game-links.mjs
+      - name: Commit the patched frontend
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "index.html already patched"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add operator-managed external game portal"
+          git push
